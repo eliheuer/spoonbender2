@@ -15,3 +15,16 @@ cargo run
 
 Requires Rust 1.88+ (uses 2024 edition features).
 
+## Usage
+
+```bash
+# Run with GUI file picker
+cargo run
+
+# Open a UFO directly from command line
+cargo run path/to/font.ufo
+
+# Or after building
+./target/release/spoonbender path/to/font.ufo
+```
+

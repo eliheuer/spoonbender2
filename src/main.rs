@@ -202,7 +202,22 @@ fn glyph_cell(state: &AppState, glyph_name: String) -> impl WidgetView<AppState>
 }
 
 fn run() -> Result<(), EventLoopError> {
-    let initial_state = AppState::new();
+    let mut initial_state = AppState::new();
+
+    // Check for command-line argument (UFO path)
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        let ufo_path = std::path::PathBuf::from(&args[1]);
+
+        // Validate that the path exists
+        if ufo_path.exists() {
+            println!("Loading UFO from: {}", ufo_path.display());
+            initial_state.load_ufo(ufo_path);
+        } else {
+            eprintln!("Error: Path does not exist: {}", ufo_path.display());
+            eprintln!("Usage: spoonbender [path/to/font.ufo]");
+        }
+    }
 
     let window_options = WindowOptions::new("Spoonbender")
         .with_initial_inner_size(winit::dpi::LogicalSize::new(1200.0, 800.0));
