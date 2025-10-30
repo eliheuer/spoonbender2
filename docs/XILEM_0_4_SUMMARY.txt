@@ -1,0 +1,266 @@
+================================================================================
+XILEM 0.4.0 API COMPLETE REFERENCE
+================================================================================
+
+QUICK START
+-----------
+
+Application Setup:
+    let app = Xilem::new_simple(state, app_logic, WindowOptions::new("Title"));
+    app.run_in(EventLoop::with_user_event())?;
+
+View Function:
+    fn app_logic(state: &mut State) -> impl WidgetView<State> + use<> {
+        // Return a view
+    }
+
+================================================================================
+KEY ANSWERS TO YOUR QUESTIONS
+================================================================================
+
+1. HOW TO RUN APPLICATIONS IN 0.4
+   ✓ Use Xilem::new_simple() for single-window apps (most common)
+   ✓ Use Xilem::new() for multi-window apps (requires AppState trait)
+   ✓ Call app.run_in(EventLoop::with_user_event())?
+   ✓ Application auto-exits when window closes (new_simple)
+
+2. HOW FLEX() IS USED
+   ✓ flex_row((item1, item2, item3)) - horizontal layout
+   ✓ flex_col((item1, item2, item3)) - vertical layout
+   ✓ flex(Axis::Horizontal, children) - generic form
+   ✓ FlexSpacer::Fixed(10.px()) - fixed spacing
+   ✓ FlexSpacer::Flex(1.0) - flexible spacing
+   ✓ widget.flex(2.0) - apply flex factor to child
+   ✓ flex_row(children).gap(10.px()).main_axis_alignment(...).cross_axis_alignment(...)
+
+3. HOW SIZED_BOX DIMENSIONS ARE SPECIFIED
+   ✓ sized_box(widget).width(100.px()).height(50.px())
+   ✓ Use Length type with .px() conversion (AsUnit trait)
+   ✓ sized_box(widget).expand() - fill all space
+   ✓ sized_box(widget).expand_width() - fill horizontally
+   ✓ sized_box(widget).expand_height() - fill vertically
+
+4. WHAT APPSTATE TRAIT REQUIRES
+   ✓ Single method: fn keep_running(&self) -> bool;
+   ✓ Only needed for Xilem::new() (multi-window)
+   ✓ NOT needed for Xilem::new_simple() - wrapped automatically
+   ✓ Checked after window close request
+
+5. SIMPLE WORKING EXAMPLE
+   ✓ See xilem_0_4_example.rs (complete counter app)
+   ✓ Shows flex layouts, sizing, buttons, styling, state management
+
+================================================================================
+ESSENTIAL IMPORTS
+================================================================================
+
+// Application
+use xilem::{EventLoop, Xilem, WidgetView, WindowOptions, Color};
+
+// Views and Layout
+use xilem::view::{
+    flex_row, flex_col, FlexSpacer, FlexExt,
+    button, text_button, label, checkbox, sized_box,
+};
+
+// Properties and Styling
+use xilem::style::Style as _;
+use masonry::properties::types::{AsUnit, CrossAxisAlignment, MainAxisAlignment, Axis};
+
+================================================================================
+API PATTERNS CHEAT SHEET
+================================================================================
+
+APPLICATION INITIALIZATION
+    let app = Xilem::new_simple(state, app_logic, WindowOptions::new("Title"));
+    app.run_in(EventLoop::with_user_event())?;
+
+LAYOUT CONTAINERS
+    flex_row((item1, item2, item3))
+    flex_col((item1, item2, item3))
+    flex(Axis::Horizontal, sequence)
+
+FLEX SPACING
+    FlexSpacer::Fixed(10.px())        // Fixed width
+    FlexSpacer::Flex(1.0)             // Flexible, grows to fill
+
+FLEX CHILD SIZING
+    widget.flex(2.0)                  // Apply flex factor
+    widget.flex(CrossAxisAlignment::Fill)  // Fill perpendicular axis
+
+FLEX CONTAINER CONFIGURATION
+    flex_row(children)
+        .gap(10.px())
+        .main_axis_alignment(MainAxisAlignment::Center)
+        .cross_axis_alignment(CrossAxisAlignment::Center)
+
+SIZED BOX
+    sized_box(widget)
+        .width(100.px())
+        .height(50.px())
+        .expand()
+        .expand_width()
+        .expand_height()
+
+BUTTONS
+    button("Label", |state: &mut State| { state.value += 1; })
+    text_button("Click Me", |state: &mut State| { /* handle click */ })
+
+TEXT
+    label("Text").text_size(24.)
+    label(format!("Value: {}", value))
+
+STATE & COMPONENTS
+    fn component(state: &mut i32) -> impl WidgetView<i32> + use<> { }
+    
+    lens(component, |parent: &mut Parent| &mut parent.child_state)
+
+LENGTH UNITS
+    100.px()
+    Length::const_px(100.0)
+    50.em()  // em units (if supported)
+
+COLORS
+    Color::from_rgb8(r, g, b)
+    Color::WHITE
+    Color::BLACK
+    Color::TRANSPARENT
+
+STYLING
+    .background_color(Color::WHITE)
+    .corner_radius(10.)
+    .border(Color::WHITE, 2.)
+    .border_color(Color::WHITE)
+    .hovered_border_color(Color::WHITE)
+    .text_size(28.)
+    .disabled(condition)
+
+================================================================================
+COMMON MISTAKES & FIXES
+================================================================================
+
+ERROR: Type inference fails for flex children
+FIX:   Wrap in tuple: flex_row((item1, item2, item3))
+       NOT a Vec - needs homogeneous type
+
+ERROR: Child doesn't fill space in flex
+FIX:   Add flex factor: widget.flex(1.0)
+       Long text inputs need explicit flex in horizontal layout
+
+ERROR: FlexExt not in scope
+FIX:   Add import: use xilem::view::FlexExt;
+
+ERROR: AsUnit not in scope for .px()
+FIX:   Add import: use masonry::properties::types::AsUnit;
+
+ERROR: Missing + use<> in view function return type
+FIX:   fn view(state: &mut State) -> impl WidgetView<State> + use<> { }
+
+ERROR: Button doesn't take Action parameter
+FIX:   Callbacks use mutable state: |state: &mut State| { *state.val += 1; }
+
+================================================================================
+COMPLETE MINIMAL EXAMPLE
+================================================================================
+
+use masonry::properties::types::AsUnit;
+use winit::error::EventLoopError;
+use xilem::view::{FlexExt, FlexSpacer, button, flex_row, label};
+use xilem::{EventLoop, WidgetView, WindowOptions, Xilem};
+
+#[derive(Default)]
+struct State {
+    count: i32,
+}
+
+fn app_logic(state: &mut State) -> impl WidgetView<State> + use<> {
+    flex_row((
+        button("-", |s| s.count -= 1),
+        FlexSpacer::Flex(1.0),
+        label(format!("Count: {}", state.count)),
+        FlexSpacer::Flex(1.0),
+        button("+", |s| s.count += 1),
+    ))
+}
+
+fn main() -> Result<(), EventLoopError> {
+    let app = Xilem::new_simple(
+        State::default(),
+        app_logic,
+        WindowOptions::new("Counter"),
+    );
+    app.run_in(EventLoop::with_user_event())?;
+    Ok(())
+}
+
+================================================================================
+ALIGNMENT OPTIONS
+================================================================================
+
+Main Axis (flow direction):
+    MainAxisAlignment::Start           (default)
+    MainAxisAlignment::Center
+    MainAxisAlignment::End
+    MainAxisAlignment::SpaceBetween
+    MainAxisAlignment::SpaceAround
+    MainAxisAlignment::SpaceEvenly
+
+Cross Axis (perpendicular to flow):
+    CrossAxisAlignment::Start
+    CrossAxisAlignment::Center        (Xilem default)
+    CrossAxisAlignment::End
+    CrossAxisAlignment::Fill
+
+================================================================================
+FILE LOCATIONS IN REPO
+================================================================================
+
+https://github.com/linebender/xilem
+
+Documentation:
+    /docs/ - Architecture and design docs
+    /xilem/src/ - Source code
+    /xilem/examples/ - Working examples
+        - flex.rs - Flex layout demo
+        - calc.rs - Calculator app
+        - widgets.rs - Widget gallery
+        - components.rs - Component composition with lens
+        - to_do_mvc.rs - Todo MVC app
+        - stopwatch.rs - Timer application
+
+Key Source Files:
+    xilem/src/app.rs - Xilem struct and AppState trait
+    xilem/src/view/flex.rs - Flex layout system
+    xilem/src/view/sized_box.rs - Sized box widget
+    xilem_core/src/lens.rs - Component state management
+
+================================================================================
+RUST VERSION REQUIREMENT
+================================================================================
+
+Xilem 0.4.0 requires:
+    - Rust 1.88 minimum
+    - Edition 2024
+
+Check your Rust version:
+    rustc --version
+
+Update if needed:
+    rustup update
+
+================================================================================
+RESOURCES
+================================================================================
+
+Repository: https://github.com/linebender/xilem
+Issues: https://github.com/linebender/xilem/issues
+Discussions: https://xi.zulipchat.com/
+
+Documentation build (local):
+    cargo doc --open
+
+Examples build and run:
+    cargo run --example flex
+    cargo run --example calc
+    cargo run --example widgets
+

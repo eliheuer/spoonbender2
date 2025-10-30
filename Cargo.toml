@@ -1,0 +1,36 @@
+[package]
+name = "spoonbender"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+authors = ["Spoonbender Contributors"]
+license = "Apache-2.0"
+description = "A font editor written in Rust using Xilem"
+repository = "https://github.com/linebender/spoonbender2"
+
+[dependencies]
+# UI Framework
+xilem = "0.4"
+masonry = "0.4"
+winit = "0.30"
+
+# Font/UFO handling
+norad = "0.13"
+
+# Linebender ecosystem
+kurbo = "0.12"
+parley = "0.6"
+peniko = "0.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+anyhow = "1.0"
+thiserror = "1.0"
+
+# File dialogs
+rfd = "0.15"
+
+[dev-dependencies]
