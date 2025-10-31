@@ -163,7 +163,7 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         glyph_names.iter().map(|name| (name.clone(), None)).collect()
     };
 
-    // Create rows of glyphs using flex layout for responsive sizing
+    // Create rows of glyphs - back to flex layout that works
     let columns = 9;
     let mut rows_of_cells = Vec::new();
     let selected_glyph = state.selected_glyph.clone();
@@ -207,7 +207,7 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
         label(display_name).text_size(11.0)
     };
 
-    // Glyph cell - fixed width to prevent expansion
+    // Glyph cell - fixed size for now, working layout
     sized_box(
         button(
             flex_col((
