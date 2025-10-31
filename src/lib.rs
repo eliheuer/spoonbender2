@@ -7,8 +7,10 @@
 //! Linebender crates for rendering and UI.
 
 use masonry::properties::types::AsUnit;
+use masonry::vello::peniko::Color;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
+use xilem::style::Style;
 use xilem::view::{button, flex_col, flex_row, label, portal, sized_box};
 use xilem::{EventLoopBuilder, WidgetView, WindowOptions, Xilem};
 
@@ -210,15 +212,20 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
         Either::B(label("?").text_size(60.0))
     };
 
-    // Style label based on selection state
-    let name_label = if is_selected {
-        label(format!("→ {}", display_name)).text_size(16.0)
-    } else {
-        label(display_name).text_size(16.0)
-    };
+    // Create label (selection styling will be on the cell background)
+    let name_label = label(display_name).text_size(16.0);
 
     // Wrap label with bottom spacing
     let label_with_spacing = sized_box(name_label).height(32.px());
+
+    // Choose colors based on selection state
+    let (bg_color, border_color) = if is_selected {
+        // Darker forest green background with light green outline when selected
+        (Color::from_rgb8(20, 100, 20), Color::from_rgb8(144, 238, 144))
+    } else {
+        // Dark gray background with mid gray outline when not selected
+        (Color::from_rgb8(50, 50, 50), Color::from_rgb8(100, 100, 100))
+    };
 
     // Glyph cell - fixed size works best with flex layout
     sized_box(
@@ -232,6 +239,8 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
                 state.select_glyph(name_clone.clone());
             }
         )
+        .background_color(bg_color)
+        .border_color(border_color)
     )
     .width(120.px())
     .height(120.px())
