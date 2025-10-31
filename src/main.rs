@@ -69,18 +69,21 @@ fn main_editor_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 fn header_bar(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let font_name = state.font_display_name().unwrap_or_default();
 
-    flex_row((
-        label(font_name).text_size(18.0),
-        button(label("Font Info"), |_state: &mut AppState| {
-            // TODO: Open font info dialog
-            println!("Font info clicked");
-        }),
-    ))
+    sized_box(
+        flex_row((
+            label(font_name).text_size(18.0),
+            button(label("Font Info"), |_state: &mut AppState| {
+                // TODO: Open font info dialog
+                println!("Font info clicked");
+            }),
+        ))
+    ).height(40.px())
 }
 
 /// Sidebar showing selected glyph details
 fn sidebar_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let glyph_name = state.selected_glyph.clone().unwrap_or_else(|| "None".to_string());
+    println!("Sidebar rebuilding, selected_glyph: {:?}", state.selected_glyph);
     let advance = state.selected_glyph_advance()
         .map(|w| format!("{:.0}", w))
         .unwrap_or_else(|| "—".to_string());
@@ -141,6 +144,7 @@ fn sidebar_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         ))
     )
     .width(250.px())
+    .expand_height()
 }
 
 /// Glyph grid showing all glyphs
@@ -162,10 +166,14 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     // Create rows of glyphs - use flex instead of grid to have more control
     let columns = 6;
     let mut rows_of_cells = Vec::new();
+    let selected_glyph = state.selected_glyph.clone();
 
     for chunk in glyph_data.chunks(columns) {
         let row_items: Vec<_> = chunk.iter()
-            .map(|(name, path_opt)| glyph_cell(name.clone(), path_opt.clone()))
+            .map(|(name, path_opt)| {
+                let is_selected = selected_glyph.as_ref() == Some(name);
+                glyph_cell(name.clone(), path_opt.clone(), is_selected)
+            })
             .collect();
         rows_of_cells.push(flex_row(row_items));
     }
@@ -177,7 +185,7 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 }
 
 /// Individual glyph cell in the grid
-fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>) -> impl WidgetView<AppState> + use<> {
+fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected: bool) -> impl WidgetView<AppState> + use<> {
     let name_clone = glyph_name.clone();
     let display_name = if glyph_name.len() > 12 {
         format!("{}...", &glyph_name[..9])
@@ -192,14 +200,22 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>) -> impl Widg
         Either::B(label("?").text_size(60.0))
     };
 
+    // Style label based on selection state
+    let name_label = if is_selected {
+        label(format!("→ {}", display_name)).text_size(11.0)
+    } else {
+        label(display_name).text_size(11.0)
+    };
+
     // Glyph cell - force square with sized_box
     sized_box(
         button(
             flex_col((
                 glyph_view_widget,
-                label(display_name).text_size(11.0),
+                name_label,
             )),
             move |state: &mut AppState| {
+                println!("Selected glyph: {}", name_clone);
                 state.select_glyph(name_clone.clone());
             }
         )

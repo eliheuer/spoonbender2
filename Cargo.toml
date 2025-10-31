@@ -1,7 +1,7 @@
 [package]
 name = "spoonbender"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"
 authors = ["Spoonbender Contributors"]
 license = "Apache-2.0"
@@ -9,7 +9,7 @@ description = "A font editor written in Rust using Xilem"
 repository = "https://github.com/linebender/spoonbender2"
 
 [dependencies]
-# UI Framework
+# UI
 xilem = "0.4"
 masonry = "0.4"
 winit = "0.30"
