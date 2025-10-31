@@ -85,11 +85,10 @@ fn main_editor_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     flex_col((
         // Header bar
         header_bar(state),
-        // Main content: sidebar + glyph grid
-        flex_row((
-            sidebar_view(state),
-            glyph_grid_view(state),
-        )),
+        // Selected glyph info bar
+        selected_glyph_info(state),
+        // Main content: glyph grid
+        glyph_grid_view(state),
     ))
 }
 
@@ -108,71 +107,44 @@ fn header_bar(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     ).height(40.px())
 }
 
-/// Sidebar showing selected glyph details
-fn sidebar_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
+/// Horizontal info bar showing selected glyph details
+fn selected_glyph_info(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let glyph_name = state.selected_glyph.clone().unwrap_or_else(|| "None".to_string());
-    println!("Sidebar rebuilding, selected_glyph: {:?}", state.selected_glyph);
     let advance = state.selected_glyph_advance()
         .map(|w| format!("{:.0}", w))
         .unwrap_or_else(|| "—".to_string());
     let unicode = state.selected_glyph_unicode()
         .unwrap_or_else(|| "—".to_string());
 
-    // Build glyph preview section
-    let (glyph_preview, info_labels) = if let (Some(workspace), Some(name)) = (&state.workspace, &state.selected_glyph) {
-        if let Some(glyph) = workspace.get_glyph(name) {
-            let path = glyph_renderer::glyph_to_bezpath(glyph);
-            let bounds = glyph_renderer::glyph_bounds(glyph);
-            let path_info = format!("Contours: {}\nBounds: {}",
-                glyph.contours.len(),
-                bounds.map(|b| format!("{:.0}×{:.0}", b.width(), b.height()))
-                    .unwrap_or_else(|| "empty".to_string())
-            );
+    // Build compact info display
+    let info_text = if state.selected_glyph.is_some() {
+        if let Some(workspace) = &state.workspace {
+            if let Some(glyph) = workspace.get_glyph(&glyph_name) {
+                let bounds = glyph_renderer::glyph_bounds(glyph);
+                let bounds_str = bounds
+                    .map(|b| format!("{:.0}×{:.0}", b.width(), b.height()))
+                    .unwrap_or_else(|| "empty".to_string());
 
-            (
-                Either::A(glyph_view(path, 150.0, 150.0)),
-                (
-                    label(format!("Name: {}", glyph_name)).text_size(12.0),
-                    label(format!("Unicode: {}", unicode)).text_size(12.0),
-                    label(format!("Advance: {}", advance)).text_size(12.0),
-                    label(path_info).text_size(10.0),
+                format!(
+                    "Selected: {} | Unicode: {} | Advance: {} | Contours: {} | Bounds: {}",
+                    glyph_name, unicode, advance, glyph.contours.len(), bounds_str
                 )
-            )
+            } else {
+                format!("Selected: {} (no data)", glyph_name)
+            }
         } else {
-            (
-                Either::B(label("No glyph data").text_size(14.0)),
-                (
-                    label(format!("Name: {}", glyph_name)).text_size(12.0),
-                    label("").text_size(12.0),
-                    label("").text_size(12.0),
-                    label("").text_size(10.0),
-                )
-            )
+            "No font loaded".to_string()
         }
     } else {
-        (
-            Either::B(label("No selection").text_size(14.0)),
-            (
-                label("Select a glyph").text_size(12.0),
-                label("").text_size(12.0),
-                label("").text_size(12.0),
-                label("").text_size(10.0),
-            )
-        )
+        "No glyph selected".to_string()
     };
 
     sized_box(
-        flex_col((
-            label("Selected Glyph").text_size(16.0),
-            glyph_preview,
-            info_labels.0,
-            info_labels.1,
-            info_labels.2,
-            info_labels.3,
+        flex_row((
+            label(info_text).text_size(12.0),
         ))
     )
-    .width(250.px())
-    .expand_height()
+    .height(30.px())
 }
 
 /// Glyph grid showing all glyphs
@@ -191,8 +163,8 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         glyph_names.iter().map(|name| (name.clone(), None)).collect()
     };
 
-    // Create rows of glyphs - use flex instead of grid to have more control
-    let columns = 6;
+    // Create rows of glyphs using flex layout for responsive sizing
+    let columns = 9;
     let mut rows_of_cells = Vec::new();
     let selected_glyph = state.selected_glyph.clone();
 
@@ -235,7 +207,7 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
         label(display_name).text_size(11.0)
     };
 
-    // Glyph cell - force square with sized_box
+    // Glyph cell - fixed width to prevent expansion
     sized_box(
         button(
             flex_col((
