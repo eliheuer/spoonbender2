@@ -88,8 +88,9 @@ impl Widget for GlyphWidget {
         let scaled_width = bounds.width() * scale;
         let l_pad = (widget_size.width - scaled_width) / 2.0;
 
-        // Position baseline at 29% from top (like runebender)
-        let baseline = widget_size.height * 0.29;
+        // Position baseline to center glyphs vertically (adjusted for better visual balance)
+        // Lower percentage = baseline lower in cell = glyphs positioned lower
+        let baseline = widget_size.height * 0.15;
 
         // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
         // Create affine transformation: scale (with Y-flip) and translate

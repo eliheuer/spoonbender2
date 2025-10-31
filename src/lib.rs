@@ -213,12 +213,15 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
         label(display_name).text_size(11.0)
     };
 
+    // Wrap label with bottom spacing
+    let label_with_spacing = sized_box(name_label).height(20.px());
+
     // Glyph cell - fixed size works best with flex layout
     sized_box(
         button(
             flex_col((
                 glyph_view_widget,
-                name_label,
+                label_with_spacing,
             )),
             move |state: &mut AppState| {
                 println!("Selected glyph: {}", name_clone);
