@@ -90,7 +90,7 @@ impl AppState {
 
     /// Get the selected glyph's advance width
     pub fn selected_glyph_advance(&self) -> Option<f64> {
-        if let (Some(workspace), Some(ref glyph_name)) = (&self.workspace, &self.selected_glyph) {
+        if let (Some(workspace), Some(glyph_name)) = (&self.workspace, &self.selected_glyph) {
             workspace.get_glyph(glyph_name)
                 .map(|g| g.width)
         } else {
@@ -100,7 +100,7 @@ impl AppState {
 
     /// Get the selected glyph's unicode value
     pub fn selected_glyph_unicode(&self) -> Option<String> {
-        if let (Some(workspace), Some(ref glyph_name)) = (&self.workspace, &self.selected_glyph) {
+        if let (Some(workspace), Some(glyph_name)) = (&self.workspace, &self.selected_glyph) {
             workspace.get_glyph(glyph_name)
                 .and_then(|g| {
                     if g.codepoints.is_empty() {

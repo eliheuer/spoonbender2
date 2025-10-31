@@ -1,0 +1,337 @@
+================================================================================
+XILEM PLACEHERO - APPLICATION ARCHITECTURE OVERVIEW
+================================================================================
+
+ENTRY POINT FLOW:
+─────────────────
+
+main.rs (11 lines)
+    ↓
+    └─→ placehero::run(event_loop)
+            ↓
+            └─→ lib.rs: run() function
+                    ↓
+                    └─→ Creates Xilem app with select_app root view
+
+
+STATE STRUCTURE:
+────────────────
+
+MainState (Enum)
+    ├─ Selecting → Welcome screen (initial state)
+    ├─ Old(Placehero) → Anonymous browsing mode
+    └─ New(PlaceheroWithLogin) → Login-enabled mode (in development)
+
+Placehero (Main Application State)
+    ├─ mastodon: Arc<Mastodon>           # API client (shared)
+    ├─ instance: Option<Instance>        # Server info
+    ├─ timeline: Option<Timeline>        # Current timeline
+    ├─ show_context: Option<Status>      # Selected thread
+    ├─ context: Option<Context>          # Thread data
+    ├─ loading_timeline: bool            # Loading state
+    ├─ context_sender: UnboundedSender   # Channel to context worker
+    └─ account_sender: UnboundedSender   # Channel to account worker
+
+
+VIEW COMPOSITION:
+─────────────────
+
+select_app (Root View Dispatcher)
+    ├─ MainState::Selecting
+    │   └─→ OneOf3::A (Welcome screen)
+    ├─ MainState::Old(placehero)
+    │   └─→ OneOf3::B (lens → app_logic)
+    └─ MainState::New(login)
+        └─→ OneOf3::C (lens → login_flow::app_logic)
+
+
+app_logic (Main Layout)
+    │
+    ├─ Avatars::provide()                 # Avatar resource provider
+    │   └─→ fork(split_layout, workers)
+    │
+    ├─ split(sidebar, main_view)          # 80/20 split
+    │   │
+    │   ├─ sidebar()                      # 20% - Navigation panel
+    │   │   └─ Text input for searching
+    │   │   └─ Back button (when viewing thread)
+    │   │   └─ Server info
+    │   │
+    │   └─ main_view()                    # 80% - Content area
+    │       ├─ OneOf6::A - Thread view (when context visible)
+    │       ├─ OneOf6::B - Loading indicator
+    │       ├─ OneOf6::C - Error (account not found)
+    │       ├─ OneOf6::D - Timeline view
+    │       └─ OneOf6::E - Empty state
+    │
+    └─ Async Workers (fork)
+        ├─ load_instance() → task_raw
+        │   └─ Fetches server info once
+        ├─ load_account() → worker_raw
+        │   └─ Responds to account queries via channel
+        └─ load_contexts() → worker_raw
+            └─ Responds to thread queries via channel
+
+
+ACTION FLOW:
+────────────
+
+actions.rs (Navigation Enum)
+    ├─ LoadContext(Status)  → View thread replies
+    ├─ LoadUser(String)     → Load user's timeline
+    ├─ Home                 → Return to main timeline
+    └─ None                 → No-op action
+
+map_action() Handler (in app_logic)
+    │
+    └─→ Matches on Navigation enum
+        ├─ LoadContext → Send status.id to context_sender
+        ├─ LoadUser → Send account name to account_sender
+        ├─ Home → Clear context/thread
+        └─ None → Do nothing
+
+
+MODULE ORGANIZATION:
+────────────────────
+
+placehero/src/
+│
+├── main.rs (11 lines)
+│   └─ Entry point only
+│
+├── lib.rs (350+ lines)
+│   ├─ State definitions (MainState, Placehero)
+│   ├─ Root view: select_app()
+│   ├─ Main view: app_logic()
+│   ├─ View methods: Placehero::sidebar(), Placehero::main_view()
+│   └─ Async tasks: load_instance(), load_account(), load_contexts()
+│
+├── actions.rs (20 lines)
+│   └─ Navigation enum only
+│
+├── avatars.rs (150+ lines)
+│   ├─ Avatars resource struct
+│   ├─ provide() → Makes avatars available to views
+│   ├─ avatar() → Displays 50x50 avatar with caching
+│   └─ worker() → Background task for fetching images
+│
+├── components.rs (15 lines)
+│   └─ Exports submodule views
+│
+├── html_content.rs (200+ lines)
+│   └─ HTML parsing utilities
+│
+├── login_flow.rs (50+ lines)
+│   ├─ PlaceheroWithLogin state
+│   └─ app_logic() for login feature
+│
+└── components/
+    ├── timeline.rs
+    │   ├─ Timeline struct (contains statuses)
+    │   └─ timeline.view() method
+    │
+    ├── thread.rs
+    │   └─ thread() function → Displays conversation
+    │
+    └── media.rs
+        └─ attachment() function → Renders images/video
+
+
+PATTERN: RESOURCE PROVIDER
+──────────────────────────
+
+Avatars::provide(child)
+    │
+    ├─ provides()
+    │   ├─ Creates Avatars resource with empty HashMap
+    │   └─ Provides to all descendants
+    │
+    └─ fork(child, Avatars::worker())
+        ├─ child → Main UI (can call Avatars::avatar())
+        └─ worker → Background task managing avatar cache
+                    • Listens for AvatarRequest on channel
+                    • Fetches image from URL
+                    • Sends AvatarResponse back
+                    • Updates icons HashMap
+                    • Views see update on next render
+
+
+PATTERN: ASYNC TASK
+───────────────────
+
+load_instance() → task_raw
+    │
+    ├─ Async closure (fires once)
+    │   └─ Calls mastodon.get_instance().await
+    │
+    └─ On completion handler
+        └─ Updates app_state.instance
+
+
+load_account() → worker_raw
+    │
+    ├─ Async closure (runs in loop)
+    │   └─ while let Some(req) = recv.recv().await
+    │       └─ Calls mastodon.lookup_account(req).await
+    │
+    ├─ Initialization handler
+    │   └─ Stores sender in app_state.account_sender
+    │
+    └─ On completion handler
+        └─ Updates app_state.timeline
+
+
+CONDITIONAL RENDERING (OneOf Pattern):
+────────────────────────────────────────
+
+Example from main_view():
+
+match state {
+    if show_context && has_context
+        └─ OneOf6::A (thread view)
+    if show_context && loading_context
+        └─ OneOf6::B (loading indicator)
+    if loading_timeline
+        └─ OneOf6::C (spinner)
+    if not_found_acct
+        └─ OneOf6::D (error message)
+    if has_timeline
+        └─ OneOf6::E (timeline view)
+    else
+        └─ OneOf6::F (empty state)
+}
+
+Benefits:
+    • Type-safe (compiler ensures all branches return same impl type)
+    • Only one branch active at a time
+    • Clear state-to-view mapping
+    • No runtime costs (compile-time enumeration)
+
+
+KEY XILEM COMBINATORS USED:
+───────────────────────────
+
+fork(main_view, workers_tuple)
+    ├─ Combines visible view with invisible async operations
+    └─ worker_outputs don't affect rendering
+
+lens(view_fn, |state| extract_state)
+    ├─ Adapts view function to work with different state type
+    └─ Enables reusable views
+
+map_action(view, |state, action| update_state)
+    ├─ Central location for all state updates
+    └─ Translates actions to state changes
+
+split(left_view, right_view).split_point(ratio)
+    ├─ Two-panel layout with adjustable split
+    └─ Both panels can handle actions
+
+provides(create_fn, child_view)
+    ├─ Makes resource available via context
+    └─ Injected into all descendants
+
+with_context(|resource, state| view)
+    ├─ Access injected resource
+    └─ Used by child views to access resource
+
+
+ERROR HANDLING PATTERNS:
+───────────────────────
+
+1. Connection Errors:
+   Err(megalodon::error::Error::RequestError(e)) if e.is_connect()
+       └─ todo!() for now (not implemented)
+
+2. HTTP Status Errors:
+   Err(megalodon::error::Error::OwnError(
+       e @ OwnError { kind: Kind::HTTPStatusError, .. }
+   ))
+       └─ Set loading_timeline = false
+       └─ Set not_found_acct = Some(acct)
+       └─ User can retry
+
+3. Other Errors:
+   Err(e)
+       └─ todo!("handle {e}")
+
+
+REFACTORING CHECKLIST FOR SPOONBENDER:
+──────────────────────────────────────
+
+1. Extract State
+   [ ] Move all state structs from main.rs to lib.rs
+   [ ] Define EditorState, DocumentState, SelectionState
+   [ ] Create MainState enum for app modes
+
+2. Extract Actions
+   [ ] Create actions.rs with EditorAction enum
+   [ ] Include: SelectGlyph, EditGlyph, Save, Load, etc.
+
+3. Organize Views by Area
+   [ ] Create views/sidebar.rs for glyph list
+   [ ] Create views/canvas.rs for drawing area
+   [ ] Create views/properties.rs for glyph properties
+   [ ] Create views/menu.rs for menu bar
+
+4. Create Components
+   [ ] Move glyph_widget to components/
+   [ ] Create components/outline.rs for outline display
+   [ ] Create components/metrics.rs for metrics panel
+
+5. Extract Async Operations
+   [ ] Create async_tasks/loader.rs for UFO file loading
+   [ ] Create async_tasks/saver.rs for UFO file saving
+   [ ] Add worker tasks to fork() in app_logic()
+
+6. Refactor main.rs
+   [ ] Remove all view logic
+   [ ] Keep only: event loop setup + placehero::run()
+
+7. Implement lib.rs Root Functions
+   [ ] run() → Creates Xilem with select_app
+   [ ] select_app() → Routes between modes
+   [ ] app_logic() → Main layout with fork and async tasks
+
+8. Implement View Methods
+   [ ] EditorState::sidebar() → Glyph list and properties
+   [ ] EditorState::main_view() → Canvas and metrics
+   [ ] Add conditional rendering with OneOf
+
+9. Add Resource Providers
+   [ ] Create glyphs_cache similar to Avatars
+   [ ] Or: Use standard context/provides for shared state
+
+
+PATTERN CHECKLIST:
+──────────────────
+
+[ ] Minimal main.rs (just entry point)
+[ ] State structs in lib.rs
+[ ] Actions in actions.rs
+[ ] Root view dispatcher (select_app)
+[ ] Main view composition (app_logic)
+[ ] View methods on state struct
+[ ] Async tasks in fork() within app_logic()
+[ ] Conditional rendering with OneOf
+[ ] Action handling in map_action()
+[ ] Module separation by concern
+[ ] pub(crate) exports from parent modules
+[ ] Resource providers for shared state
+[ ] lens() for state adaptation where needed
+
+
+SUGGESTED FILE SIZES (Based on Placehero):
+──────────────────────────────────────────
+
+main.rs              ~10 lines
+lib.rs               ~400-500 lines  (state + main view logic)
+actions.rs           ~20-50 lines    (action definitions)
+views/*.rs           ~100-300 lines each
+components/*.rs      ~50-200 lines each
+async_tasks/*.rs     ~100-200 lines each
+
+Total: ~2000-3000 lines organized into digestible modules
+
+
+================================================================================
