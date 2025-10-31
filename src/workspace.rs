@@ -158,9 +158,28 @@ impl Workspace {
         self.glyphs.len()
     }
 
-    /// Get a list of all glyph names
+    /// Get a list of all glyph names, sorted by Unicode codepoint
     pub fn glyph_names(&self) -> Vec<String> {
-        self.glyphs.keys().cloned().collect()
+        let mut glyph_list: Vec<_> = self.glyphs.iter().collect();
+
+        glyph_list.sort_by(|(name_a, glyph_a), (name_b, glyph_b)| {
+            // Get first codepoint if any
+            let cp_a = glyph_a.codepoints.iter().next();
+            let cp_b = glyph_b.codepoints.iter().next();
+
+            match (cp_a, cp_b) {
+                // Both have codepoints: compare by codepoint value
+                (Some(a), Some(b)) => a.cmp(b),
+                // Only a has codepoint: a comes first
+                (Some(_), None) => std::cmp::Ordering::Less,
+                // Only b has codepoint: b comes first
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                // Neither has codepoint: compare by name alphabetically
+                (None, None) => name_a.cmp(name_b),
+            }
+        });
+
+        glyph_list.into_iter().map(|(name, _)| name.clone()).collect()
     }
 
     /// Get a glyph by name

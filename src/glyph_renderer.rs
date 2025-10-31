@@ -121,8 +121,58 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
         }
     }
 
-    // Close the path
-    path.close_path();
+    // Handle trailing off-curve points that curve back to the start
+    // Collect any trailing off-curve points
+    let mut trailing_off_curve = Vec::new();
+    let mut j = rotated.len() - 1;
+    while j > 0 && rotated[j].point_type == PointType::OffCurve {
+        trailing_off_curve.insert(0, rotated[j]);
+        j -= 1;
+    }
+
+    // If there are trailing off-curve points and the first point is a curve point,
+    // draw the closing curve manually
+    if !trailing_off_curve.is_empty() {
+        let first_pt = rotated[0];
+        match first_pt.point_type {
+            PointType::Curve => {
+                match trailing_off_curve.len() {
+                    1 => {
+                        let cp = point_to_kurbo(trailing_off_curve[0]);
+                        let end = point_to_kurbo(first_pt);
+                        path.quad_to(cp, end);
+                    }
+                    2 => {
+                        let cp1 = point_to_kurbo(trailing_off_curve[0]);
+                        let cp2 = point_to_kurbo(trailing_off_curve[1]);
+                        let end = point_to_kurbo(first_pt);
+                        path.curve_to(cp1, cp2, end);
+                    }
+                    _ => {
+                        // Use last two control points
+                        let cp1 = point_to_kurbo(trailing_off_curve[trailing_off_curve.len() - 2]);
+                        let cp2 = point_to_kurbo(trailing_off_curve[trailing_off_curve.len() - 1]);
+                        let end = point_to_kurbo(first_pt);
+                        path.curve_to(cp1, cp2, end);
+                    }
+                }
+            }
+            PointType::QCurve => {
+                if !trailing_off_curve.is_empty() {
+                    let cp = point_to_kurbo(trailing_off_curve[0]);
+                    let end = point_to_kurbo(first_pt);
+                    path.quad_to(cp, end);
+                }
+            }
+            _ => {
+                // First point is Line or Move - just close with straight line
+                path.close_path();
+            }
+        }
+    } else {
+        // No trailing off-curve points - normal close
+        path.close_path();
+    }
 }
 
 /// Convert a ContourPoint to a Kurbo Point
