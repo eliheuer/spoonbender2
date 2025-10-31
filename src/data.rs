@@ -107,7 +107,7 @@ impl AppState {
                         None
                     } else {
                         g.codepoints.iter().next()
-                            .map(|c| format!("U+{:04X}", c as u32))
+                            .map(|c| format!("U+{:04X}", *c as u32))
                     }
                 })
         } else {

@@ -9,7 +9,7 @@
 use masonry::properties::types::AsUnit;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
-use xilem::view::{button, flex_col, flex_row, label, sized_box};
+use xilem::view::{button, flex_col, flex_row, label, portal, sized_box};
 use xilem::{EventLoopBuilder, WidgetView, WindowOptions, Xilem};
 
 mod actions;
@@ -120,7 +120,7 @@ fn selected_glyph_info(state: &mut AppState) -> impl WidgetView<AppState> + use<
     let info_text = if state.selected_glyph.is_some() {
         if let Some(workspace) = &state.workspace {
             if let Some(glyph) = workspace.get_glyph(&glyph_name) {
-                let bounds = glyph_renderer::glyph_bounds(glyph);
+                let bounds = glyph_renderer::glyph_bounds(&glyph);
                 let bounds_str = bounds
                     .map(|b| format!("{:.0}×{:.0}", b.width(), b.height()))
                     .unwrap_or_else(|| "empty".to_string());
@@ -156,14 +156,14 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let glyph_data: Vec<_> = if let Some(workspace) = &state.workspace {
         glyph_names.iter().map(|name| {
             let path = workspace.get_glyph(name)
-                .map(|g| glyph_renderer::glyph_to_bezpath(g));
+                .map(|g| glyph_renderer::glyph_to_bezpath(&g));
             (name.clone(), path)
         }).collect()
     } else {
         glyph_names.iter().map(|name| (name.clone(), None)).collect()
     };
 
-    // Create rows of glyphs - back to flex layout that works
+    // Create rows of glyphs using flex layout (grid doesn't work well with expand)
     let columns = 9;
     let mut rows_of_cells = Vec::new();
     let selected_glyph = state.selected_glyph.clone();
@@ -180,7 +180,8 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
     flex_col((
         label(format!("{} glyphs", glyph_count)).text_size(14.0),
-        flex_col(rows_of_cells),
+        // Wrap in portal for scrolling - now works because data is thread-safe!
+        portal(flex_col(rows_of_cells)),
     ))
 }
 
@@ -207,7 +208,7 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
         label(display_name).text_size(11.0)
     };
 
-    // Glyph cell - fixed size for now, working layout
+    // Glyph cell - fixed size works best with flex layout
     sized_box(
         button(
             flex_col((

@@ -1,10 +1,10 @@
 // Copyright 2025 the Spoonbender Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Glyph rendering - converts Norad contours to Kurbo paths
+//! Glyph rendering - converts glyph contours to Kurbo paths
 
 use kurbo::{BezPath, Point, Shape};
-use norad::{Contour, ContourPoint, Glyph, PointType};
+use crate::workspace::{Contour, ContourPoint, Glyph, PointType};
 
 /// Convert a Norad Glyph to a Kurbo BezPath
 pub fn glyph_to_bezpath(glyph: &Glyph) -> BezPath {
@@ -28,7 +28,7 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
     // Find the first on-curve point to start the path
     let start_idx = points
         .iter()
-        .position(|p| matches!(p.typ, PointType::Move | PointType::Line | PointType::Curve))
+        .position(|p| matches!(p.point_type, PointType::Move | PointType::Line | PointType::Curve))
         .unwrap_or(0);
 
     // Rotate the points so we start at an on-curve point
@@ -50,7 +50,7 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
     while i < rotated.len() {
         let pt = rotated[i];
 
-        match pt.typ {
+        match pt.point_type {
             PointType::Move => {
                 path.move_to(point_to_kurbo(pt));
                 i += 1;
@@ -68,7 +68,7 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
                 let mut j = i - 1;
 
                 // Collect preceding off-curve points
-                while j > 0 && rotated[j].typ == PointType::OffCurve {
+                while j > 0 && rotated[j].point_type == PointType::OffCurve {
                     off_curve_points.insert(0, rotated[j]);
                     j -= 1;
                 }
@@ -109,7 +109,7 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
             PointType::QCurve => {
                 // Quadratic curve point
                 // Look back for off-curve point
-                if i > 0 && rotated[i - 1].typ == PointType::OffCurve {
+                if i > 0 && rotated[i - 1].point_type == PointType::OffCurve {
                     let cp = point_to_kurbo(rotated[i - 1]);
                     let end = point_to_kurbo(pt);
                     path.quad_to(cp, end);
@@ -125,9 +125,9 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
     path.close_path();
 }
 
-/// Convert a Norad ContourPoint to a Kurbo Point
+/// Convert a ContourPoint to a Kurbo Point
 fn point_to_kurbo(pt: &ContourPoint) -> Point {
-    Point::new(pt.x as f64, pt.y as f64)
+    Point::new(pt.x, pt.y)
 }
 
 /// Get the bounding box of a glyph for scaling/centering
