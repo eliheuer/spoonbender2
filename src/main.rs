@@ -148,24 +148,36 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let glyph_names = state.glyph_names();
     let glyph_count = glyph_names.len();
 
-    // Create glyph cells with actual rendering
-    let glyph_items: Vec<_> = glyph_names
-        .into_iter()
-        .map(|name| {
-            glyph_cell(state, name)
-        })
-        .collect();
+    // Pre-compute glyph data to avoid capturing state reference
+    let glyph_data: Vec<_> = if let Some(workspace) = &state.workspace {
+        glyph_names.iter().map(|name| {
+            let path = workspace.get_glyph(name)
+                .map(|g| glyph_renderer::glyph_to_bezpath(g));
+            (name.clone(), path)
+        }).collect()
+    } else {
+        glyph_names.iter().map(|name| (name.clone(), None)).collect()
+    };
+
+    // Create rows of glyphs - use flex instead of grid to have more control
+    let columns = 6;
+    let mut rows_of_cells = Vec::new();
+
+    for chunk in glyph_data.chunks(columns) {
+        let row_items: Vec<_> = chunk.iter()
+            .map(|(name, path_opt)| glyph_cell(name.clone(), path_opt.clone()))
+            .collect();
+        rows_of_cells.push(flex_row(row_items));
+    }
 
     flex_col((
         label(format!("{} glyphs", glyph_count)).text_size(14.0),
-        // Vertical flex container with all glyphs
-        // TODO: Add portal for scrolling and proper grid layout
-        flex_col(glyph_items),
+        flex_col(rows_of_cells),
     ))
 }
 
 /// Individual glyph cell in the grid
-fn glyph_cell(state: &AppState, glyph_name: String) -> impl WidgetView<AppState> + use<> {
+fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>) -> impl WidgetView<AppState> + use<> {
     let name_clone = glyph_name.clone();
     let display_name = if glyph_name.len() > 12 {
         format!("{}...", &glyph_name[..9])
@@ -173,32 +185,27 @@ fn glyph_cell(state: &AppState, glyph_name: String) -> impl WidgetView<AppState>
         glyph_name.clone()
     };
 
-    // Get the glyph path for rendering
-    let glyph_view_widget = if let Some(workspace) = &state.workspace {
-        if let Some(glyph) = workspace.get_glyph(&glyph_name) {
-            let path = glyph_renderer::glyph_to_bezpath(glyph);
-            Either::A(glyph_view(path, 70.0, 70.0))
-        } else {
-            Either::B(label("?").text_size(24.0))
-        }
+    // Create glyph view widget from pre-computed path
+    let glyph_view_widget = if let Some(path) = path_opt {
+        Either::A(glyph_view(path, 100.0, 100.0))
     } else {
-        Either::B(label("?").text_size(24.0))
+        Either::B(label("?").text_size(60.0))
     };
 
-    // Glyph cell with actual rendered glyph
+    // Glyph cell - force square with sized_box
     sized_box(
-        flex_col((
-            button(
+        button(
+            flex_col((
                 glyph_view_widget,
-                move |state: &mut AppState| {
-                    state.select_glyph(name_clone.clone());
-                }
-            ),
-            label(display_name).text_size(9.0),
-        ))
+                label(display_name).text_size(11.0),
+            )),
+            move |state: &mut AppState| {
+                state.select_glyph(name_clone.clone());
+            }
+        )
     )
-    .width(100.px())
-    .height(100.px())
+    .width(120.px())
+    .height(120.px())
 }
 
 fn run() -> Result<(), EventLoopError> {

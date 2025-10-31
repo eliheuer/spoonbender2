@@ -87,10 +87,13 @@ impl Widget for GlyphWidget {
         let scaled_width = bounds.width() * scale;
         let scaled_height = bounds.height() * scale;
         let offset_x = (widget_size.width - scaled_width) / 2.0 - bounds.x0 * scale;
-        let offset_y = (widget_size.height - scaled_height) / 2.0 - bounds.y0 * scale;
 
-        // Create transform: translate to center, then scale
-        let transform = Affine::translate((offset_x, offset_y)) * Affine::scale(scale);
+        // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
+        // So we need to flip the Y-axis. We flip around the center of the widget.
+        let offset_y = (widget_size.height + scaled_height) / 2.0 + bounds.y0 * scale;
+
+        // Create transform: translate to position, scale (with Y-flip)
+        let transform = Affine::translate((offset_x, offset_y)) * Affine::scale_non_uniform(scale, -scale);
 
         // Apply transform to path
         let transformed_path = transform * &self.path;
