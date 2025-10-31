@@ -90,7 +90,7 @@ impl Widget for GlyphWidget {
 
         // Position baseline to center glyphs vertically (adjusted for better visual balance)
         // Lower percentage = baseline lower in cell = glyphs positioned lower
-        let baseline = widget_size.height * 0.15;
+        let baseline = widget_size.height * 0.08;
 
         // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
         // Create affine transformation: scale (with Y-flip) and translate

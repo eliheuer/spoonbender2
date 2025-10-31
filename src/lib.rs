@@ -68,9 +68,9 @@ fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         .unwrap_or_default();
 
     flex_col((
-        label("Spoonbender - Font Editor").text_size(24.0),
+        label("Spoonbender - Font Editor").text_size(16.0),
         label("No font loaded").text_size(16.0),
-        label(error_text).text_size(14.0),
+        label(error_text).text_size(16.0),
         button(label("Open UFO..."), |state: &mut AppState| {
             state.open_font_dialog();
         }),
@@ -83,6 +83,8 @@ fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 /// Main editor view with sidebar and glyph grid
 fn main_editor_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     flex_col((
+        // Top margin
+        sized_box(label("")).height(10.px()),
         // Header bar
         header_bar(state),
         // Selected glyph info bar
@@ -98,7 +100,7 @@ fn header_bar(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
     sized_box(
         flex_row((
-            label(font_name).text_size(18.0),
+            label(font_name).text_size(16.0),
             button(label("Font Info"), |_state: &mut AppState| {
                 // TODO: Open font info dialog
                 println!("Font info clicked");
@@ -141,7 +143,7 @@ fn selected_glyph_info(state: &mut AppState) -> impl WidgetView<AppState> + use<
 
     sized_box(
         flex_row((
-            label(info_text).text_size(12.0),
+            label(info_text).text_size(16.0),
         ))
     )
     .height(30.px())
@@ -184,7 +186,9 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     }
 
     flex_col((
-        label(format!("{} glyphs", glyph_count)).text_size(14.0),
+        label(format!("{} glyphs", glyph_count)).text_size(16.0),
+        // Spacer between label and grid
+        sized_box(label("")).height(10.px()),
         // Wrap in portal for scrolling - now works because data is thread-safe!
         portal(flex_col(rows_of_cells)),
     ))
@@ -208,13 +212,13 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
 
     // Style label based on selection state
     let name_label = if is_selected {
-        label(format!("→ {}", display_name)).text_size(11.0)
+        label(format!("→ {}", display_name)).text_size(16.0)
     } else {
-        label(display_name).text_size(11.0)
+        label(display_name).text_size(16.0)
     };
 
     // Wrap label with bottom spacing
-    let label_with_spacing = sized_box(name_label).height(20.px());
+    let label_with_spacing = sized_box(name_label).height(32.px());
 
     // Glyph cell - fixed size works best with flex layout
     sized_box(
