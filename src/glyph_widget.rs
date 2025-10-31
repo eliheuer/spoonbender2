@@ -22,15 +22,18 @@ pub struct GlyphWidget {
     color: Color,
     /// Target display size for the widget
     size: Size,
+    /// Units per em from the font (for uniform scaling)
+    upm: f64,
 }
 
 impl GlyphWidget {
     /// Create a new GlyphWidget from a BezPath
-    pub fn new(path: BezPath, size: Size) -> Self {
+    pub fn new(path: BezPath, size: Size, upm: f64) -> Self {
         Self {
             path,
             color: Color::from_rgb8(0, 0, 0), // Default to black
             size,
+            upm,
         }
     }
 
@@ -76,24 +79,28 @@ impl Widget for GlyphWidget {
         let bounds = self.path.bounding_box();
         let widget_size = ctx.size();
 
-        // Calculate scale to fit the glyph in the widget
-        // Leave some padding (10% on each side = 80% fill)
-        let padding_factor = 0.8;
-        let scale_x = (widget_size.width * padding_factor) / bounds.width();
-        let scale_y = (widget_size.height * padding_factor) / bounds.height();
-        let scale = scale_x.min(scale_y);
+        // Calculate uniform scale based on UPM (units per em)
+        // This ensures all glyphs are rendered at the same scale
+        let scale = widget_size.height / self.upm;
+        let scale = scale * 0.75; // Add margins (25% padding)
 
-        // Center the glyph in the widget
+        // Center the glyph horizontally based on its bounding box
         let scaled_width = bounds.width() * scale;
-        let scaled_height = bounds.height() * scale;
-        let offset_x = (widget_size.width - scaled_width) / 2.0 - bounds.x0 * scale;
+        let l_pad = (widget_size.width - scaled_width) / 2.0;
+
+        // Position baseline at 29% from top (like runebender)
+        let baseline = widget_size.height * 0.29;
 
         // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
-        // So we need to flip the Y-axis. We flip around the center of the widget.
-        let offset_y = (widget_size.height + scaled_height) / 2.0 + bounds.y0 * scale;
-
-        // Create transform: translate to position, scale (with Y-flip)
-        let transform = Affine::translate((offset_x, offset_y)) * Affine::scale_non_uniform(scale, -scale);
+        // Create affine transformation: scale (with Y-flip) and translate
+        let transform = Affine::new([
+            scale,                          // x scale
+            0.0,                            // x skew
+            0.0,                            // y skew
+            -scale,                         // y scale (negative to flip Y axis)
+            l_pad - bounds.x0 * scale,      // x translation (centering)
+            widget_size.height - baseline,  // y translation (baseline positioning)
+        ]);
 
         // Apply transform to path
         let transformed_path = transform * &self.path;
@@ -131,11 +138,13 @@ pub fn glyph_view<State, Action>(
     path: BezPath,
     width: f64,
     height: f64,
+    upm: f64,
 ) -> GlyphView<State, Action> {
     GlyphView {
         path,
         size: Size::new(width, height),
         color: None,
+        upm,
         phantom: PhantomData,
     }
 }
@@ -146,6 +155,7 @@ pub struct GlyphView<State, Action = ()> {
     path: BezPath,
     size: Size,
     color: Option<Color>,
+    upm: f64,
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 
@@ -168,7 +178,7 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
         ctx: &mut ViewCtx,
         _app_state: &mut State,
     ) -> (Self::Element, Self::ViewState) {
-        let mut widget = GlyphWidget::new(self.path.clone(), self.size);
+        let mut widget = GlyphWidget::new(self.path.clone(), self.size, self.upm);
         if let Some(color) = self.color {
             widget = widget.with_color(color);
         }

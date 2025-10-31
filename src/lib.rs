@@ -152,6 +152,11 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let glyph_names = state.glyph_names();
     let glyph_count = glyph_names.len();
 
+    // Get UPM from workspace for uniform scaling
+    let upm = state.workspace.as_ref()
+        .and_then(|w| w.units_per_em)
+        .unwrap_or(1000.0);
+
     // Pre-compute glyph data to avoid capturing state reference
     let glyph_data: Vec<_> = if let Some(workspace) = &state.workspace {
         glyph_names.iter().map(|name| {
@@ -172,7 +177,7 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         let row_items: Vec<_> = chunk.iter()
             .map(|(name, path_opt)| {
                 let is_selected = selected_glyph.as_ref() == Some(name);
-                glyph_cell(name.clone(), path_opt.clone(), is_selected)
+                glyph_cell(name.clone(), path_opt.clone(), is_selected, upm)
             })
             .collect();
         rows_of_cells.push(flex_row(row_items));
@@ -186,7 +191,7 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 }
 
 /// Individual glyph cell in the grid
-fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected: bool) -> impl WidgetView<AppState> + use<> {
+fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected: bool, upm: f64) -> impl WidgetView<AppState> + use<> {
     let name_clone = glyph_name.clone();
     let display_name = if glyph_name.len() > 12 {
         format!("{}...", &glyph_name[..9])
@@ -196,7 +201,7 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
 
     // Create glyph view widget from pre-computed path
     let glyph_view_widget = if let Some(path) = path_opt {
-        Either::A(glyph_view(path, 100.0, 100.0))
+        Either::A(glyph_view(path, 100.0, 100.0, upm))
     } else {
         Either::B(label("?").text_size(60.0))
     };
