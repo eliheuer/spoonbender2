@@ -3,8 +3,12 @@
 
 //! Application state and data structures
 
+use crate::edit_session::EditSession;
 use crate::workspace::Workspace;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
+use xilem::WindowId;
 
 /// Main application state
 pub struct AppState {
@@ -16,6 +20,15 @@ pub struct AppState {
 
     /// Currently selected glyph name
     pub selected_glyph: Option<String>,
+
+    /// Open editor sessions (window ID -> (glyph name, session))
+    pub editor_sessions: HashMap<WindowId, (String, Arc<EditSession>)>,
+
+    /// Main window ID
+    pub main_window_id: WindowId,
+
+    /// Whether the app should keep running
+    pub running: bool,
 }
 
 impl AppState {
@@ -25,6 +38,9 @@ impl AppState {
             workspace: None,
             error_message: None,
             selected_glyph: None,
+            editor_sessions: HashMap::new(),
+            main_window_id: WindowId::next(),
+            running: true,
         }
     }
 
@@ -113,6 +129,48 @@ impl AppState {
         } else {
             None
         }
+    }
+
+    /// Create an edit session for a glyph
+    pub fn create_edit_session(&self, glyph_name: &str) -> Option<EditSession> {
+        let workspace = self.workspace.as_ref()?;
+        let glyph = workspace.get_glyph(glyph_name)?;
+
+        Some(EditSession::new(
+            glyph_name.to_string(),
+            glyph.clone(),
+            workspace.units_per_em.unwrap_or(1000.0),
+            workspace.ascender.unwrap_or(800.0),
+            workspace.descender.unwrap_or(-200.0),
+            workspace.x_height,
+            workspace.cap_height,
+        ))
+    }
+
+    /// Open or focus an editor for a glyph
+    pub fn open_editor(&mut self, glyph_name: String) {
+        // Check if we already have a window for this glyph
+        let already_open = self.editor_sessions.values()
+            .any(|(name, _)| name == &glyph_name);
+
+        if !already_open {
+            if let Some(session) = self.create_edit_session(&glyph_name) {
+                let window_id = WindowId::next();
+                self.editor_sessions.insert(window_id, (glyph_name, Arc::new(session)));
+            }
+        }
+    }
+
+    /// Close an editor session by window ID
+    pub fn close_editor(&mut self, window_id: WindowId) {
+        self.editor_sessions.remove(&window_id);
+    }
+}
+
+/// Implement the Xilem AppState trait
+impl xilem::AppState for AppState {
+    fn keep_running(&self) -> bool {
+        self.running
     }
 }
 

@@ -8,19 +8,23 @@
 
 use masonry::properties::types::AsUnit;
 use masonry::vello::peniko::Color;
+use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
 use xilem::view::{button, flex_col, flex_row, label, portal, sized_box};
-use xilem::{EventLoopBuilder, WidgetView, WindowOptions, Xilem};
+use xilem::{window, AppState as XilemAppState, EventLoopBuilder, WidgetView, WindowId, WindowView, Xilem};
 
 mod actions;
 mod data;
+mod edit_session;
+mod editor_widget;
 mod glyph_renderer;
 mod glyph_widget;
 mod workspace;
 
 use data::AppState;
+use editor_widget::editor_view;
 use glyph_widget::glyph_view;
 
 /// Entry point for the Spoonbender application
@@ -42,23 +46,41 @@ pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
         }
     }
 
-    let window_options = WindowOptions::new("Spoonbender")
-        .with_initial_inner_size(winit::dpi::LogicalSize::new(1200.0, 800.0));
-
-    let app = Xilem::new_simple(initial_state, app_logic, window_options);
+    let app = Xilem::new(initial_state, app_logic);
     app.run_in(event_loop)?;
     Ok(())
 }
 
-/// Main application logic - builds the view tree from app state
-fn app_logic(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
-    if state.workspace.is_some() {
+/// Main application logic - builds multiple windows
+fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>> + use<> {
+    let main_window_view = if state.workspace.is_some() {
         // Font is loaded - show main editor view
         Either::A(main_editor_view(state))
     } else {
         // No font loaded - show welcome screen
         Either::B(welcome_view(state))
-    }
+    };
+
+    let main_window = window(state.main_window_id, "Spoonbender", main_window_view)
+        .with_options(|o| o.on_close(|state: &mut AppState| {
+            state.running = false;
+        }));
+
+    // Create editor windows for each open session
+    let editor_windows = state.editor_sessions.iter().map(|(window_id, (glyph_name, session))| {
+        let window_id = *window_id;
+        let window_title = format!("Edit: {}", glyph_name);
+
+        window(window_id, window_title, editor_view(session.clone()))
+            .with_options(move |o| o.on_close(move |state: &mut AppState| {
+                state.close_editor(window_id);
+            }))
+    });
+
+    std::iter::once(main_window)
+        .chain(editor_windows)
+        .collect::<Vec<_>>()
+        .into_iter()
 }
 
 /// Welcome screen shown when no font is loaded
@@ -235,8 +257,8 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
                 label_with_spacing,
             )),
             move |state: &mut AppState| {
-                println!("Selected glyph: {}", name_clone);
-                state.select_glyph(name_clone.clone());
+                println!("Opening editor for glyph: {}", name_clone);
+                state.open_editor(name_clone.clone());
             }
         )
         .background_color(bg_color)
