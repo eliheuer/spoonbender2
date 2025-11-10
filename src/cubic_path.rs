@@ -1,0 +1,221 @@
+// Copyright 2025 the Spoonbender Authors
+// SPDX-License-Identifier: Apache-2.0
+
+//! Cubic bezier path representation
+
+use crate::entity_id::EntityId;
+use crate::point::{PathPoint, PointType};
+use crate::point_list::PathPoints;
+use crate::workspace;
+use kurbo::{BezPath, Point, Shape};
+
+/// A single contour represented as a cubic bezier path
+///
+/// This corresponds to a UFO contour. Points are stored in order,
+/// with the convention that for closed paths, the first point (index 0)
+/// is conceptually the last point in the cyclic sequence.
+#[derive(Debug, Clone)]
+pub struct CubicPath {
+    /// The points in this path
+    pub points: PathPoints,
+
+    /// Whether this path is closed
+    pub closed: bool,
+
+    /// Unique identifier for this path
+    pub id: EntityId,
+}
+
+impl CubicPath {
+    /// Create a new cubic path
+    pub fn new(points: PathPoints, closed: bool) -> Self {
+        Self {
+            points,
+            closed,
+            id: EntityId::next(),
+        }
+    }
+
+    /// Create a new empty cubic path
+    pub fn empty() -> Self {
+        Self::new(PathPoints::new(), false)
+    }
+
+    /// Get the number of points in this path
+    pub fn len(&self) -> usize {
+        self.points.len()
+    }
+
+    /// Check if this path is empty
+    pub fn is_empty(&self) -> bool {
+        self.points.is_empty()
+    }
+
+    /// Get a reference to the points in this path
+    pub fn points(&self) -> &PathPoints {
+        &self.points
+    }
+
+    /// Convert this cubic path to a kurbo BezPath for rendering
+    pub fn to_bezpath(&self) -> BezPath {
+        let mut path = BezPath::new();
+
+        if self.points.is_empty() {
+            return path;
+        }
+
+        let points: Vec<&PathPoint> = self.points.iter().collect();
+
+        // Find the first on-curve point to start
+        let start_idx = points
+            .iter()
+            .position(|p| p.is_on_curve())
+            .unwrap_or(0);
+
+        // Rotate points so we start at an on-curve point
+        let rotated: Vec<&PathPoint> = points[start_idx..]
+            .iter()
+            .chain(points[..start_idx].iter())
+            .copied()
+            .collect();
+
+        if rotated.is_empty() {
+            return path;
+        }
+
+        // Start at the first point
+        path.move_to(rotated[0].point);
+
+        // Process remaining points
+        let mut i = 1;
+        while i < rotated.len() {
+            let pt = rotated[i];
+
+            match pt.typ {
+                PointType::OnCurve { .. } => {
+                    // Look back to see if there are off-curve points before this
+                    let mut off_curve_before = Vec::new();
+                    let mut j = i - 1;
+
+                    while j > 0 && rotated[j].is_off_curve() {
+                        off_curve_before.insert(0, rotated[j]);
+                        j -= 1;
+                    }
+
+                    match off_curve_before.len() {
+                        0 => {
+                            // No control points - draw line
+                            path.line_to(pt.point);
+                        }
+                        1 => {
+                            // One control point - quadratic curve
+                            path.quad_to(off_curve_before[0].point, pt.point);
+                        }
+                        2 => {
+                            // Two control points - cubic curve
+                            path.curve_to(
+                                off_curve_before[0].point,
+                                off_curve_before[1].point,
+                                pt.point,
+                            );
+                        }
+                        _ => {
+                            // More than 2 - use last two
+                            let len = off_curve_before.len();
+                            path.curve_to(
+                                off_curve_before[len - 2].point,
+                                off_curve_before[len - 1].point,
+                                pt.point,
+                            );
+                        }
+                    }
+                    i += 1;
+                }
+                PointType::OffCurve { .. } => {
+                    // Off-curve points are processed with the next on-curve point
+                    i += 1;
+                }
+            }
+        }
+
+        // Handle trailing off-curve points (if path is closed)
+        if self.closed {
+            let mut trailing_off_curve = Vec::new();
+            let mut j = rotated.len() - 1;
+
+            while j > 0 && rotated[j].is_off_curve() {
+                trailing_off_curve.insert(0, rotated[j]);
+                j -= 1;
+            }
+
+            if !trailing_off_curve.is_empty() {
+                // These off-curve points connect back to the first point
+                let first_pt = rotated[0];
+
+                match trailing_off_curve.len() {
+                    1 => {
+                        path.quad_to(trailing_off_curve[0].point, first_pt.point);
+                    }
+                    2 => {
+                        path.curve_to(
+                            trailing_off_curve[0].point,
+                            trailing_off_curve[1].point,
+                            first_pt.point,
+                        );
+                    }
+                    _ => {
+                        let len = trailing_off_curve.len();
+                        path.curve_to(
+                            trailing_off_curve[len - 2].point,
+                            trailing_off_curve[len - 1].point,
+                            first_pt.point,
+                        );
+                    }
+                }
+            }
+
+            path.close_path();
+        }
+
+        path
+    }
+
+    /// Get the bounding box of this path
+    pub fn bounding_box(&self) -> Option<kurbo::Rect> {
+        let bez = self.to_bezpath();
+        if bez.is_empty() {
+            None
+        } else {
+            Some(bez.bounding_box())
+        }
+    }
+
+    /// Convert from a workspace contour (norad format)
+    pub fn from_contour(contour: &workspace::Contour) -> Self {
+        if contour.points.is_empty() {
+            return Self::empty();
+        }
+
+        // Determine if the path is closed
+        // In UFO, a contour is closed unless the first point is a Move
+        let closed = !matches!(
+            contour.points[0].point_type,
+            workspace::PointType::Move
+        );
+
+        // Convert all points
+        let mut path_points: Vec<PathPoint> = contour
+            .points
+            .iter()
+            .map(PathPoint::from_contour_point)
+            .collect();
+
+        // If closed, rotate left by 1 to match Runebender's convention
+        // (first point in closed path is last in vector)
+        if closed && !path_points.is_empty() {
+            path_points.rotate_left(1);
+        }
+
+        Self::new(PathPoints::from_vec(path_points), closed)
+    }
+}

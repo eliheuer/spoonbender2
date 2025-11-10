@@ -16,11 +16,22 @@ use xilem::view::{button, flex_col, flex_row, label, portal, sized_box};
 use xilem::{window, AppState as XilemAppState, EventLoopBuilder, WidgetView, WindowId, WindowView, Xilem};
 
 mod actions;
+mod cubic_path;
 mod data;
 mod edit_session;
+mod edit_type;
 mod editor_widget;
+mod entity_id;
 mod glyph_renderer;
 mod glyph_widget;
+mod hit_test;
+mod mouse;
+mod path;
+mod point;
+mod point_list;
+mod selection;
+mod theme;
+mod tools;
 mod workspace;
 
 use data::AppState;
@@ -258,6 +269,7 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
             )),
             move |state: &mut AppState| {
                 println!("Opening editor for glyph: {}", name_clone);
+                state.select_glyph(name_clone.clone());
                 state.open_editor(name_clone.clone());
             }
         )

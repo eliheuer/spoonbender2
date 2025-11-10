@@ -3,7 +3,13 @@
 
 //! Edit session - manages editing state for a single glyph
 
+use crate::entity_id::EntityId;
+use crate::hit_test::{self, HitTestResult};
+use crate::path::Path;
+use crate::selection::Selection;
+use crate::tools::{ToolBox, ToolId};
 use crate::workspace::Glyph;
+use kurbo::Point;
 use std::sync::Arc;
 
 /// Unique identifier for an editing session
@@ -89,8 +95,17 @@ pub struct EditSession {
     /// Name of the glyph being edited
     pub glyph_name: String,
 
-    /// The glyph data being edited (owned copy for editing)
+    /// The original glyph data (for metadata, unicode, etc.)
     pub glyph: Arc<Glyph>,
+
+    /// The editable path representation (converted from glyph contours)
+    pub paths: Arc<Vec<Path>>,
+
+    /// Currently selected entities (points, paths, etc.)
+    pub selection: Selection,
+
+    /// Current editing tool
+    pub current_tool: ToolBox,
 
     /// Viewport transformation
     pub viewport: ViewPort,
@@ -114,10 +129,20 @@ impl EditSession {
         x_height: Option<f64>,
         cap_height: Option<f64>,
     ) -> Self {
+        // Convert glyph contours to editable paths
+        let paths: Vec<Path> = glyph
+            .contours
+            .iter()
+            .map(|contour| Path::from_contour(contour))
+            .collect();
+
         Self {
             id: SessionId::next(),
             glyph_name,
             glyph: Arc::new(glyph),
+            paths: Arc::new(paths),
+            selection: Selection::new(),
+            current_tool: ToolBox::for_id(ToolId::Select),
             viewport: ViewPort::new(),
             units_per_em,
             ascender,
@@ -125,6 +150,16 @@ impl EditSession {
             x_height,
             cap_height,
         }
+    }
+
+    /// Switch to a different tool
+    pub fn set_tool(&mut self, tool_id: ToolId) {
+        self.current_tool = ToolBox::for_id(tool_id);
+    }
+
+    /// Get the current tool ID
+    pub fn current_tool_id(&self) -> ToolId {
+        self.current_tool.id()
     }
 
     /// Get a displayable title for this session
@@ -135,5 +170,61 @@ impl EditSession {
     /// Set the viewport for this session
     pub fn set_viewport(&mut self, viewport: ViewPort) {
         self.viewport = viewport;
+    }
+
+    /// Hit test for a point at screen coordinates
+    ///
+    /// Returns the EntityId of the closest point within max_dist screen pixels
+    pub fn hit_test_point(&self, screen_pos: Point, max_dist: Option<f64>) -> Option<HitTestResult> {
+        let max_dist = max_dist.unwrap_or(hit_test::MIN_CLICK_DISTANCE);
+
+        // Collect all points from all paths as screen coordinates
+        let candidates = self.paths.iter().flat_map(|path| {
+            match path {
+                Path::Cubic(cubic) => {
+                    cubic.points().iter().map(|pt| {
+                        // Convert point to screen space for distance calculation
+                        let screen_pt = self.viewport.to_screen(pt.point);
+                        (pt.id, screen_pt, pt.is_on_curve())
+                    }).collect::<Vec<_>>()
+                }
+            }
+        });
+
+        // Find closest point in screen space
+        hit_test::find_closest(screen_pos, candidates, max_dist)
+    }
+
+    /// Move selected points by a delta in design space
+    ///
+    /// This mutates the paths using Arc::make_mut, which will clone
+    /// the path data if there are other references to it.
+    pub fn move_selection(&mut self, delta: kurbo::Vec2) {
+        if self.selection.is_empty() {
+            return;
+        }
+
+        // We need to mutate paths, so convert Arc<Vec<Path>> to mutable Vec
+        let paths_vec = Arc::make_mut(&mut self.paths);
+
+        // Iterate through paths and update selected points
+        for path in paths_vec.iter_mut() {
+            match path {
+                Path::Cubic(cubic) => {
+                    // Get mutable access to points (will clone if needed)
+                    let points = cubic.points.make_mut();
+
+                    // Update positions of selected points
+                    for point in points.iter_mut() {
+                        if self.selection.contains(&point.id) {
+                            point.point = Point::new(
+                                point.point.x + delta.x,
+                                point.point.y + delta.y,
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }
