@@ -28,7 +28,7 @@ const BORDER_WIDTH: f64 = 1.5;  // Border thickness for buttons and panel
 const COLOR_PANEL: Color = Color::from_rgb8(0x90, 0x90, 0x90);        // Medium-light gray panel
 const COLOR_UNSELECTED: Color = Color::from_rgb8(0xA8, 0xA8, 0xA8);  // Light gray buttons
 const COLOR_SELECTED: Color = Color::from_rgb8(0xD8, 0xD8, 0xD8);     // Very light gray when selected (brightest)
-const COLOR_ICON: Color = Color::BLACK;  // Dark icons (works on both selected and unselected)
+const COLOR_ICON: Color = Color::from_rgb8(0x40, 0x40, 0x40);  // Medium-dark gray icons
 const COLOR_BORDER: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Medium-dark border
 
 /// Available tools in display order

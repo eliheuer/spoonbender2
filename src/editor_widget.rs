@@ -418,6 +418,30 @@ fn draw_metrics_guides(
 ) {
     let stroke = Stroke::new(theme::size::METRIC_LINE_WIDTH);
 
+    // Draw the metrics box (advance width × ascender/descender bounds)
+    let box_rect = kurbo::Rect::from_points(
+        Point::new(0.0, session.descender),
+        Point::new(session.glyph.width, session.ascender),
+    );
+    // Convert rect to a BezPath so we can transform it
+    let box_rrect = kurbo::RoundedRect::from_rect(box_rect, 0.0);
+    let box_path = box_rrect.to_path(0.1);
+    let transformed_box = *transform * box_path;
+    let brush = Brush::Solid(theme::metrics::BOX);
+    scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &transformed_box);
+
+    // Draw left and right vertical lines for advance width
+    let left_line = kurbo::Line::new(
+        *transform * Point::new(0.0, session.descender - 100.0),
+        *transform * Point::new(0.0, session.ascender + 100.0),
+    );
+    let right_line = kurbo::Line::new(
+        *transform * Point::new(session.glyph.width, session.descender - 100.0),
+        *transform * Point::new(session.glyph.width, session.ascender + 100.0),
+    );
+    scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &left_line);
+    scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &right_line);
+
     // Helper to draw a horizontal line at a given Y coordinate in design space
     let draw_hline = |scene: &mut Scene, y: f64| {
         let start = Point::new(-1000.0, y);

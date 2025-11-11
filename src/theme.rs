@@ -22,6 +22,9 @@ pub mod metrics {
 
     /// Baseline, ascender, descender, x-height, cap-height
     pub const GUIDE: Color = Color::from_rgba8(100, 100, 255, 128);
+
+    /// Metrics box (advance width × ascender/descender bounds)
+    pub const BOX: Color = Color::from_rgba8(200, 100, 100, 180);
 }
 
 /// Colors for grid
