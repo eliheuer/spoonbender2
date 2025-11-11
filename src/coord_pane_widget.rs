@@ -26,14 +26,8 @@ const PANE_HEIGHT: f64 = 80.0;  // Matches container height
 const LABEL_WIDTH: f64 = 12.0;
 const VALUE_WIDTH: f64 = 50.0;
 
-// Import from theme
+// Import from theme (includes all sizing and color constants)
 use crate::theme::coord_pane::*;
-
-// Colors from theme - qualified references
-const DOT_SELECTED_INNER: Color = crate::theme::point::SELECTED_INNER;
-const DOT_SELECTED_OUTER: Color = crate::theme::point::SELECTED_OUTER;
-const DOT_UNSELECTED_INNER: Color = Color::from_rgb8(100, 100, 100);
-const DOT_UNSELECTED_OUTER: Color = Color::from_rgb8(70, 70, 70);
 
 /// Coordinate pane widget
 pub struct CoordPaneWidget {
@@ -294,13 +288,14 @@ impl CoordPaneWidget {
                 (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER)
             };
 
-            // Draw two-tone filled circles (no outline stroke needed)
+            // Draw two-tone filled circles to simulate outlined circles
             // Outer circle - use calculated dot radius
             let outer_circle = Circle::new(center, dot_radius);
             masonry::util::fill_color(scene, &outer_circle, outer_color);
 
-            // Inner circle (slightly smaller)
-            let inner_circle = Circle::new(center, dot_radius * 0.6);
+            // Inner circle - make the "outline" match the container border width (1.5px)
+            // by subtracting 1.5 from the radius
+            let inner_circle = Circle::new(center, (dot_radius - 1.5).max(0.0));
             masonry::util::fill_color(scene, &inner_circle, inner_color);
         }
     }

@@ -21,7 +21,7 @@ const TOOLBAR_BUTTON_OUTLINE: Color = Color::from_rgb8(0x10, 0x10, 0x10);
 const GLYPH_PREVIEW_COLOR: Color = Color::from_rgb8(0x10, 0x10, 0x10);
 
 // Coordinate Pane specific
-const COORD_PANE_GRID_LINE: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Gray for grid lines
+const COORD_PANE_GRID_LINE: Color = Color::from_rgb8(10, 10, 10);  // Gray for grid lines
 const COORD_PANE_TEXT: Color = Color::from_rgb8(200, 200, 200);  // Light gray for text
 
 // ============================================================================
@@ -84,16 +84,35 @@ pub mod panel {
     pub const GLYPH_PREVIEW: Color = super::GLYPH_PREVIEW_COLOR;
 }
 
+/// Colors for toolbar buttons
+pub mod toolbar {
+    use super::Color;
+    // Button background colors
+    pub const BUTTON_UNSELECTED: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Light gray
+    pub const BUTTON_SELECTED: Color = Color::from_rgb8(0x90, 0x90, 0x90);     // Very light gray (brightest)
+
+    // Icon color
+    pub const ICON: Color = Color::from_rgb8(0x40, 0x40, 0x40);  // Medium-dark gray
+}
+
 /// Colors and sizes for coordinate pane
 pub mod coord_pane {
     use super::Color;
     pub const GRID_LINE: Color = super::COORD_PANE_GRID_LINE;
     pub const TEXT: Color = super::COORD_PANE_TEXT;
 
+    // Dot colors - selected (same as editor points)
+    pub const DOT_SELECTED_INNER: Color = super::SELECTED_POINT_INNER;
+    pub const DOT_SELECTED_OUTER: Color = super::SELECTED_POINT_OUTER;
+
+    // Dot colors - unselected (gray)
+    pub const DOT_UNSELECTED_INNER: Color = Color::from_rgb8(90, 90, 90);
+    pub const DOT_UNSELECTED_OUTER: Color = Color::from_rgb8(40, 40, 40);
+
     // Sizes (matching Runebender)
     pub const PADDING: f64 = 16.0;  // Increased from 8px for more even margins
     pub const SELECTOR_SIZE: f64 = 64.0;  // Reduced from 64px to fit with larger padding
-    pub const DOT_RADIUS: f64 = 8.0;  // Reduced from 6px for smaller circles
+    pub const DOT_RADIUS: f64 = 10.0;  // Reduced from 6px for smaller circles
     pub const STROKE_WIDTH: f64 = 1.0;  // Match container outline width
 }
 

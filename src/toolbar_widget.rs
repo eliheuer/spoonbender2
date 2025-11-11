@@ -24,11 +24,11 @@ const ITEM_STROKE_WIDTH: f64 = 1.5;
 const BUTTON_RADIUS: f64 = 6.0;  // Rounded corner radius
 const BORDER_WIDTH: f64 = 1.5;  // Border thickness for buttons and panel
 
-/// Toolbar colors
-const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND;           // Panel background (shared)
-const COLOR_UNSELECTED: Color = Color::from_rgb8(0xA8, 0xA8, 0xA8);  // Light gray buttons
-const COLOR_SELECTED: Color = Color::from_rgb8(0xD8, 0xD8, 0xD8);     // Very light gray when selected (brightest)
-const COLOR_ICON: Color = Color::from_rgb8(0x40, 0x40, 0x40);  // Medium-dark gray icons
+/// Toolbar colors (from theme)
+const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND;           // Panel background
+const COLOR_UNSELECTED: Color = crate::theme::toolbar::BUTTON_UNSELECTED;  // Unselected buttons
+const COLOR_SELECTED: Color = crate::theme::toolbar::BUTTON_SELECTED;      // Selected button
+const COLOR_ICON: Color = crate::theme::toolbar::ICON;                     // Icon color
 const COLOR_PANEL_BORDER: Color = crate::theme::panel::OUTLINE;       // Panel container border
 const COLOR_BUTTON_BORDER: Color = crate::theme::panel::BUTTON_OUTLINE; // Toolbar button borders
 
