@@ -4,16 +4,18 @@
 //! Glyph editor widget - the main canvas for editing glyphs
 
 use crate::edit_session::EditSession;
+use crate::edit_type::EditType;
 use crate::glyph_renderer;
 use crate::mouse::{Mouse, MouseButton, MouseEvent as MouseEvt};
 use crate::point::PointType;
 use crate::theme;
+use crate::undo::UndoState;
 use kurbo::{Affine, Circle, Point, Rect as KurboRect, Shape, Stroke};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
     AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, NoAction, PaintCtx,
     PointerButton, PointerButtonEvent, PointerEvent, PointerUpdate,
-    PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+    PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
 use masonry::util::fill_color;
@@ -31,6 +33,12 @@ pub struct EditorWidget {
 
     /// Canvas size
     size: Size,
+
+    /// Undo/redo state
+    undo: UndoState<EditSession>,
+
+    /// The last edit type (for grouping consecutive edits)
+    last_edit_type: Option<EditType>,
 }
 
 impl EditorWidget {
@@ -42,6 +50,8 @@ impl EditorWidget {
             session: (*session).clone(),
             mouse: Mouse::new(),
             size: Size::new(800.0, 600.0),
+            undo: UndoState::new(),
+            last_edit_type: None,
         }
     }
 
@@ -49,6 +59,41 @@ impl EditorWidget {
     pub fn with_size(mut self, size: Size) -> Self {
         self.size = size;
         self
+    }
+
+    /// Record an edit operation for undo
+    ///
+    /// This manages undo grouping:
+    /// - If the edit type matches the last edit, update the current undo group
+    /// - If the edit type is different, create a new undo group
+    fn record_edit(&mut self, edit_type: EditType) {
+        match self.last_edit_type {
+            Some(last) if last == edit_type => {
+                // Same edit type - update current undo group
+                self.undo.update_current_undo(self.session.clone());
+            }
+            _ => {
+                // Different edit type or first edit - create new undo group
+                self.undo.add_undo_group(self.session.clone());
+                self.last_edit_type = Some(edit_type);
+            }
+        }
+    }
+
+    /// Undo the last edit
+    fn undo(&mut self) {
+        if let Some(previous) = self.undo.undo(self.session.clone()) {
+            self.session = previous;
+            println!("Undo: restored previous state");
+        }
+    }
+
+    /// Redo the last undone edit
+    fn redo(&mut self) {
+        if let Some(next) = self.undo.redo(self.session.clone()) {
+            self.session = next;
+            println!("Redo: restored next state");
+        }
     }
 }
 
@@ -163,10 +208,20 @@ impl Widget for EditorWidget {
             PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
                 ctx.capture_pointer();
                 let local_pos = ctx.local_position(state.position);
-                println!("EditorWidget: PointerEvent::Down at {:?}", local_pos);
+
+                // Extract modifier keys from pointer state
+                // state.modifiers is keyboard_types::Modifiers from ui-events crate
+                use crate::mouse::Modifiers;
+                let mods = Modifiers {
+                    shift: state.modifiers.shift(),
+                    ctrl: state.modifiers.ctrl(),
+                    alt: state.modifiers.alt(),
+                    meta: state.modifiers.meta(),
+                };
+                println!("Down event: shift={} ctrl={} alt={} meta={}", mods.shift, mods.ctrl, mods.alt, mods.meta);
 
                 // Create MouseEvent for our mouse state machine
-                let mouse_event = MouseEvent::new(local_pos, Some(MouseButton::Left));
+                let mouse_event = MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
 
                 // Temporarily take ownership of the tool to avoid borrow conflicts
                 let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
@@ -195,12 +250,28 @@ impl Widget for EditorWidget {
             PointerEvent::Up(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
                 let local_pos = ctx.local_position(state.position);
 
-                // Create MouseEvent
-                let mouse_event = MouseEvent::new(local_pos, Some(MouseButton::Left));
+                // Extract modifier keys from pointer state
+                use crate::mouse::Modifiers;
+                let mods = Modifiers {
+                    shift: state.modifiers.shift(),
+                    ctrl: state.modifiers.ctrl(),
+                    alt: state.modifiers.alt(),
+                    meta: state.modifiers.meta(),
+                };
+                println!("Up event: shift={} ctrl={} alt={} meta={}", mods.shift, mods.ctrl, mods.alt, mods.meta);
+
+                // Create MouseEvent with modifiers
+                let mouse_event = MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
 
                 // Temporarily take ownership of the tool
                 let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
                 self.mouse.mouse_up(mouse_event, &mut tool, &mut self.session);
+
+                // Record undo if an edit occurred
+                if let Some(edit_type) = tool.edit_type() {
+                    self.record_edit(edit_type);
+                }
+
                 self.session.current_tool = tool;
 
                 ctx.release_pointer();
@@ -216,6 +287,106 @@ impl Widget for EditorWidget {
                 ctx.request_render();
             }
 
+            _ => {}
+        }
+    }
+
+    fn on_text_event(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        _props: &mut PropertiesMut<'_>,
+        event: &TextEvent,
+    ) {
+        use masonry::core::keyboard::{Key, KeyState, NamedKey};
+
+        match event {
+            TextEvent::Keyboard(key_event) => {
+                println!("EditorWidget: Keyboard event key={:?} state={:?}", key_event.key, key_event.state);
+
+                // Only handle key down events
+                if key_event.state != KeyState::Down {
+                    return;
+                }
+
+                // Check for keyboard shortcuts
+                let cmd = key_event.modifiers.meta() || key_event.modifiers.ctrl();
+                let shift = key_event.modifiers.shift();
+
+                // Undo/Redo
+                if cmd && matches!(&key_event.key, Key::Character(c) if c == "z") {
+                    if shift {
+                        // Cmd+Shift+Z = Redo
+                        self.redo();
+                        ctx.request_render();
+                        ctx.set_handled();
+                        return;
+                    } else {
+                        // Cmd+Z = Undo
+                        self.undo();
+                        ctx.request_render();
+                        ctx.set_handled();
+                        return;
+                    }
+                }
+
+                // Delete selected points (Backspace or Delete key)
+                if matches!(&key_event.key, Key::Named(NamedKey::Backspace) | Key::Named(NamedKey::Delete)) {
+                    self.session.delete_selection();
+                    self.record_edit(EditType::Normal);
+                    ctx.request_render();
+                    ctx.set_handled();
+                    return;
+                }
+
+                // Toggle point type (T key)
+                if matches!(&key_event.key, Key::Character(c) if c == "t") {
+                    self.session.toggle_point_type();
+                    self.record_edit(EditType::Normal);
+                    ctx.request_render();
+                    ctx.set_handled();
+                    return;
+                }
+
+                // Reverse contours (R key)
+                if matches!(&key_event.key, Key::Character(c) if c == "r") {
+                    self.session.reverse_contours();
+                    self.record_edit(EditType::Normal);
+                    ctx.request_render();
+                    ctx.set_handled();
+                    return;
+                }
+
+                // Handle arrow keys for nudging
+                let (dx, dy) = match &key_event.key {
+                    Key::Named(NamedKey::ArrowLeft) => {
+                        println!("Arrow Left pressed");
+                        (-1.0, 0.0)
+                    }
+                    Key::Named(NamedKey::ArrowRight) => {
+                        println!("Arrow Right pressed");
+                        (1.0, 0.0)
+                    }
+                    Key::Named(NamedKey::ArrowUp) => {
+                        println!("Arrow Up pressed");
+                        (0.0, 1.0)    // Design space: Y increases upward
+                    }
+                    Key::Named(NamedKey::ArrowDown) => {
+                        println!("Arrow Down pressed");
+                        (0.0, -1.0)  // Design space: Y increases upward
+                    }
+                    _ => return,
+                };
+
+                let shift = key_event.modifiers.shift();
+                let ctrl = key_event.modifiers.ctrl() || key_event.modifiers.meta();
+
+                println!("Nudging selection: dx={} dy={} shift={} ctrl={} selection_len={}",
+                    dx, dy, shift, ctrl, self.session.selection.len());
+
+                self.session.nudge_selection(dx, dy, shift, ctrl);
+                ctx.request_render();
+                ctx.set_handled();
+            }
             _ => {}
         }
     }

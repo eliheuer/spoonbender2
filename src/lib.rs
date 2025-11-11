@@ -6,14 +6,14 @@
 //! This is a port of Runebender from Druid to Xilem, using modern
 //! Linebender crates for rendering and UI.
 
-use masonry::properties::types::AsUnit;
+use masonry::properties::types::{AsUnit, UnitPoint};
 use masonry::vello::peniko::Color;
 use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, label, portal, sized_box};
-use xilem::{window, AppState as XilemAppState, EventLoopBuilder, WidgetView, WindowId, WindowView, Xilem};
+use xilem::view::{button, flex_col, flex_row, label, portal, sized_box, zstack, zstack_item, ChildAlignment, ZStackExt};
+use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
 mod cubic_path;
@@ -31,12 +31,16 @@ mod point;
 mod point_list;
 mod selection;
 mod theme;
+mod toolbar;
+mod toolbar_widget;
 mod tools;
+mod undo;
 mod workspace;
 
 use data::AppState;
 use editor_widget::editor_view;
 use glyph_widget::glyph_view;
+use toolbar_widget::toolbar_view;
 
 /// Entry point for the Spoonbender application
 pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
@@ -82,7 +86,7 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
         let window_id = *window_id;
         let window_title = format!("Edit: {}", glyph_name);
 
-        window(window_id, window_title, editor_view(session.clone()))
+        window(window_id, window_title, editor_window_view(session.clone()))
             .with_options(move |o| o.on_close(move |state: &mut AppState| {
                 state.close_editor(window_id);
             }))
@@ -92,6 +96,26 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
         .chain(editor_windows)
         .collect::<Vec<_>>()
         .into_iter()
+}
+
+/// Editor window view with toolbar floating over canvas
+fn editor_window_view(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
+    let current_tool = session.current_tool.id();
+
+    // Use zstack to layer the toolbar over the canvas
+    zstack((
+        // Background: the editor canvas (full screen)
+        editor_view(session),
+        // Foreground: floating toolbar positioned in top-left
+        sized_box(
+            toolbar_view(current_tool, |state: &mut AppState, tool_id| {
+                state.set_editor_tool(tool_id);
+            })
+        )
+        .width(372.px())  // Toolbar width (7 tools * 48px + 6 * 6px spacing)
+        .height(48.px())   // Toolbar height
+        .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.02, 0.02))),  // 2% from top-left (floating)
+    ))
 }
 
 /// Welcome screen shown when no font is loaded

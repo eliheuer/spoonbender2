@@ -85,8 +85,7 @@ pub trait Tool: MouseDelegate<Data = EditSession> {
 #[derive(Debug, Clone)]
 pub enum ToolBox {
     Select(select::SelectTool),
-    // Other tools will be added later
-    // Pen(pen::PenTool),
+    Pen(pen::PenTool),
     // Preview(preview::PreviewTool),
     // etc.
 }
@@ -96,6 +95,7 @@ impl ToolBox {
     pub fn for_id(id: ToolId) -> Self {
         match id {
             ToolId::Select => ToolBox::Select(select::SelectTool::default()),
+            ToolId::Pen => ToolBox::Pen(pen::PenTool::default()),
             _ => {
                 // For now, default to Select for unimplemented tools
                 eprintln!("Tool {:?} not yet implemented, using Select", id);
@@ -108,6 +108,7 @@ impl ToolBox {
     pub fn id(&self) -> ToolId {
         match self {
             ToolBox::Select(tool) => tool.id(),
+            ToolBox::Pen(tool) => tool.id(),
         }
     }
 
@@ -115,6 +116,7 @@ impl ToolBox {
     pub fn paint(&mut self, scene: &mut Scene, session: &EditSession, transform: &Affine) {
         match self {
             ToolBox::Select(tool) => tool.paint(scene, session, transform),
+            ToolBox::Pen(tool) => tool.paint(scene, session, transform),
         }
     }
 
@@ -122,6 +124,7 @@ impl ToolBox {
     pub fn edit_type(&self) -> Option<EditType> {
         match self {
             ToolBox::Select(tool) => tool.edit_type(),
+            ToolBox::Pen(tool) => tool.edit_type(),
         }
     }
 
@@ -129,6 +132,7 @@ impl ToolBox {
     pub fn mouse_down(&mut self, event: MouseEvent, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.left_down(event, session),
+            ToolBox::Pen(tool) => tool.left_down(event, session),
         }
     }
 
@@ -136,6 +140,7 @@ impl ToolBox {
     pub fn mouse_up(&mut self, event: MouseEvent, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.left_up(event, session),
+            ToolBox::Pen(tool) => tool.left_up(event, session),
         }
     }
 
@@ -143,6 +148,7 @@ impl ToolBox {
     pub fn mouse_moved(&mut self, event: MouseEvent, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.mouse_moved(event, session),
+            ToolBox::Pen(tool) => tool.mouse_moved(event, session),
         }
     }
 
@@ -150,6 +156,7 @@ impl ToolBox {
     pub fn drag_began(&mut self, event: MouseEvent, drag: Drag, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.left_drag_began(event, drag, session),
+            ToolBox::Pen(tool) => tool.left_drag_began(event, drag, session),
         }
     }
 
@@ -157,6 +164,7 @@ impl ToolBox {
     pub fn drag_changed(&mut self, event: MouseEvent, drag: Drag, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.left_drag_changed(event, drag, session),
+            ToolBox::Pen(tool) => tool.left_drag_changed(event, drag, session),
         }
     }
 
@@ -164,6 +172,7 @@ impl ToolBox {
     pub fn drag_ended(&mut self, event: MouseEvent, drag: Drag, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.left_drag_ended(event, drag, session),
+            ToolBox::Pen(tool) => tool.left_drag_ended(event, drag, session),
         }
     }
 
@@ -171,6 +180,7 @@ impl ToolBox {
     pub fn cancel(&mut self, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.cancel(session),
+            ToolBox::Pen(tool) => tool.cancel(session),
         }
     }
 }
@@ -190,12 +200,14 @@ impl MouseDelegate for ToolBox {
     fn left_click(&mut self, event: MouseEvent, data: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.left_click(event, data),
+            ToolBox::Pen(tool) => tool.left_click(event, data),
         }
     }
 
     fn mouse_moved(&mut self, event: MouseEvent, data: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.mouse_moved(event, data),
+            ToolBox::Pen(tool) => tool.mouse_moved(event, data),
         }
     }
 
@@ -214,9 +226,11 @@ impl MouseDelegate for ToolBox {
     fn cancel(&mut self, data: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.cancel(data),
+            ToolBox::Pen(tool) => tool.cancel(data),
         }
     }
 }
 
 // Tool modules
 pub mod select;
+pub mod pen;

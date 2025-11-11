@@ -227,4 +227,93 @@ impl EditSession {
             }
         }
     }
+
+    /// Nudge selected points in a direction
+    ///
+    /// Nudge amounts:
+    /// - Normal: 1 unit
+    /// - Shift: 10 units
+    /// - Cmd/Ctrl: 100 units
+    pub fn nudge_selection(&mut self, dx: f64, dy: f64, shift: bool, ctrl: bool) {
+        let multiplier = if ctrl {
+            100.0
+        } else if shift {
+            10.0
+        } else {
+            1.0
+        };
+
+        let delta = kurbo::Vec2::new(dx * multiplier, dy * multiplier);
+        self.move_selection(delta);
+    }
+
+    /// Delete selected points
+    ///
+    /// This removes selected points from paths. If all points in a path are
+    /// deleted, the entire path is removed.
+    pub fn delete_selection(&mut self) {
+        if self.selection.is_empty() {
+            return;
+        }
+
+        // Get mutable access to paths
+        let paths_vec = Arc::make_mut(&mut self.paths);
+
+        // Filter out paths that become empty after deletion
+        paths_vec.retain_mut(|path| {
+            match path {
+                Path::Cubic(cubic) => {
+                    // Remove selected points
+                    let points = cubic.points.make_mut();
+                    points.retain(|point| !self.selection.contains(&point.id));
+
+                    // Keep path only if it has at least 2 points
+                    points.len() >= 2
+                }
+            }
+        });
+
+        // Clear selection since deleted points are gone
+        self.selection = Selection::new();
+    }
+
+    /// Toggle point type between smooth and corner for selected on-curve points
+    pub fn toggle_point_type(&mut self) {
+        if self.selection.is_empty() {
+            return;
+        }
+
+        let paths_vec = Arc::make_mut(&mut self.paths);
+
+        for path in paths_vec.iter_mut() {
+            match path {
+                Path::Cubic(cubic) => {
+                    let points = cubic.points.make_mut();
+
+                    for point in points.iter_mut() {
+                        if self.selection.contains(&point.id) {
+                            // Only toggle on-curve points
+                            if let crate::point::PointType::OnCurve { smooth } = &mut point.typ {
+                                *smooth = !*smooth;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Reverse the direction of all paths
+    pub fn reverse_contours(&mut self) {
+        let paths_vec = Arc::make_mut(&mut self.paths);
+
+        for path in paths_vec.iter_mut() {
+            match path {
+                Path::Cubic(cubic) => {
+                    let points = cubic.points.make_mut();
+                    points.reverse();
+                }
+            }
+        }
+    }
 }

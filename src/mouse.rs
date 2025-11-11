@@ -19,6 +19,15 @@ pub enum MouseButton {
     Other,
 }
 
+/// Modifier keys state
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Modifiers {
+    pub shift: bool,
+    pub ctrl: bool,
+    pub alt: bool,
+    pub meta: bool,
+}
+
 /// A mouse event with position
 #[derive(Debug, Clone, Copy)]
 pub struct MouseEvent {
@@ -26,12 +35,23 @@ pub struct MouseEvent {
     pub pos: Point,
     /// Which button (if any)
     pub button: Option<MouseButton>,
+    /// Modifier keys
+    pub mods: Modifiers,
 }
 
 impl MouseEvent {
     /// Create a new mouse event
     pub fn new(pos: Point, button: Option<MouseButton>) -> Self {
-        Self { pos, button }
+        Self {
+            pos,
+            button,
+            mods: Modifiers::default(),
+        }
+    }
+
+    /// Create a new mouse event with modifiers
+    pub fn with_modifiers(pos: Point, button: Option<MouseButton>, mods: Modifiers) -> Self {
+        Self { pos, button, mods }
     }
 }
 
@@ -129,11 +149,9 @@ impl Mouse {
         delegate: &mut T,
         data: &mut T::Data,
     ) {
-        println!("Mouse::mouse_up state={:?}", self.state);
         match self.state {
             MouseState::Down => {
                 // It was a click (not a drag)
-                println!("Mouse: detected click!");
                 match event.button {
                     Some(MouseButton::Left) => {
                         delegate.left_up(event, data);

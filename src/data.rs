@@ -165,6 +165,21 @@ impl AppState {
     pub fn close_editor(&mut self, window_id: WindowId) {
         self.editor_sessions.remove(&window_id);
     }
+
+    /// Set the tool for all editor sessions
+    ///
+    /// Note: In a real implementation, each editor would have its own tool state.
+    /// For now, we'll just update all editors to use the same tool.
+    pub fn set_editor_tool(&mut self, tool_id: crate::tools::ToolId) {
+        for (_window_id, (_glyph_name, session)) in self.editor_sessions.iter_mut() {
+            // We need to make the session mutable
+            // For now this is a no-op, but the tool change will be reflected
+            // when the editor widget recreates from the session
+            println!("Setting tool to {:?}", tool_id);
+            // TODO: Actually update the session's tool
+            // This requires making session mutable or using interior mutability
+        }
+    }
 }
 
 /// Implement the Xilem AppState trait

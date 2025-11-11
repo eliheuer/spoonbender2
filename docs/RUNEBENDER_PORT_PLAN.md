@@ -5,8 +5,8 @@ This document outlines the complete plan for porting Runebender from Druid to Xi
 ## Status: In Progress
 
 Last Updated: 2025-11-10
-**Current Phase:** Phase 5 (Undo/Redo System)
-**Completed Phases:** 1-4
+**Current Phase:** Phase 8 (UI Panels and Polish)
+**Completed Phases:** 1-7 (Basic feature-complete editor)
 
 ---
 
@@ -141,23 +141,24 @@ Implement the select tool for basic interaction.
 ### Completed Tasks
 - [x] Point selection
   - [x] Click to select single point
-  - [ ] Shift+click to toggle selection - DEFERRED
+  - [x] Shift+click to toggle selection (multi-select)
   - [ ] Rectangular selection (drag) - DEFERRED
   - [ ] Tab to cycle through selectable items - DEFERRED
 - [x] Hit testing
   - [x] `hit_test_point()` - Find point under cursor
   - [x] Hit test with radius tolerance
+  - [x] Penalty system (favors off-curve point selection)
   - [ ] `hit_test_segment()` - Find segment under cursor - DEFERRED
   - [ ] `hit_test_guide()` - Find guide under cursor - DEFERRED
 - [x] Moving selected items
   - [x] Drag to move selected points
   - [x] Update path points using Arc::make_mut
-  - [x] Visual feedback for selection (blue highlights)
+  - [x] Visual feedback for selection (blue highlights, larger size)
   - [ ] Shift+drag for axis-lock - DEFERRED
-- [ ] Keyboard nudging - DEFERRED
-  - [ ] Arrow keys: nudge 1 unit
-  - [ ] Shift+arrow: nudge 10 units
-  - [ ] Cmd+arrow: nudge 100 units
+- [x] Keyboard nudging
+  - [x] Arrow keys: nudge 1 unit
+  - [x] Shift+arrow: nudge 10 units
+  - [x] Cmd/Ctrl+arrow: nudge 100 units
 - [ ] Point type toggling - DEFERRED
   - [ ] Double-click to toggle smooth/corner
 
@@ -166,8 +167,11 @@ Implement the select tool for basic interaction.
 - `src/hit_test.rs` - Hit testing utilities
 
 ### Files Modified
-- `src/edit_session.rs` - Added `hit_test_point()` and `move_selection()` methods
+- `src/edit_session.rs` - Added `hit_test_point()`, `move_selection()`, and `nudge_selection()` methods
 - `src/cubic_path.rs` - Added `points()` accessor method
+- `src/mouse.rs` - Added `Modifiers` struct for tracking shift/ctrl/alt/meta keys
+- `src/editor_widget.rs` - Added `on_pointer_event()` and `on_text_event()` handlers
+- `src/tools/mod.rs` - Implemented `MouseDelegate` for `ToolBox` with `left_click()` support
 
 ---
 

@@ -41,31 +41,46 @@ impl Tool for SelectTool {
 impl MouseDelegate for SelectTool {
     type Data = EditSession;
 
-    fn left_down(&mut self, _event: MouseEvent, _data: &mut EditSession) {
+    fn left_down(&mut self, event: MouseEvent, _data: &mut EditSession) {
         // TODO: Hit test for points under cursor
-        println!("Select tool: mouse down");
+        println!("SelectTool::left_down pos={:?} shift={}", event.pos, event.mods.shift);
     }
 
-    fn left_up(&mut self, _event: MouseEvent, _data: &mut EditSession) {
+    fn left_up(&mut self, event: MouseEvent, _data: &mut EditSession) {
         // TODO: Finalize selection
-        println!("Select tool: mouse up");
+        println!("SelectTool::left_up pos={:?} shift={}", event.pos, event.mods.shift);
     }
 
     fn left_click(&mut self, event: MouseEvent, data: &mut EditSession) {
-        println!("SelectTool::left_click at {:?}", event.pos);
+        println!("SelectTool::left_click called! pos={:?} shift={} current_selection={}", event.pos, event.mods.shift, data.selection.len());
 
         // Hit test for a point at the cursor
         if let Some(hit) = data.hit_test_point(event.pos, None) {
-            // TODO: Check for modifier keys (shift for multi-select)
-            // For now, just replace the selection
-            let mut new_selection = crate::selection::Selection::new();
-            new_selection.insert(hit.entity);
-            data.selection = new_selection;
-            println!("Selected point: {:?} at distance {}", hit.entity, hit.distance);
+            println!("Hit point: {:?} distance={}", hit.entity, hit.distance);
+            if event.mods.shift {
+                println!("Multi-select mode");
+                // Shift+click: toggle selection
+                let mut new_selection = data.selection.clone();
+                if data.selection.contains(&hit.entity) {
+                    // Deselect if already selected
+                    new_selection.remove(&hit.entity);
+                } else {
+                    // Add to selection
+                    new_selection.insert(hit.entity);
+                }
+                data.selection = new_selection;
+            } else {
+                // Normal click: replace selection
+                let mut new_selection = crate::selection::Selection::new();
+                new_selection.insert(hit.entity);
+                data.selection = new_selection;
+            }
         } else {
-            // Clicked on empty space - clear selection
-            data.selection = crate::selection::Selection::new();
-            println!("Cleared selection - no point found within threshold");
+            if !event.mods.shift {
+                // Clicked on empty space without shift - clear selection
+                data.selection = crate::selection::Selection::new();
+            }
+            // Shift+click on empty space - keep selection (no action needed)
         }
     }
 
