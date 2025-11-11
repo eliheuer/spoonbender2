@@ -12,7 +12,7 @@ use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, label, portal, sized_box, zstack, zstack_item, ChildAlignment, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -103,21 +103,32 @@ fn editor_window_view(session: Arc<crate::edit_session::EditSession>) -> impl Wi
     let current_tool = session.current_tool.id();
     let glyph_name = session.glyph_name.clone();
 
+    const MARGIN: f64 = 16.0; // Fixed 16px margin for all panels
+
     // Use zstack to layer UI elements over the canvas
     zstack((
         // Background: the editor canvas (full screen)
         editor_view(session.clone()),
-        // Foreground: floating toolbar positioned in top-left
-        toolbar_view(current_tool, |state: &mut AppState, tool_id| {
-            state.set_editor_tool(tool_id);
-        })
-        .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.03, 0.03))),  // 3% from top-left (equal margins)
-        // Bottom-left: glyph preview pane
-        glyph_preview_pane(session.clone(), glyph_name.clone())
-            .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.03, 0.97))),  // Bottom-left corner
-        // Bottom-right: coordinate info pane
-        coordinate_info_pane(session.clone())
-            .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.97, 0.97))),  // Bottom-right corner
+        // Foreground: floating toolbar positioned in top-left with fixed margin
+        transformed(
+            toolbar_view(current_tool, |state: &mut AppState, tool_id| {
+                state.set_editor_tool(tool_id);
+            })
+        )
+        .translate((MARGIN, MARGIN))
+        .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_LEFT)),
+        // Bottom-left: glyph preview pane with fixed margin
+        transformed(
+            glyph_preview_pane(session.clone(), glyph_name.clone())
+        )
+        .translate((MARGIN, -MARGIN))
+        .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
+        // Bottom-right: coordinate info pane with fixed margin
+        transformed(
+            coordinate_info_pane(session.clone())
+        )
+        .translate((-MARGIN, -MARGIN))
+        .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
     ))
 }
 

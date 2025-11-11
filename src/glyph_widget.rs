@@ -82,7 +82,7 @@ impl Widget for GlyphWidget {
         // Calculate uniform scale based on UPM (units per em)
         // This ensures all glyphs are rendered at the same scale
         let scale = widget_size.height / self.upm;
-        let scale = scale * 0.75; // Add margins (25% padding)
+        let scale = scale * 1.0; // No padding - fill the space
 
         // Center the glyph horizontally based on its bounding box
         let scaled_width = bounds.width() * scale;
@@ -90,7 +90,7 @@ impl Widget for GlyphWidget {
 
         // Position baseline to center glyphs vertically (adjusted for better visual balance)
         // Lower percentage = baseline lower in cell = glyphs positioned lower
-        let baseline = widget_size.height * 0.08;
+        let baseline = widget_size.height * 0.02;
 
         // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
         // Create affine transformation: scale (with Y-flip) and translate
