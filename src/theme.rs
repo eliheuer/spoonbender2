@@ -20,6 +20,10 @@ const PANEL_OUTLINE: Color = Color::from_rgb8(0x60, 0x60, 0x60);
 const TOOLBAR_BUTTON_OUTLINE: Color = Color::from_rgb8(0x10, 0x10, 0x10);
 const GLYPH_PREVIEW_COLOR: Color = Color::from_rgb8(0x10, 0x10, 0x10);
 
+// Coordinate Pane specific
+const COORD_PANE_GRID_LINE: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Gray for grid lines
+const COORD_PANE_TEXT: Color = Color::from_rgb8(200, 200, 200);  // Light gray for text
+
 // ============================================================================
 // PATHS AND OUTLINES
 // ============================================================================
@@ -78,6 +82,19 @@ pub mod panel {
     pub const OUTLINE: Color = super::PANEL_OUTLINE;
     pub const BUTTON_OUTLINE: Color = super::TOOLBAR_BUTTON_OUTLINE;
     pub const GLYPH_PREVIEW: Color = super::GLYPH_PREVIEW_COLOR;
+}
+
+/// Colors and sizes for coordinate pane
+pub mod coord_pane {
+    use super::Color;
+    pub const GRID_LINE: Color = super::COORD_PANE_GRID_LINE;
+    pub const TEXT: Color = super::COORD_PANE_TEXT;
+
+    // Sizes (matching Runebender)
+    pub const PADDING: f64 = 16.0;  // Increased from 8px for more even margins
+    pub const SELECTOR_SIZE: f64 = 64.0;  // Reduced from 64px to fit with larger padding
+    pub const DOT_RADIUS: f64 = 8.0;  // Reduced from 6px for smaller circles
+    pub const STROKE_WIDTH: f64 = 1.0;  // Match container outline width
 }
 
 /// Colors for paths and outlines

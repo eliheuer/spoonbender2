@@ -20,32 +20,28 @@ use masonry::kurbo::Size;
 use masonry::vello::peniko::Color;
 use masonry::vello::Scene;
 
-/// Size constants for the coordinate pane
+/// Size constants for the coordinate pane - using theme
 const PANE_WIDTH: f64 = 240.0;
-const PANE_HEIGHT: f64 = 130.0;
-const PADDING: f64 = 8.0;
-const QUADRANT_PICKER_SIZE: f64 = 50.0;
-const DOT_RADIUS: f64 = 6.0;  // Bigger dots like Runebender
-const DOT_STROKE_WIDTH: f64 = 1.5;
-const ROW_HEIGHT: f64 = 24.0;
+const PANE_HEIGHT: f64 = 80.0;  // Matches container height
 const LABEL_WIDTH: f64 = 12.0;
 const VALUE_WIDTH: f64 = 50.0;
 
-/// Colors - matching the point colors from the editor
-const TEXT_COLOR: Color = Color::from_rgb8(200, 200, 200);
-// Selected quadrant dot uses the same yellow/orange as selected points
+// Import from theme
+use crate::theme::coord_pane::*;
+
+// Colors from theme - qualified references
 const DOT_SELECTED_INNER: Color = crate::theme::point::SELECTED_INNER;
 const DOT_SELECTED_OUTER: Color = crate::theme::point::SELECTED_OUTER;
-// Unselected quadrant dots are gray
 const DOT_UNSELECTED_INNER: Color = Color::from_rgb8(100, 100, 100);
 const DOT_UNSELECTED_OUTER: Color = Color::from_rgb8(70, 70, 70);
-const QUADRANT_FRAME_COLOR: Color = Color::from_rgb8(100, 100, 100);
 
 /// Coordinate pane widget
 pub struct CoordPaneWidget {
     coord_sel: CoordinateSelection,
     /// Which quadrant dot is currently being hovered (if any)
     hover_quadrant: Option<Quadrant>,
+    /// Current widget size (updated during layout)
+    widget_size: Size,
 }
 
 impl CoordPaneWidget {
@@ -53,16 +49,40 @@ impl CoordPaneWidget {
         Self {
             coord_sel,
             hover_quadrant: None,
+            widget_size: Size::ZERO,
         }
     }
 
     /// Get the bounds of the quadrant picker within the widget
+    ///
+    /// This calculates the selector size dynamically based on available space
+    /// to ensure it fits with proper margins on all sides.
     fn quadrant_picker_bounds(&self) -> Rect {
+        if self.widget_size.width == 0.0 || self.widget_size.height == 0.0 {
+            // Widget hasn't been laid out yet, use default size
+            return Rect::new(
+                PADDING,
+                PADDING,
+                PADDING + SELECTOR_SIZE,
+                PADDING + SELECTOR_SIZE,
+            );
+        }
+
+        // Calculate available space after accounting for padding
+        let available_width = self.widget_size.width - (PADDING * 2.0);
+        let available_height = self.widget_size.height - (PADDING * 2.0);
+
+        // Selector should be square, so use the smaller dimension
+        let selector_size = available_width.min(available_height);
+
+        // Center the selector vertically if there's extra vertical space
+        let top = PADDING + ((available_height - selector_size) / 2.0).max(0.0);
+
         Rect::new(
             PADDING,
-            PADDING,
-            PADDING + QUADRANT_PICKER_SIZE,
-            PADDING + QUADRANT_PICKER_SIZE,
+            top,
+            PADDING + selector_size,
+            top + selector_size,
         )
     }
 
@@ -84,6 +104,17 @@ impl CoordPaneWidget {
         }
     }
 
+    /// Calculate the dot radius based on the selector size
+    ///
+    /// This scales the dot radius proportionally to the selector size
+    /// to maintain consistent appearance at different sizes.
+    fn dot_radius(&self, bounds: Rect) -> f64 {
+        let selector_size = bounds.width();
+        // Scale dot radius based on selector size
+        // Default is 8.0 for 64.0 selector (8/64 = 0.125 ratio)
+        selector_size * (DOT_RADIUS / SELECTOR_SIZE)
+    }
+
     /// Determine which quadrant (if any) a point is hovering over
     fn quadrant_at_point(&self, point: Point) -> Option<Quadrant> {
         let bounds = self.quadrant_picker_bounds();
@@ -91,6 +122,8 @@ impl CoordPaneWidget {
         if !bounds.contains(point) {
             return None;
         }
+
+        let dot_radius = self.dot_radius(bounds);
 
         // Check all 9 quadrant dots
         for quadrant in &[
@@ -105,7 +138,7 @@ impl CoordPaneWidget {
             Quadrant::BottomRight,
         ] {
             let center = self.quadrant_dot_center(*quadrant, bounds);
-            let circle = Circle::new(center, DOT_RADIUS * 2.0); // Larger hit area
+            let circle = Circle::new(center, dot_radius * 2.0); // Larger hit area
             if circle.contains(point) {
                 return Some(*quadrant);
             }
@@ -137,7 +170,9 @@ impl Widget for CoordPaneWidget {
         _props: &mut PropertiesMut<'_>,
         bc: &BoxConstraints,
     ) -> Size {
-        bc.constrain(Size::new(PANE_WIDTH, PANE_HEIGHT))
+        // Store the widget size so we can use it in paint
+        self.widget_size = bc.constrain(Size::new(PANE_WIDTH, PANE_HEIGHT));
+        self.widget_size
     }
 
     fn on_pointer_event(
@@ -193,9 +228,10 @@ impl CoordPaneWidget {
     /// Paint the quadrant picker (3x3 grid of dots)
     fn paint_quadrant_picker(&self, scene: &mut Scene) {
         let bounds = self.quadrant_picker_bounds();
+        let dot_radius = self.dot_radius(bounds);
 
-        // Draw frame around picker
-        masonry::util::stroke(scene, &bounds, QUADRANT_FRAME_COLOR, 1.0);
+        // Draw frame around picker using theme stroke width
+        masonry::util::stroke(scene, &bounds, GRID_LINE, STROKE_WIDTH);
 
         // Draw grid lines (horizontal and vertical lines forming 3x3 grid)
         let center_x = bounds.center().x;
@@ -229,13 +265,13 @@ impl CoordPaneWidget {
             kurbo::Point::new(bounds.max_x(), bounds.max_y()),
         );
 
-        // Draw all grid lines
-        masonry::util::stroke(scene, &h_line_top, QUADRANT_FRAME_COLOR, 1.0);
-        masonry::util::stroke(scene, &h_line_middle, QUADRANT_FRAME_COLOR, 1.0);
-        masonry::util::stroke(scene, &h_line_bottom, QUADRANT_FRAME_COLOR, 1.0);
-        masonry::util::stroke(scene, &v_line_left, QUADRANT_FRAME_COLOR, 1.0);
-        masonry::util::stroke(scene, &v_line_middle, QUADRANT_FRAME_COLOR, 1.0);
-        masonry::util::stroke(scene, &v_line_right, QUADRANT_FRAME_COLOR, 1.0);
+        // Draw all grid lines using theme stroke width
+        masonry::util::stroke(scene, &h_line_top, GRID_LINE, STROKE_WIDTH);
+        masonry::util::stroke(scene, &h_line_middle, GRID_LINE, STROKE_WIDTH);
+        masonry::util::stroke(scene, &h_line_bottom, GRID_LINE, STROKE_WIDTH);
+        masonry::util::stroke(scene, &v_line_left, GRID_LINE, STROKE_WIDTH);
+        masonry::util::stroke(scene, &v_line_middle, GRID_LINE, STROKE_WIDTH);
+        masonry::util::stroke(scene, &v_line_right, GRID_LINE, STROKE_WIDTH);
 
         // Draw all 9 quadrant dots with two-tone style like editor points
         for quadrant in &[
@@ -258,24 +294,24 @@ impl CoordPaneWidget {
                 (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER)
             };
 
-            // Draw outer circle
-            let outer_circle = Circle::new(center, DOT_RADIUS);
+            // Draw two-tone filled circles (no outline stroke needed)
+            // Outer circle - use calculated dot radius
+            let outer_circle = Circle::new(center, dot_radius);
             masonry::util::fill_color(scene, &outer_circle, outer_color);
 
-            // Draw inner circle (slightly smaller)
-            let inner_circle = Circle::new(center, DOT_RADIUS * 0.6);
+            // Inner circle (slightly smaller)
+            let inner_circle = Circle::new(center, dot_radius * 0.6);
             masonry::util::fill_color(scene, &inner_circle, inner_color);
-
-            // Draw outline
-            masonry::util::stroke(scene, &outer_circle, outer_color, DOT_STROKE_WIDTH);
         }
     }
 
     /// Paint the coordinate values (x, y, w, h)
     fn paint_coordinates(&self, scene: &mut Scene) {
+        let bounds = self.quadrant_picker_bounds();
+
         // Calculate positions for labels and values
         // Quadrant picker is always shown, so coordinates always go to the right of it
-        let label_x = PADDING + QUADRANT_PICKER_SIZE + PADDING;
+        let label_x = bounds.max_x() + PADDING;
         let value_x = label_x + LABEL_WIDTH + 4.0;
 
         // Get coordinate values
@@ -300,20 +336,22 @@ impl CoordPaneWidget {
 
         // For now, we'll just draw placeholder boxes where text would go
         // Full text rendering would require using the text API
-        let y_offset = PADDING + 4.0;
+        // Calculate row height based on selector size (4 rows in the selector height)
+        let row_height = bounds.height() / 4.0;
+        let y_offset = bounds.min_y() + 4.0;
 
         // Draw labels: x, y, w, h
         self.draw_text_placeholder(scene, label_x, y_offset, "x");
         self.draw_text_placeholder(scene, value_x, y_offset, &x_text);
 
-        self.draw_text_placeholder(scene, label_x, y_offset + ROW_HEIGHT, "y");
-        self.draw_text_placeholder(scene, value_x, y_offset + ROW_HEIGHT, &y_text);
+        self.draw_text_placeholder(scene, label_x, y_offset + row_height, "y");
+        self.draw_text_placeholder(scene, value_x, y_offset + row_height, &y_text);
 
-        self.draw_text_placeholder(scene, label_x, y_offset + ROW_HEIGHT * 2.0, "w");
-        self.draw_text_placeholder(scene, value_x, y_offset + ROW_HEIGHT * 2.0, &w_text);
+        self.draw_text_placeholder(scene, label_x, y_offset + row_height * 2.0, "w");
+        self.draw_text_placeholder(scene, value_x, y_offset + row_height * 2.0, &w_text);
 
-        self.draw_text_placeholder(scene, label_x, y_offset + ROW_HEIGHT * 3.0, "h");
-        self.draw_text_placeholder(scene, value_x, y_offset + ROW_HEIGHT * 3.0, &h_text);
+        self.draw_text_placeholder(scene, label_x, y_offset + row_height * 3.0, "h");
+        self.draw_text_placeholder(scene, value_x, y_offset + row_height * 3.0, &h_text);
     }
 
     /// Draw text using simple rectangle representation for now
@@ -326,7 +364,7 @@ impl CoordPaneWidget {
 
         // Fill with a lighter color to make it visible
         masonry::util::fill_color(scene, &rect, Color::from_rgb8(150, 150, 200));
-        masonry::util::stroke(scene, &rect, TEXT_COLOR, 0.5);
+        masonry::util::stroke(scene, &rect, TEXT, 0.5);
     }
 }
 

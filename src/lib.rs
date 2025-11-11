@@ -307,9 +307,10 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 /// Coordinate info pane showing x, y, width, height of selection
 fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
     // Use the new coord_pane_view with the session's coordinate selection
+    // Height should fit the 64px selector + 16px padding (8px top + 8px bottom) = 80px
     sized_box(coord_pane_view(session.coord_selection))
         .width(240.px())
-        .height(130.px())
+        .height(80.px())
         .background_color(theme::panel::BACKGROUND)
         .border_color(theme::panel::OUTLINE)
         .border_width(1.5)
