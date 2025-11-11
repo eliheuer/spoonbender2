@@ -107,14 +107,10 @@ fn editor_window_view(session: Arc<crate::edit_session::EditSession>) -> impl Wi
         // Background: the editor canvas (full screen)
         editor_view(session),
         // Foreground: floating toolbar positioned in top-left
-        sized_box(
-            toolbar_view(current_tool, |state: &mut AppState, tool_id| {
-                state.set_editor_tool(tool_id);
-            })
-        )
-        .width(372.px())  // Toolbar width (7 tools * 48px + 6 * 6px spacing)
-        .height(48.px())   // Toolbar height
-        .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.02, 0.02))),  // 2% from top-left (floating)
+        toolbar_view(current_tool, |state: &mut AppState, tool_id| {
+            state.set_editor_tool(tool_id);
+        })
+        .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.03, 0.03))),  // 3% from top-left (equal margins)
     ))
 }
 

@@ -18,15 +18,18 @@ use masonry::vello::Scene;
 /// Toolbar dimensions
 const TOOLBAR_ITEM_SIZE: f64 = 48.0;
 const TOOLBAR_ITEM_SPACING: f64 = 6.0;  // Space between buttons
+const TOOLBAR_PADDING: f64 = 4.0;  // Padding around the entire toolbar
 const ICON_PADDING: f64 = 8.0;
 const ITEM_STROKE_WIDTH: f64 = 1.5;
 const BUTTON_RADIUS: f64 = 6.0;  // Rounded corner radius
+const BORDER_WIDTH: f64 = 1.5;  // Border thickness for buttons and panel
 
 /// Toolbar colors
-const COLOR_UNSELECTED: Color = Color::from_rgb8(0xE8, 0xE8, 0xE8);  // Light gray
-const COLOR_SELECTED: Color = Color::from_rgb8(0xB0, 0xB0, 0xB0);     // Medium gray when selected
-const COLOR_ICON: Color = Color::BLACK;  // Black icons
-const COLOR_BORDER: Color = Color::from_rgb8(0x80, 0x80, 0x80);  // Gray border
+const COLOR_PANEL: Color = Color::from_rgb8(0x90, 0x90, 0x90);        // Medium-light gray panel
+const COLOR_UNSELECTED: Color = Color::from_rgb8(0xA8, 0xA8, 0xA8);  // Light gray buttons
+const COLOR_SELECTED: Color = Color::from_rgb8(0xD8, 0xD8, 0xD8);     // Very light gray when selected (brightest)
+const COLOR_ICON: Color = Color::BLACK;  // Dark icons (works on both selected and unselected)
+const COLOR_BORDER: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Medium-dark border
 
 /// Available tools in display order
 const TOOLBAR_TOOLS: &[ToolId] = &[
@@ -65,8 +68,9 @@ impl ToolbarWidget {
 
     /// Get the rect for a tool button by index
     fn button_rect(&self, index: usize) -> Rect {
-        let x = index as f64 * (TOOLBAR_ITEM_SIZE + TOOLBAR_ITEM_SPACING);
-        Rect::new(x, 0.0, x + TOOLBAR_ITEM_SIZE, TOOLBAR_ITEM_SIZE)
+        let x = TOOLBAR_PADDING + index as f64 * (TOOLBAR_ITEM_SIZE + TOOLBAR_ITEM_SPACING);
+        let y = TOOLBAR_PADDING;
+        Rect::new(x, y, x + TOOLBAR_ITEM_SIZE, y + TOOLBAR_ITEM_SIZE)
     }
 
     /// Find which tool was clicked
@@ -106,14 +110,29 @@ impl Widget for ToolbarWidget {
         _props: &mut PropertiesMut<'_>,
         bc: &BoxConstraints,
     ) -> Size {
-        // Calculate total width needed for all tools
+        // Calculate total width needed for all tools plus padding
         let num_tools = TOOLBAR_TOOLS.len();
-        let width = num_tools as f64 * TOOLBAR_ITEM_SIZE + (num_tools - 1) as f64 * TOOLBAR_ITEM_SPACING;
-        let size = Size::new(width, TOOLBAR_ITEM_SIZE);
+        let width = TOOLBAR_PADDING * 2.0 + num_tools as f64 * TOOLBAR_ITEM_SIZE + (num_tools - 1) as f64 * TOOLBAR_ITEM_SPACING;
+        let height = TOOLBAR_ITEM_SIZE + TOOLBAR_PADDING * 2.0;
+        let size = Size::new(width, height);
         bc.constrain(size)
     }
 
-    fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
+    fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
+        // Draw a solid background panel behind all buttons to prevent transparency issues
+        let size = ctx.size();
+        let panel_rect = size.to_rect();
+        let panel_rrect = kurbo::RoundedRect::from_rect(panel_rect, 8.0);
+
+        // Solid opaque background - darker than buttons but brighter than canvas
+        fill_color(scene, &panel_rrect, COLOR_PANEL);
+
+        // Draw panel border - inset slightly to prevent corner artifacts
+        let border_inset = BORDER_WIDTH / 2.0;
+        let inset_rect = panel_rect.inset(-border_inset);
+        let inset_rrect = kurbo::RoundedRect::from_rect(inset_rect, 8.0);
+        stroke(scene, &inset_rrect, COLOR_BORDER, BORDER_WIDTH);
+
         // Draw each toolbar button as a separate rounded rectangle
         for (i, &tool) in TOOLBAR_TOOLS.iter().enumerate() {
             let button_rect = self.button_rect(i);
@@ -126,14 +145,14 @@ impl Widget for ToolbarWidget {
             let bg_color = if is_selected { COLOR_SELECTED } else { COLOR_UNSELECTED };
             fill_color(scene, &button_rrect, bg_color);
 
-            // Draw button border
-            stroke(scene, &button_rrect, COLOR_BORDER, 1.0);
+            // Draw button border (thicker)
+            stroke(scene, &button_rrect, COLOR_BORDER, BORDER_WIDTH);
 
             // Draw icon
             let icon_path = Self::icon_for_tool(tool);
             let constrained_path = constrain_icon(icon_path, button_rect);
 
-            // Stroke icon (no fill, just outline)
+            // Stroke icon (no fill, just outline) - dark color for all buttons
             stroke(scene, &constrained_path, COLOR_ICON, ITEM_STROKE_WIDTH);
         }
     }
