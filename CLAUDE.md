@@ -165,3 +165,5 @@ flex_col
 - Project requires valid UFO v3 directory structure
 - Use existing font editor UFOs or UFO test files
 - Path must exist and be a valid UFO directory
+- **Recommended test file**: `~/FG/repos/virtua-grotesk/sources/VirtuaGrotesk-Regular.ufo`
+  - Run with: `cargo run -- ~/FG/repos/virtua-grotesk/sources/VirtuaGrotesk-Regular.ufo`

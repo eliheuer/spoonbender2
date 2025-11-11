@@ -69,16 +69,19 @@ impl MouseDelegate for SelectTool {
                     new_selection.insert(hit.entity);
                 }
                 data.selection = new_selection;
+                data.update_coord_selection();
             } else {
                 // Normal click: replace selection
                 let mut new_selection = crate::selection::Selection::new();
                 new_selection.insert(hit.entity);
                 data.selection = new_selection;
+                data.update_coord_selection();
             }
         } else {
             if !event.mods.shift {
                 // Clicked on empty space without shift - clear selection
                 data.selection = crate::selection::Selection::new();
+                data.update_coord_selection();
             }
             // Shift+click on empty space - keep selection (no action needed)
         }

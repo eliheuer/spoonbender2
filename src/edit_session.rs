@@ -6,10 +6,11 @@
 use crate::entity_id::EntityId;
 use crate::hit_test::{self, HitTestResult};
 use crate::path::Path;
+use crate::quadrant::Quadrant;
 use crate::selection::Selection;
 use crate::tools::{ToolBox, ToolId};
 use crate::workspace::Glyph;
-use kurbo::Point;
+use kurbo::{Point, Rect};
 use std::sync::Arc;
 
 /// Unique identifier for an editing session
@@ -83,6 +84,56 @@ impl Default for ViewPort {
     }
 }
 
+/// Coordinate selection information for displaying/editing point coordinates
+///
+/// This stores the bounding box of the current selection and which quadrant
+/// to use as the reference point for coordinate display.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoordinateSelection {
+    /// Number of points selected
+    pub count: usize,
+    /// Bounding box of the selection (in design space)
+    pub frame: Rect,
+    /// Which quadrant/anchor point to use for coordinate display
+    pub quadrant: Quadrant,
+}
+
+impl CoordinateSelection {
+    /// Create a new coordinate selection
+    pub fn new(count: usize, frame: Rect, quadrant: Quadrant) -> Self {
+        Self {
+            count,
+            frame,
+            quadrant,
+        }
+    }
+
+    /// Get the reference point based on the selected quadrant
+    pub fn reference_point(&self) -> Point {
+        self.quadrant.point_in_dspace_rect(self.frame)
+    }
+
+    /// Get the width of the selection
+    pub fn width(&self) -> f64 {
+        self.frame.width()
+    }
+
+    /// Get the height of the selection
+    pub fn height(&self) -> f64 {
+        self.frame.height()
+    }
+}
+
+impl Default for CoordinateSelection {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            frame: Rect::ZERO,
+            quadrant: Quadrant::default(),
+        }
+    }
+}
+
 /// Editing session for a single glyph
 ///
 /// This holds all the state needed to edit a glyph, including the
@@ -103,6 +154,9 @@ pub struct EditSession {
 
     /// Currently selected entities (points, paths, etc.)
     pub selection: Selection,
+
+    /// Coordinate selection (for the coordinate pane)
+    pub coord_selection: CoordinateSelection,
 
     /// Current editing tool
     pub current_tool: ToolBox,
@@ -142,6 +196,7 @@ impl EditSession {
             glyph: Arc::new(glyph),
             paths: Arc::new(paths),
             selection: Selection::new(),
+            coord_selection: CoordinateSelection::default(),
             current_tool: ToolBox::for_id(ToolId::Select),
             viewport: ViewPort::new(),
             units_per_em,
@@ -149,6 +204,51 @@ impl EditSession {
             descender,
             x_height,
             cap_height,
+        }
+    }
+
+    /// Compute the coordinate selection from the current selection
+    ///
+    /// This calculates the bounding box of all selected points and updates
+    /// the coord_selection field.
+    pub fn update_coord_selection(&mut self) {
+        if self.selection.is_empty() {
+            self.coord_selection = CoordinateSelection::default();
+            return;
+        }
+
+        // Calculate bounding box of selected points
+        let mut min_x = f64::INFINITY;
+        let mut max_x = f64::NEG_INFINITY;
+        let mut min_y = f64::INFINITY;
+        let mut max_y = f64::NEG_INFINITY;
+        let mut count = 0;
+
+        for path in self.paths.iter() {
+            match path {
+                crate::path::Path::Cubic(cubic) => {
+                    for pt in cubic.points.iter() {
+                        if self.selection.contains(&pt.id) {
+                            min_x = min_x.min(pt.point.x);
+                            max_x = max_x.max(pt.point.x);
+                            min_y = min_y.min(pt.point.y);
+                            max_y = max_y.max(pt.point.y);
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        if min_x.is_finite() {
+            let frame = Rect::new(min_x, min_y, max_x, max_y);
+            self.coord_selection = CoordinateSelection::new(
+                count,
+                frame,
+                self.coord_selection.quadrant, // Preserve the current quadrant selection
+            );
+        } else {
+            self.coord_selection = CoordinateSelection::default();
         }
     }
 

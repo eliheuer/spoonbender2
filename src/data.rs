@@ -180,6 +180,13 @@ impl AppState {
             // This requires making session mutable or using interior mutability
         }
     }
+
+    /// Set the coordinate quadrant for an editor session
+    pub fn set_coord_quadrant(&mut self, _window_id: WindowId, quadrant: crate::quadrant::Quadrant) {
+        // TODO: Update the specific session's coordinate quadrant
+        // For now, just log it
+        println!("Setting coordinate quadrant to {:?}", quadrant);
+    }
 }
 
 /// Implement the Xilem AppState trait

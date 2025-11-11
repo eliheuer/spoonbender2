@@ -16,6 +16,7 @@ use xilem::view::{button, flex_col, flex_row, label, portal, sized_box, transfor
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
+mod coord_pane_widget;
 mod cubic_path;
 mod data;
 mod edit_session;
@@ -29,6 +30,7 @@ mod mouse;
 mod path;
 mod point;
 mod point_list;
+mod quadrant;
 mod selection;
 mod theme;
 mod toolbar;
@@ -37,6 +39,7 @@ mod tools;
 mod undo;
 mod workspace;
 
+use coord_pane_widget::coord_pane_view;
 use data::AppState;
 use editor_widget::editor_view;
 use glyph_widget::glyph_view;
@@ -303,74 +306,14 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 
 /// Coordinate info pane showing x, y, width, height of selection
 fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
-    // Get info about the current selection
-    let (x_text, y_text, w_text, h_text) = if session.selection.is_empty() {
-        ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
-    } else {
-        // Get bounds of selected points
-        let mut min_x = f64::INFINITY;
-        let mut max_x = f64::NEG_INFINITY;
-        let mut min_y = f64::INFINITY;
-        let mut max_y = f64::NEG_INFINITY;
-
-        for path in session.paths.iter() {
-            match path {
-                crate::path::Path::Cubic(cubic) => {
-                    for pt in cubic.points.iter() {
-                        if session.selection.contains(&pt.id) {
-                            min_x = min_x.min(pt.point.x);
-                            max_x = max_x.max(pt.point.x);
-                            min_y = min_y.min(pt.point.y);
-                            max_y = max_y.max(pt.point.y);
-                        }
-                    }
-                }
-            }
-        }
-
-        if min_x.is_finite() {
-            let x = if session.selection.len() == 1 { min_x } else { min_x };
-            let y = if session.selection.len() == 1 { min_y } else { min_y };
-            let w = max_x - min_x;
-            let h = max_y - min_y;
-            (
-                format!("{:.0}", x),
-                format!("{:.0}", y),
-                format!("{:.0}", w),
-                format!("{:.0}", h),
-            )
-        } else {
-            ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
-        }
-    };
-
-    // Create the coordinate display grid - 3 columns with colored dots
-    sized_box(
-        flex_col((
-            // Row 1: Colored dots
-            flex_row((
-                sized_box(label("●").text_size(18.0)).width(32.px()),
-                sized_box(label("●").text_size(18.0)).width(32.px()),
-                sized_box(label("●").text_size(18.0)).width(32.px()),
-            )),
-            // Row 2: x, y, w values with larger text
-            flex_row((
-                sized_box(label(format!("x{}", x_text)).text_size(18.0)).width(80.px()),
-                sized_box(label(format!("y{}", y_text)).text_size(18.0)).width(80.px()),
-                sized_box(label(format!("w{}", w_text)).text_size(18.0)).width(80.px()),
-            )),
-            // Row 3: h value
-            flex_row((
-                sized_box(label(format!("h{}", h_text)).text_size(18.0)).width(80.px()),
-            )),
-        ))
-    )
-    .width(260.px())
-    .height(110.px())
-    .background_color(theme::panel::BACKGROUND)
-    .border_color(theme::panel::OUTLINE)
-    .border_width(1.5)
-    .corner_radius(8.0)
+    // Use the new coord_pane_view with the session's coordinate selection
+    sized_box(coord_pane_view(session.coord_selection))
+        .width(240.px())
+        .height(130.px())
+        .background_color(theme::panel::BACKGROUND)
+        .border_color(theme::panel::OUTLINE)
+        .border_width(1.5)
+        .corner_radius(8.0)
 }
 
 /// Individual glyph cell in the grid
