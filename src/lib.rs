@@ -101,16 +101,23 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
 /// Editor window view with toolbar floating over canvas
 fn editor_window_view(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
     let current_tool = session.current_tool.id();
+    let glyph_name = session.glyph_name.clone();
 
-    // Use zstack to layer the toolbar over the canvas
+    // Use zstack to layer UI elements over the canvas
     zstack((
         // Background: the editor canvas (full screen)
-        editor_view(session),
+        editor_view(session.clone()),
         // Foreground: floating toolbar positioned in top-left
         toolbar_view(current_tool, |state: &mut AppState, tool_id| {
             state.set_editor_tool(tool_id);
         })
         .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.03, 0.03))),  // 3% from top-left (equal margins)
+        // Bottom-left: glyph preview pane
+        glyph_preview_pane(session.clone(), glyph_name.clone())
+            .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.03, 0.97))),  // Bottom-left corner
+        // Bottom-right: coordinate info pane
+        coordinate_info_pane(session.clone())
+            .alignment(ChildAlignment::SelfAligned(UnitPoint::new(0.97, 0.97))),  // Bottom-right corner
     ))
 }
 
@@ -247,6 +254,111 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         // Wrap in portal for scrolling - now works because data is thread-safe!
         portal(flex_col(rows_of_cells)),
     ))
+}
+
+/// Glyph preview pane showing the rendered glyph
+fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name: String) -> impl WidgetView<AppState> + use<> {
+    // Get the glyph outline path from the session
+    let mut glyph_path = kurbo::BezPath::new();
+    for path in session.paths.iter() {
+        glyph_path.extend(path.to_bezpath());
+    }
+
+    // Make the preview larger to fill more space - only 20px for the label
+    let preview_size = 150.0;
+    let upm = session.ascender - session.descender;
+
+    sized_box(
+        flex_col((
+            // Glyph preview - use theme color
+            if !glyph_path.is_empty() {
+                Either::A(glyph_view(glyph_path.clone(), preview_size, preview_size, upm)
+                    .color(theme::panel::GLYPH_PREVIEW))
+            } else {
+                Either::B(label(""))
+            },
+            // Glyph name label - smaller height for less spacing
+            sized_box(label(glyph_name).text_size(12.0)).height(20.px()),
+        ))
+    )
+    .width(160.px())
+    .height(180.px())
+    .background_color(theme::panel::BACKGROUND)
+    .border_color(theme::panel::OUTLINE)
+    .border_width(1.5)
+    .corner_radius(8.0)
+}
+
+/// Coordinate info pane showing x, y, width, height of selection
+fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
+    // Get info about the current selection
+    let (x_text, y_text, w_text, h_text) = if session.selection.is_empty() {
+        ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
+    } else {
+        // Get bounds of selected points
+        let mut min_x = f64::INFINITY;
+        let mut max_x = f64::NEG_INFINITY;
+        let mut min_y = f64::INFINITY;
+        let mut max_y = f64::NEG_INFINITY;
+
+        for path in session.paths.iter() {
+            match path {
+                crate::path::Path::Cubic(cubic) => {
+                    for pt in cubic.points.iter() {
+                        if session.selection.contains(&pt.id) {
+                            min_x = min_x.min(pt.point.x);
+                            max_x = max_x.max(pt.point.x);
+                            min_y = min_y.min(pt.point.y);
+                            max_y = max_y.max(pt.point.y);
+                        }
+                    }
+                }
+            }
+        }
+
+        if min_x.is_finite() {
+            let x = if session.selection.len() == 1 { min_x } else { min_x };
+            let y = if session.selection.len() == 1 { min_y } else { min_y };
+            let w = max_x - min_x;
+            let h = max_y - min_y;
+            (
+                format!("{:.0}", x),
+                format!("{:.0}", y),
+                format!("{:.0}", w),
+                format!("{:.0}", h),
+            )
+        } else {
+            ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
+        }
+    };
+
+    // Create the coordinate display grid - 3 columns with colored dots
+    sized_box(
+        flex_col((
+            // Row 1: Colored dots
+            flex_row((
+                sized_box(label("●").text_size(18.0)).width(32.px()),
+                sized_box(label("●").text_size(18.0)).width(32.px()),
+                sized_box(label("●").text_size(18.0)).width(32.px()),
+            )),
+            // Row 2: x, y, w values with larger text
+            flex_row((
+                sized_box(label(format!("x{}", x_text)).text_size(18.0)).width(80.px()),
+                sized_box(label(format!("y{}", y_text)).text_size(18.0)).width(80.px()),
+                sized_box(label(format!("w{}", w_text)).text_size(18.0)).width(80.px()),
+            )),
+            // Row 3: h value
+            flex_row((
+                sized_box(label(format!("h{}", h_text)).text_size(18.0)).width(80.px()),
+            )),
+        ))
+    )
+    .width(260.px())
+    .height(110.px())
+    .background_color(theme::panel::BACKGROUND)
+    .border_color(theme::panel::OUTLINE)
+    .border_width(1.5)
+    .corner_radius(8.0)
 }
 
 /// Individual glyph cell in the grid

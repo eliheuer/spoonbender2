@@ -130,7 +130,7 @@ impl Widget for EditorWidget {
 
         // Fill background
         let bg_rect = canvas_size.to_rect();
-        fill_color(scene, &bg_rect, Color::from_rgb8(30, 30, 30));
+        fill_color(scene, &bg_rect, crate::theme::canvas::BACKGROUND);
 
         // Get the glyph outline from the editable paths
         let mut glyph_path = kurbo::BezPath::new();

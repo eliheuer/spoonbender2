@@ -18,18 +18,19 @@ use masonry::vello::Scene;
 /// Toolbar dimensions
 const TOOLBAR_ITEM_SIZE: f64 = 48.0;
 const TOOLBAR_ITEM_SPACING: f64 = 6.0;  // Space between buttons
-const TOOLBAR_PADDING: f64 = 4.0;  // Padding around the entire toolbar
+const TOOLBAR_PADDING: f64 = 8.0;  // Padding around the entire toolbar (space between buttons and container)
 const ICON_PADDING: f64 = 8.0;
 const ITEM_STROKE_WIDTH: f64 = 1.5;
 const BUTTON_RADIUS: f64 = 6.0;  // Rounded corner radius
 const BORDER_WIDTH: f64 = 1.5;  // Border thickness for buttons and panel
 
 /// Toolbar colors
-const COLOR_PANEL: Color = Color::from_rgb8(0x90, 0x90, 0x90);        // Medium-light gray panel
+const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND;           // Panel background (shared)
 const COLOR_UNSELECTED: Color = Color::from_rgb8(0xA8, 0xA8, 0xA8);  // Light gray buttons
 const COLOR_SELECTED: Color = Color::from_rgb8(0xD8, 0xD8, 0xD8);     // Very light gray when selected (brightest)
 const COLOR_ICON: Color = Color::from_rgb8(0x40, 0x40, 0x40);  // Medium-dark gray icons
-const COLOR_BORDER: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Medium-dark border
+const COLOR_PANEL_BORDER: Color = crate::theme::panel::OUTLINE;       // Panel container border
+const COLOR_BUTTON_BORDER: Color = crate::theme::panel::BUTTON_OUTLINE; // Toolbar button borders
 
 /// Available tools in display order
 const TOOLBAR_TOOLS: &[ToolId] = &[
@@ -131,7 +132,7 @@ impl Widget for ToolbarWidget {
         let border_inset = BORDER_WIDTH / 2.0;
         let inset_rect = panel_rect.inset(-border_inset);
         let inset_rrect = kurbo::RoundedRect::from_rect(inset_rect, 8.0);
-        stroke(scene, &inset_rrect, COLOR_BORDER, BORDER_WIDTH);
+        stroke(scene, &inset_rrect, COLOR_PANEL_BORDER, BORDER_WIDTH);
 
         // Draw each toolbar button as a separate rounded rectangle
         for (i, &tool) in TOOLBAR_TOOLS.iter().enumerate() {
@@ -146,7 +147,7 @@ impl Widget for ToolbarWidget {
             fill_color(scene, &button_rrect, bg_color);
 
             // Draw button border (thicker)
-            stroke(scene, &button_rrect, COLOR_BORDER, BORDER_WIDTH);
+            stroke(scene, &button_rrect, COLOR_BUTTON_BORDER, BORDER_WIDTH);
 
             // Draw icon
             let icon_path = Self::icon_for_tool(tool);
