@@ -24,6 +24,8 @@ pub struct GlyphWidget {
     size: Size,
     /// Units per em from the font (for uniform scaling)
     upm: f64,
+    /// Baseline offset as a fraction of height (0.0 = bottom, 1.0 = top)
+    baseline_offset: f64,
 }
 
 impl GlyphWidget {
@@ -34,12 +36,19 @@ impl GlyphWidget {
             color: Color::from_rgb8(0, 0, 0), // Default to black
             size,
             upm,
+            baseline_offset: 0.02, // Default baseline offset
         }
     }
 
     /// Set the fill color for the glyph
     pub fn with_color(mut self, color: Color) -> Self {
         self.color = color;
+        self
+    }
+
+    /// Set the baseline offset (0.0 = bottom, 1.0 = top)
+    pub fn with_baseline_offset(mut self, offset: f64) -> Self {
+        self.baseline_offset = offset;
         self
     }
 }
@@ -89,8 +98,8 @@ impl Widget for GlyphWidget {
         let l_pad = (widget_size.width - scaled_width) / 2.0;
 
         // Position baseline to center glyphs vertically (adjusted for better visual balance)
-        // Lower percentage = baseline lower in cell = glyphs positioned lower
-        let baseline = widget_size.height * 0.02;
+        // Higher percentage = baseline higher in cell = more space at bottom, less at top
+        let baseline = widget_size.height * self.baseline_offset;
 
         // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
         // Create affine transformation: scale (with Y-flip) and translate
@@ -146,6 +155,7 @@ pub fn glyph_view<State, Action>(
         size: Size::new(width, height),
         color: None,
         upm,
+        baseline_offset: None,
         phantom: PhantomData,
     }
 }
@@ -157,6 +167,7 @@ pub struct GlyphView<State, Action = ()> {
     size: Size,
     color: Option<Color>,
     upm: f64,
+    baseline_offset: Option<f64>,
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 
@@ -164,6 +175,12 @@ impl<State, Action> GlyphView<State, Action> {
     /// Set the glyph fill color
     pub fn color(mut self, color: Color) -> Self {
         self.color = Some(color);
+        self
+    }
+
+    /// Set the baseline offset (0.0 = bottom, 1.0 = top)
+    pub fn baseline_offset(mut self, offset: f64) -> Self {
+        self.baseline_offset = Some(offset);
         self
     }
 }
@@ -182,6 +199,9 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
         let mut widget = GlyphWidget::new(self.path.clone(), self.size, self.upm);
         if let Some(color) = self.color {
             widget = widget.with_color(color);
+        }
+        if let Some(offset) = self.baseline_offset {
+            widget = widget.with_baseline_offset(offset);
         }
         (ctx.create_pod(widget), ())
     }

@@ -281,10 +281,11 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 
     sized_box(
         flex_col((
-            // Glyph preview - use theme color
+            // Glyph preview - use theme color with custom baseline offset
             if !glyph_path.is_empty() {
                 Either::A(glyph_view(glyph_path.clone(), preview_size, preview_size, upm)
-                    .color(theme::panel::GLYPH_PREVIEW))
+                    .color(theme::panel::GLYPH_PREVIEW)
+                    .baseline_offset(0.15))
             } else {
                 Either::B(label(""))
             },
