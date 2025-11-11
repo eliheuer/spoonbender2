@@ -20,11 +20,8 @@ pub mod path {
 pub mod metrics {
     use super::Color;
 
-    /// Baseline, ascender, descender, x-height, cap-height
-    pub const GUIDE: Color = Color::from_rgba8(100, 100, 255, 128);
-
-    /// Metrics box (advance width × ascender/descender bounds)
-    pub const BOX: Color = Color::from_rgba8(200, 100, 100, 180);
+    /// Metrics guide lines (baseline, ascender, descender, x-height, cap-height, box edges)
+    pub const GUIDE: Color = Color::from_rgb8(100, 100, 100);
 }
 
 /// Colors for grid
@@ -47,35 +44,25 @@ pub mod handle {
 pub mod point {
     use super::Color;
 
-    /// Smooth on-curve point (inner)
-    pub const SMOOTH_INNER: Color = Color::from_rgb8(255, 255, 255);
-    /// Smooth on-curve point (outer)
-    pub const SMOOTH_OUTER: Color = Color::from_rgb8(0, 0, 0);
+    /// Smooth on-curve point (inner) - blue
+    pub const SMOOTH_INNER: Color = Color::from_rgb8(0x57, 0x9a, 0xff);
+    /// Smooth on-curve point (outer) - dark blue
+    pub const SMOOTH_OUTER: Color = Color::from_rgb8(0x44, 0x28, 0xec);
 
-    /// Smooth on-curve point when selected (inner)
-    pub const SMOOTH_SELECTED_INNER: Color = Color::from_rgb8(100, 200, 255);
-    /// Smooth on-curve point when selected (outer)
-    pub const SMOOTH_SELECTED_OUTER: Color = Color::from_rgb8(0, 100, 200);
+    /// Corner on-curve point (inner) - light green
+    pub const CORNER_INNER: Color = Color::from_rgb8(0x6a, 0xe7, 0x56);
+    /// Corner on-curve point (outer) - dark green
+    pub const CORNER_OUTER: Color = Color::from_rgb8(0x20, 0x8e, 0x56);
 
-    /// Corner on-curve point (inner)
-    pub const CORNER_INNER: Color = Color::from_rgb8(255, 255, 255);
-    /// Corner on-curve point (outer)
-    pub const CORNER_OUTER: Color = Color::from_rgb8(0, 0, 0);
+    /// Off-curve control point (inner) - light purple
+    pub const OFFCURVE_INNER: Color = Color::from_rgb8(0xcc, 0x99, 0xff);
+    /// Off-curve control point (outer) - dark purple
+    pub const OFFCURVE_OUTER: Color = Color::from_rgb8(0x99, 0x00, 0xff);
 
-    /// Corner on-curve point when selected (inner)
-    pub const CORNER_SELECTED_INNER: Color = Color::from_rgb8(100, 200, 255);
-    /// Corner on-curve point when selected (outer)
-    pub const CORNER_SELECTED_OUTER: Color = Color::from_rgb8(0, 100, 200);
-
-    /// Off-curve control point (inner)
-    pub const OFFCURVE_INNER: Color = Color::from_rgb8(150, 150, 150);
-    /// Off-curve control point (outer)
-    pub const OFFCURVE_OUTER: Color = Color::from_rgb8(50, 50, 50);
-
-    /// Off-curve control point when selected (inner)
-    pub const OFFCURVE_SELECTED_INNER: Color = Color::from_rgb8(100, 200, 255);
-    /// Off-curve control point when selected (outer)
-    pub const OFFCURVE_SELECTED_OUTER: Color = Color::from_rgb8(0, 100, 200);
+    /// Selected point (inner) - yellow
+    pub const SELECTED_INNER: Color = Color::from_rgb8(0xff, 0xee, 0x55);
+    /// Selected point (outer) - orange
+    pub const SELECTED_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33);
 }
 
 /// Sizes for rendering

@@ -119,8 +119,10 @@ impl Widget for EditorWidget {
         _props: &mut PropertiesMut<'_>,
         bc: &BoxConstraints,
     ) -> Size {
-        // Use the requested size, constrained by BoxConstraints
-        bc.constrain(self.size)
+        // Use all available space (expand to fill the window)
+        let size = bc.max();
+        self.size = size;
+        size
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
@@ -134,10 +136,6 @@ impl Widget for EditorWidget {
         let mut glyph_path = kurbo::BezPath::new();
         for path in self.session.paths.iter() {
             glyph_path.extend(path.to_bezpath());
-        }
-
-        if glyph_path.is_empty() {
-            return;
         }
 
         // Calculate initial viewport positioning to center the glyph
@@ -180,6 +178,13 @@ impl Widget for EditorWidget {
             * Affine::scale_non_uniform(scale, -scale) // Negative Y scale for flip
             * Affine::translate((-design_center_x, -design_center_y));
 
+        // Draw font metrics guides (always visible, even if glyph is empty)
+        draw_metrics_guides(scene, &transform, &self.session, canvas_size);
+
+        if glyph_path.is_empty() {
+            return;
+        }
+
         // Apply transform to path
         let transformed_path = transform * &glyph_path;
 
@@ -187,9 +192,6 @@ impl Widget for EditorWidget {
         let stroke = Stroke::new(theme::size::PATH_STROKE_WIDTH);
         let brush = Brush::Solid(theme::path::STROKE);
         scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &transformed_path);
-
-        // Draw font metrics guides
-        draw_metrics_guides(scene, &transform, &self.session, canvas_size);
 
         // Draw control point lines and points
         draw_paths_with_points(scene, &self.session, &transform);
@@ -417,52 +419,44 @@ fn draw_metrics_guides(
     _canvas_size: Size,
 ) {
     let stroke = Stroke::new(theme::size::METRIC_LINE_WIDTH);
-
-    // Draw the metrics box (advance width × ascender/descender bounds)
-    let box_rect = kurbo::Rect::from_points(
-        Point::new(0.0, session.descender),
-        Point::new(session.glyph.width, session.ascender),
-    );
-    // Convert rect to a BezPath so we can transform it
-    let box_rrect = kurbo::RoundedRect::from_rect(box_rect, 0.0);
-    let box_path = box_rrect.to_path(0.1);
-    let transformed_box = *transform * box_path;
-    let brush = Brush::Solid(theme::metrics::BOX);
-    scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &transformed_box);
-
-    // Draw left and right vertical lines for advance width
-    let left_line = kurbo::Line::new(
-        *transform * Point::new(0.0, session.descender - 100.0),
-        *transform * Point::new(0.0, session.ascender + 100.0),
-    );
-    let right_line = kurbo::Line::new(
-        *transform * Point::new(session.glyph.width, session.descender - 100.0),
-        *transform * Point::new(session.glyph.width, session.ascender + 100.0),
-    );
-    scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &left_line);
-    scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &right_line);
+    let brush = Brush::Solid(theme::metrics::GUIDE);
 
     // Helper to draw a horizontal line at a given Y coordinate in design space
+    // Lines are contained within the metrics box (from x=0 to x=advance_width)
     let draw_hline = |scene: &mut Scene, y: f64| {
-        let start = Point::new(-1000.0, y);
-        let end = Point::new(session.glyph.width + 1000.0, y);
+        let start = Point::new(0.0, y);
+        let end = Point::new(session.glyph.width, y);
 
         let start_screen = *transform * start;
         let end_screen = *transform * end;
 
         let line = kurbo::Line::new(start_screen, end_screen);
-        let brush = Brush::Solid(theme::metrics::GUIDE);
         scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &line);
     };
 
+    // Helper to draw a vertical line at a given X coordinate in design space
+    // Lines are contained within the metrics box (from y=descender to y=ascender)
+    let draw_vline = |scene: &mut Scene, x: f64| {
+        let start = Point::new(x, session.descender);
+        let end = Point::new(x, session.ascender);
+
+        let start_screen = *transform * start;
+        let end_screen = *transform * end;
+
+        let line = kurbo::Line::new(start_screen, end_screen);
+        scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &line);
+    };
+
+    // Draw vertical lines (left and right edges of metrics box)
+    draw_vline(scene, 0.0);
+    draw_vline(scene, session.glyph.width);
+
+    // Draw horizontal lines
+    // Descender (bottom of metrics box)
+    draw_hline(scene, session.descender);
+
     // Baseline (y=0)
     draw_hline(scene, 0.0);
-
-    // Ascender
-    draw_hline(scene, session.ascender);
-
-    // Descender
-    draw_hline(scene, session.descender);
 
     // X-height (if available)
     if let Some(x_height) = session.x_height {
@@ -473,6 +467,9 @@ fn draw_metrics_guides(
     if let Some(cap_height) = session.cap_height {
         draw_hline(scene, cap_height);
     }
+
+    // Ascender (top of metrics box)
+    draw_hline(scene, session.ascender);
 }
 
 /// Draw paths with control point lines and styled points
@@ -556,7 +553,7 @@ fn draw_paths_with_points(scene: &mut Scene, session: &EditSession, transform: &
                                 };
 
                                 let (inner_color, outer_color) = if is_selected {
-                                    (theme::point::SMOOTH_SELECTED_INNER, theme::point::SMOOTH_SELECTED_OUTER)
+                                    (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
                                 } else {
                                     (theme::point::SMOOTH_INNER, theme::point::SMOOTH_OUTER)
                                 };
@@ -577,7 +574,7 @@ fn draw_paths_with_points(scene: &mut Scene, session: &EditSession, transform: &
                                 };
 
                                 let (inner_color, outer_color) = if is_selected {
-                                    (theme::point::CORNER_SELECTED_INNER, theme::point::CORNER_SELECTED_OUTER)
+                                    (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
                                 } else {
                                     (theme::point::CORNER_INNER, theme::point::CORNER_OUTER)
                                 };
@@ -610,7 +607,7 @@ fn draw_paths_with_points(scene: &mut Scene, session: &EditSession, transform: &
                             };
 
                             let (inner_color, outer_color) = if is_selected {
-                                (theme::point::OFFCURVE_SELECTED_INNER, theme::point::OFFCURVE_SELECTED_OUTER)
+                                (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
                             } else {
                                 (theme::point::OFFCURVE_INNER, theme::point::OFFCURVE_OUTER)
                             };
