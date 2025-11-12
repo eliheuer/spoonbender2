@@ -29,6 +29,9 @@ pub struct AppState {
 
     /// Whether the app should keep running
     pub running: bool,
+
+    /// Update counter - incremented whenever sessions change to force Xilem rebuilds
+    pub update_counter: u64,
 }
 
 impl AppState {
@@ -41,6 +44,7 @@ impl AppState {
             editor_sessions: HashMap::new(),
             main_window_id: WindowId::next(),
             running: true,
+            update_counter: 0,
         }
     }
 
@@ -192,7 +196,9 @@ impl AppState {
     pub fn update_editor_session(&mut self, window_id: WindowId, session: EditSession) {
         if let Some((_glyph_name, stored_session)) = self.editor_sessions.get_mut(&window_id) {
             *stored_session = Arc::new(session);
-            println!("Updated session for window {:?}: selection count = {}", window_id, stored_session.selection.len());
+            // Increment counter to force Xilem to detect state change
+            self.update_counter += 1;
+            println!("Updated session for window {:?}: selection count = {}, counter = {}", window_id, stored_session.selection.len(), self.update_counter);
         }
     }
 }

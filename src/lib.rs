@@ -71,6 +71,7 @@ pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
 
 /// Main application logic - builds multiple windows
 fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>> + use<> {
+    println!("[app_logic] Called with {} editor sessions", state.editor_sessions.len());
     let main_window_view = if state.workspace.is_some() {
         // Font is loaded - show main editor view
         Either::A(main_editor_view(state))
@@ -89,7 +90,7 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
         let window_id = *window_id;
         let window_title = format!("Edit: {}", glyph_name);
 
-        window(window_id, window_title, editor_window_view(window_id, session.clone()))
+        window(window_id, window_title, editor_window_view(state, window_id, session.clone()))
             .with_options(move |o| o.on_close(move |state: &mut AppState| {
                 state.close_editor(window_id);
             }))
@@ -102,12 +103,9 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
 }
 
 /// Editor window view with toolbar floating over canvas
-fn editor_window_view(window_id: xilem::WindowId, session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
+fn editor_window_view(state: &AppState, window_id: xilem::WindowId, session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
     let current_tool = session.current_tool.id();
     let glyph_name = session.glyph_name.clone();
-
-    // Calculate coordinate values from session for display
-    let (x_text, y_text) = calculate_coordinate_text(&session);
 
     const MARGIN: f64 = 16.0; // Fixed 16px margin for all panels
 
@@ -132,9 +130,9 @@ fn editor_window_view(window_id: xilem::WindowId, session: Arc<crate::edit_sessi
         )
         .translate((MARGIN, -MARGIN))
         .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
-        // Bottom-right: coordinate info pane with fixed margin - uses pre-computed values
+        // Bottom-right: coordinate info pane with fixed margin - reads from AppState
         transformed(
-            coordinate_info_pane_simple(x_text, y_text)
+            coordinate_info_pane_reactive(state, window_id)
         )
         .translate((-MARGIN, -MARGIN))
         .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
@@ -421,10 +419,14 @@ fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl 
     .corner_radius(8.0)
 }
 
-/// Simple coordinate info pane with pre-computed values
-fn coordinate_info_pane_simple(x_text: String, y_text: String) -> impl WidgetView<AppState> + use<> {
+/// Reactive coordinate info pane that reads from AppState
+fn coordinate_info_pane_reactive(state: &AppState, window_id: xilem::WindowId) -> impl WidgetView<AppState> {
     // Create a default coordinate selection for the quadrant picker
     let coord_sel = crate::edit_session::CoordinateSelection::default();
+
+    // Get current coordinates from state
+    let (x_text, y_text) = get_coordinate_text_for_window(state, window_id);
+    println!("[coordinate_info_pane_reactive] Building coordinate pane for window {:?}: x={}, y={}", window_id, x_text, y_text);
 
     sized_box(
         flex_row((
@@ -445,6 +447,15 @@ fn coordinate_info_pane_simple(x_text: String, y_text: String) -> impl WidgetVie
     .border_color(theme::panel::OUTLINE)
     .border_width(1.5)
     .corner_radius(8.0)
+}
+
+/// Get coordinate text for a specific window from AppState
+fn get_coordinate_text_for_window(state: &AppState, window_id: xilem::WindowId) -> (String, String) {
+    if let Some((_glyph_name, session)) = state.editor_sessions.get(&window_id) {
+        calculate_coordinate_text(session)
+    } else {
+        ("—".to_string(), "—".to_string())
+    }
 }
 
 /// Individual glyph cell in the grid
