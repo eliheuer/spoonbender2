@@ -6,7 +6,7 @@
 //! This is a port of Runebender from Druid to Xilem, using modern
 //! Linebender crates for rendering and UI.
 
-use masonry::properties::types::{AsUnit, UnitPoint};
+use masonry::properties::types::{AsUnit, MainAxisAlignment, UnitPoint};
 use masonry::vello::peniko::Color;
 use std::sync::Arc;
 use winit::error::EventLoopError;
@@ -421,38 +421,56 @@ fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl 
             )),
         ))
     )
-    .width(240.px())
+    .width(200.px())
     .height(80.px())
     .background_color(theme::panel::BACKGROUND)
     .border_color(theme::panel::OUTLINE)
-    .border_width(1.5)
+    .border_width(1.0)
     .corner_radius(8.0)
 }
 
 /// Reactive coordinate info pane that reads from AppState
-fn coordinate_info_pane_reactive(state: &AppState, window_id: xilem::WindowId) -> impl WidgetView<AppState> {
+fn coordinate_info_pane_reactive(
+    state: &AppState,
+    window_id: xilem::WindowId,
+) -> impl WidgetView<AppState> {
+
     // Create a default coordinate selection for the quadrant picker
     let coord_sel = crate::edit_session::CoordinateSelection::default();
 
     // Get current coordinates from state
     let (x_text, y_text) = get_coordinate_text_for_window(state, window_id);
-    println!("[coordinate_info_pane_reactive] Building coordinate pane for window {:?}: x={}, y={}", window_id, x_text, y_text);
+    println!(
+        "[coordinate_info_pane_reactive] Building coordinate pane for window \
+        {:?}: x={}, y={}",
+        window_id, x_text, y_text
+    );
+
+    // Helper function to create styled coordinate labels
+    let coord_label = |text: String| {
+        label(text)
+            .text_size(12.0)
+            .text_alignment(parley::Alignment::Start)
+            .color(Color::from_rgb8(170, 170, 170))
+    };
 
     sized_box(
         flex_row((
             // Quadrant selector on the left
             sized_box(coord_pane_view(coord_sel)).width(80.px()),
-            // Coordinate values on the right with tight spacing
+            // Coordinate values with fixed-width formatting
             flex_col((
-                label(format!("x: {}", x_text)).text_size(12.0),
-                label(format!("y: {}", y_text)).text_size(12.0),
-                label("w: —").text_size(12.0),
-                label("h: —").text_size(12.0),
+                coord_label(format!("x: {:<6}", x_text)),
+                coord_label(format!("y: {:<6}", y_text)),
+                coord_label(format!("w: {:<6}", "—")),
+                coord_label(format!("h: {:<6}", "—")),
             ))
             .gap(0.px()),
         ))
+        .main_axis_alignment(MainAxisAlignment::Start)
+        .gap(8.px())
     )
-    .width(128.px())
+    .width(150.px())
     .height(80.px())
     .background_color(theme::panel::BACKGROUND)
     .border_color(theme::panel::OUTLINE)
