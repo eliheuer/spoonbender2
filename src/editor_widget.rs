@@ -714,8 +714,12 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
         // Handle SessionUpdate messages from the widget
         match message.take_message::<SessionUpdate>() {
             Some(update) => {
+                println!("[EditorView::message] Handling SessionUpdate, calling callback, selection.len()={}", update.session.selection.len());
                 (self.on_session_update)(app_state, update.session);
-                MessageResult::Nop
+                println!("[EditorView::message] Callback complete, returning Action(())");
+                // Return Action(()) to propagate to root and trigger full app rebuild
+                // This is needed for multi-window apps where RequestRebuild doesn't work
+                MessageResult::Action(())
             }
             None => MessageResult::Stale,
         }

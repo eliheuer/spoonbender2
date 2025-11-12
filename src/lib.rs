@@ -89,6 +89,7 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
     let editor_windows = state.editor_sessions.iter().map(|(window_id, (glyph_name, session))| {
         let window_id = *window_id;
         let window_title = format!("Edit: {}", glyph_name);
+        println!("[app_logic] Creating window for {:?}, session.selection.len()={}", window_id, session.selection.len());
 
         window(window_id, window_title, editor_window_view(state, window_id, session.clone()))
             .with_options(move |o| o.on_close(move |state: &mut AppState| {
@@ -112,10 +113,13 @@ fn editor_window_view(state: &AppState, window_id: xilem::WindowId, session: Arc
     // Use zstack to layer UI elements over the canvas
     zstack((
         // Background: the editor canvas (full screen)
-        editor_view(session.clone(), move |state: &mut AppState, updated_session| {
-            // Update the session in AppState when it changes
-            state.update_editor_session(window_id, updated_session);
-        }),
+        // Get the current session from state and pass update closure
+        editor_view(
+            session.clone(),
+            move |state: &mut AppState, updated_session| {
+                state.update_editor_session(window_id, updated_session);
+            }
+        ),
         // Foreground: floating toolbar positioned in top-left with fixed margin
         transformed(
             toolbar_view(current_tool, |state: &mut AppState, tool_id| {
@@ -144,6 +148,8 @@ fn calculate_coordinate_text(session: &crate::edit_session::EditSession) -> (Str
     let selection = &session.selection;
     let paths = &session.paths;
 
+    println!("[calculate_coordinate_text] selection.len()={}, paths.len()={}", selection.len(), paths.len());
+
     let mut min_x = f64::INFINITY;
     let mut min_y = f64::INFINITY;
     let mut count = 0;
@@ -151,8 +157,10 @@ fn calculate_coordinate_text(session: &crate::edit_session::EditSession) -> (Str
     for path in paths.iter() {
         match path {
             crate::path::Path::Cubic(cubic) => {
+                println!("[calculate_coordinate_text] Checking cubic path with {} points", cubic.points.len());
                 for pt in cubic.points.iter() {
                     if selection.contains(&pt.id) {
+                        println!("[calculate_coordinate_text] Found selected point at ({}, {})", pt.point.x, pt.point.y);
                         min_x = min_x.min(pt.point.x);
                         min_y = min_y.min(pt.point.y);
                         count += 1;
@@ -161,6 +169,8 @@ fn calculate_coordinate_text(session: &crate::edit_session::EditSession) -> (Str
             }
         }
     }
+
+    println!("[calculate_coordinate_text] count={}, min_x={}, min_y={}", count, min_x, min_y);
 
     if count > 0 && min_x.is_finite() {
         (format!("{:.0}", min_x), format!("{:.0}", min_y))
@@ -452,8 +462,12 @@ fn coordinate_info_pane_reactive(state: &AppState, window_id: xilem::WindowId) -
 /// Get coordinate text for a specific window from AppState
 fn get_coordinate_text_for_window(state: &AppState, window_id: xilem::WindowId) -> (String, String) {
     if let Some((_glyph_name, session)) = state.editor_sessions.get(&window_id) {
-        calculate_coordinate_text(session)
+        let result = calculate_coordinate_text(session);
+        println!("[get_coordinate_text_for_window] window={:?}, selection_count={}, result=({}, {})",
+            window_id, session.selection.len(), result.0, result.1);
+        result
     } else {
+        println!("[get_coordinate_text_for_window] window={:?} NOT FOUND in sessions", window_id);
         ("—".to_string(), "—".to_string())
     }
 }
