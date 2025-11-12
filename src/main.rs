@@ -3,8 +3,8 @@
 
 //! Spoonbender: A font editor built with Xilem
 
-use winit::error::EventLoopError;
 use xilem::EventLoop;
+use xilem::winit::error::EventLoopError;
 
 fn main() -> Result<(), EventLoopError> {
     spoonbender::run(EventLoop::with_user_event())

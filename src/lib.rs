@@ -6,7 +6,7 @@
 //! This is a port of Runebender from Druid to Xilem, using modern
 //! Linebender crates for rendering and UI.
 
-use masonry::properties::types::{AsUnit, MainAxisAlignment, UnitPoint};
+use masonry::properties::types::{AsUnit, UnitPoint};
 use masonry::vello::peniko::Color;
 use std::sync::Arc;
 use winit::error::EventLoopError;
@@ -16,15 +16,12 @@ use xilem::view::{button, flex_col, flex_row, label, portal, sized_box, transfor
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
-mod coord_pane_widget;
 mod cubic_path;
 mod data;
 mod edit_session;
 mod edit_type;
-mod editor_widget;
 mod entity_id;
 mod glyph_renderer;
-mod glyph_widget;
 mod hit_test;
 mod mouse;
 mod path;
@@ -34,16 +31,13 @@ mod quadrant;
 mod selection;
 mod theme;
 mod toolbar;
-mod toolbar_widget;
 mod tools;
 mod undo;
+mod widgets;
 mod workspace;
 
-use coord_pane_widget::coord_pane_view;
 use data::AppState;
-use editor_widget::editor_view;
-use glyph_widget::glyph_view;
-use toolbar_widget::toolbar_view;
+use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, toolbar_view};
 
 /// Entry point for the Spoonbender application
 pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
@@ -141,42 +135,6 @@ fn editor_window_view(state: &AppState, window_id: xilem::WindowId, session: Arc
         .translate((-MARGIN, -MARGIN))
         .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
     ))
-}
-
-/// Calculate coordinate text from session
-fn calculate_coordinate_text(session: &crate::edit_session::EditSession) -> (String, String) {
-    let selection = &session.selection;
-    let paths = &session.paths;
-
-    println!("[calculate_coordinate_text] selection.len()={}, paths.len()={}", selection.len(), paths.len());
-
-    let mut min_x = f64::INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut count = 0;
-
-    for path in paths.iter() {
-        match path {
-            crate::path::Path::Cubic(cubic) => {
-                println!("[calculate_coordinate_text] Checking cubic path with {} points", cubic.points.len());
-                for pt in cubic.points.iter() {
-                    if selection.contains(&pt.id) {
-                        println!("[calculate_coordinate_text] Found selected point at ({}, {})", pt.point.x, pt.point.y);
-                        min_x = min_x.min(pt.point.x);
-                        min_y = min_y.min(pt.point.y);
-                        count += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    println!("[calculate_coordinate_text] count={}, min_x={}, min_y={}", count, min_x, min_y);
-
-    if count > 0 && min_x.is_finite() {
-        (format!("{:.0}", min_x), format!("{:.0}", min_y))
-    } else {
-        ("—".to_string(), "—".to_string())
-    }
 }
 
 /// Welcome screen shown when no font is loaded
@@ -348,147 +306,26 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
     .corner_radius(8.0)
 }
 
-/// Coordinate info pane showing x, y, width, height of selection
-fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
-    // Calculate coordinate selection from current selection
-    let selection = &session.selection;
-    let paths = &session.paths;
-
-    // Calculate bounding box of selected points
-    let mut min_x = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-    let mut count = 0;
-
-    for path in paths.iter() {
-        match path {
-            crate::path::Path::Cubic(cubic) => {
-                for pt in cubic.points.iter() {
-                    if selection.contains(&pt.id) {
-                        min_x = min_x.min(pt.point.x);
-                        max_x = max_x.max(pt.point.x);
-                        min_y = min_y.min(pt.point.y);
-                        max_y = max_y.max(pt.point.y);
-                        count += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    let coord_sel = if count > 0 && min_x.is_finite() {
-        let frame = kurbo::Rect::new(min_x, min_y, max_x, max_y);
-        crate::edit_session::CoordinateSelection::new(
-            count,
-            frame,
-            session.coord_selection.quadrant, // Preserve quadrant
-        )
-    } else {
-        crate::edit_session::CoordinateSelection::default()
-    };
-
-    // Get coordinate values as strings
-    let (x_text, y_text, w_text, h_text) = if coord_sel.count == 0 {
-        ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
-    } else {
-        let pt = coord_sel.reference_point();
-        let x = format!("{:.0}", pt.x);
-        let y = format!("{:.0}", pt.y);
-        let w = if coord_sel.count > 1 {
-            format!("{:.0}", coord_sel.width())
-        } else {
-            "—".to_string()
-        };
-        let h = if coord_sel.count > 1 {
-            format!("{:.0}", coord_sel.height())
-        } else {
-            "—".to_string()
-        };
-        (x, y, w, h)
-    };
-
-    sized_box(
-        flex_row((
-            // Quadrant selector on the left
-            sized_box(coord_pane_view(coord_sel)).width(80.px()),
-            // Coordinate values on the right - aligned to fill remaining space
-            flex_col((
-                label(format!("x: {}", x_text)).text_size(12.0),
-                label(format!("y: {}", y_text)).text_size(12.0),
-                label(format!("w: {}", w_text)).text_size(12.0),
-                label(format!("h: {}", h_text)).text_size(12.0),
-            )),
-        ))
-    )
-    .width(200.px())
-    .height(80.px())
-    .background_color(theme::panel::BACKGROUND)
-    .border_color(theme::panel::OUTLINE)
-    .border_width(1.0)
-    .corner_radius(8.0)
-}
-
 /// Reactive coordinate info pane that reads from AppState
 fn coordinate_info_pane_reactive(
     state: &AppState,
     window_id: xilem::WindowId,
 ) -> impl WidgetView<AppState> {
-
-    // Create a default coordinate selection for the quadrant picker
-    let coord_sel = crate::edit_session::CoordinateSelection::default();
-
-    // Get current coordinates from state
-    let (x_text, y_text) = get_coordinate_text_for_window(state, window_id);
-    println!(
-        "[coordinate_info_pane_reactive] Building coordinate pane for window \
-        {:?}: x={}, y={}",
-        window_id, x_text, y_text
-    );
-
-    // Helper function to create styled coordinate labels
-    let coord_label = |text: String| {
-        label(text)
-            .text_size(12.0)
-            .text_alignment(parley::Alignment::Start)
-            .color(Color::from_rgb8(170, 170, 170))
+    // Calculate coordinate selection from the current session
+    let coord_sel = if let Some((_glyph_name, session)) = state.editor_sessions.get(&window_id) {
+        let coord_sel = calculate_coordinate_selection(session);
+        println!(
+            "[coordinate_info_pane_reactive] Building coordinate pane for window {:?}: count={}, frame={:?}",
+            window_id, coord_sel.count, coord_sel.frame
+        );
+        coord_sel
+    } else {
+        println!("[coordinate_info_pane_reactive] window={:?} NOT FOUND in sessions", window_id);
+        widgets::CoordinateSelection::default()
     };
 
-    sized_box(
-        flex_row((
-            // Quadrant selector on the left
-            sized_box(coord_pane_view(coord_sel)).width(80.px()),
-            // Coordinate values with fixed-width formatting
-            flex_col((
-                coord_label(format!("x: {:<6}", x_text)),
-                coord_label(format!("y: {:<6}", y_text)),
-                coord_label(format!("w: {:<6}", "—")),
-                coord_label(format!("h: {:<6}", "—")),
-            ))
-            .gap(0.px()),
-        ))
-        .main_axis_alignment(MainAxisAlignment::Start)
-        .gap(8.px())
-    )
-    .width(150.px())
-    .height(80.px())
-    .background_color(theme::panel::BACKGROUND)
-    .border_color(theme::panel::OUTLINE)
-    .border_width(1.5)
-    .corner_radius(8.0)
-}
-
-/// Get coordinate text for a specific window from AppState
-fn get_coordinate_text_for_window(state: &AppState, window_id: xilem::WindowId) -> (String, String) {
-    if let Some((_glyph_name, session)) = state.editor_sessions.get(&window_id) {
-        let result = calculate_coordinate_text(session);
-        println!("[get_coordinate_text_for_window] window={:?}, selection_count={}, result=({}, {})",
-            window_id, session.selection.len(), result.0, result.1);
-        result
-    } else {
-        println!("[get_coordinate_text_for_window] window={:?} NOT FOUND in sessions", window_id);
-        ("—".to_string(), "—".to_string())
-    }
+    // Use the coordinate_info_pane from the widgets module
+    coordinate_info_pane(coord_sel)
 }
 
 /// Individual glyph cell in the grid

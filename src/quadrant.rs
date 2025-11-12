@@ -37,7 +37,7 @@ pub enum Quadrant {
 
 impl Default for Quadrant {
     fn default() -> Self {
-        Quadrant::BottomLeft
+        Quadrant::Center
     }
 }
 

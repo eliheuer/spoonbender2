@@ -9,6 +9,7 @@ use crate::path::Path;
 use crate::quadrant::Quadrant;
 use crate::selection::Selection;
 use crate::tools::{ToolBox, ToolId};
+use crate::widgets::CoordinateSelection;
 use crate::workspace::Glyph;
 use kurbo::{Point, Rect};
 use std::sync::Arc;
@@ -84,55 +85,7 @@ impl Default for ViewPort {
     }
 }
 
-/// Coordinate selection information for displaying/editing point coordinates
-///
-/// This stores the bounding box of the current selection and which quadrant
-/// to use as the reference point for coordinate display.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CoordinateSelection {
-    /// Number of points selected
-    pub count: usize,
-    /// Bounding box of the selection (in design space)
-    pub frame: Rect,
-    /// Which quadrant/anchor point to use for coordinate display
-    pub quadrant: Quadrant,
-}
-
-impl CoordinateSelection {
-    /// Create a new coordinate selection
-    pub fn new(count: usize, frame: Rect, quadrant: Quadrant) -> Self {
-        Self {
-            count,
-            frame,
-            quadrant,
-        }
-    }
-
-    /// Get the reference point based on the selected quadrant
-    pub fn reference_point(&self) -> Point {
-        self.quadrant.point_in_dspace_rect(self.frame)
-    }
-
-    /// Get the width of the selection
-    pub fn width(&self) -> f64 {
-        self.frame.width()
-    }
-
-    /// Get the height of the selection
-    pub fn height(&self) -> f64 {
-        self.frame.height()
-    }
-}
-
-impl Default for CoordinateSelection {
-    fn default() -> Self {
-        Self {
-            count: 0,
-            frame: Rect::ZERO,
-            quadrant: Quadrant::default(),
-        }
-    }
-}
+// CoordinateSelection has been moved to widgets::coord_pane module
 
 /// Editing session for a single glyph
 ///

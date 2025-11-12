@@ -7,7 +7,6 @@
 //! and includes a quadrant picker to choose which corner/edge to use as
 //! the reference point for multi-point selections.
 
-use crate::edit_session::CoordinateSelection;
 use crate::quadrant::Quadrant;
 use kurbo::{Circle, Point, Rect, Shape};
 use masonry::accesskit::{Node, Role};
@@ -28,6 +27,60 @@ const VALUE_WIDTH: f64 = 50.0;
 
 // Import from theme (includes all sizing and color constants)
 use crate::theme::coord_pane::*;
+
+// --- MARK: DATA MODEL ---
+
+/// Coordinate selection information for displaying/editing point coordinates
+///
+/// This stores the bounding box of the current selection and which quadrant
+/// to use as the reference point for coordinate display.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoordinateSelection {
+    /// Number of points selected
+    pub count: usize,
+    /// Bounding box of the selection (in design space)
+    pub frame: Rect,
+    /// Which quadrant/anchor point to use for coordinate display
+    pub quadrant: Quadrant,
+}
+
+impl CoordinateSelection {
+    /// Create a new coordinate selection
+    pub fn new(count: usize, frame: Rect, quadrant: Quadrant) -> Self {
+        Self {
+            count,
+            frame,
+            quadrant,
+        }
+    }
+
+    /// Get the reference point based on the selected quadrant
+    pub fn reference_point(&self) -> Point {
+        self.quadrant.point_in_dspace_rect(self.frame)
+    }
+
+    /// Get the width of the selection
+    pub fn width(&self) -> f64 {
+        self.frame.width()
+    }
+
+    /// Get the height of the selection
+    pub fn height(&self) -> f64 {
+        self.frame.height()
+    }
+}
+
+impl Default for CoordinateSelection {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            frame: Rect::ZERO,
+            quadrant: Quadrant::default(),
+        }
+    }
+}
+
+// --- MARK: WIDGET ---
 
 /// Coordinate pane widget
 pub struct CoordPaneWidget {
@@ -370,4 +423,123 @@ impl<State: 'static> View<State, (), ViewCtx> for CoordPaneView<State>
         // TODO: Implement quadrant change handling
         MessageResult::Stale
     }
+}
+
+// --- MARK: COORDINATE CALCULATION ---
+
+/// Calculate coordinate selection from edit session
+///
+/// Returns a CoordinateSelection with bounding box information for all selected points
+pub fn calculate_coordinate_selection(session: &crate::edit_session::EditSession) -> CoordinateSelection {
+    let selection = &session.selection;
+    let paths = &session.paths;
+
+    println!("[calculate_coordinate_selection] selection.len()={}, paths.len()={}", selection.len(), paths.len());
+
+    let mut min_x = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    let mut count = 0;
+
+    for path in paths.iter() {
+        match path {
+            crate::path::Path::Cubic(cubic) => {
+                println!("[calculate_coordinate_selection] Checking cubic path with {} points", cubic.points.len());
+                for pt in cubic.points.iter() {
+                    if selection.contains(&pt.id) {
+                        println!("[calculate_coordinate_selection] Found selected point at ({}, {})", pt.point.x, pt.point.y);
+                        min_x = min_x.min(pt.point.x);
+                        max_x = max_x.max(pt.point.x);
+                        min_y = min_y.min(pt.point.y);
+                        max_y = max_y.max(pt.point.y);
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    println!("[calculate_coordinate_selection] count={}, min_x={}, max_x={}, min_y={}, max_y={}", count, min_x, max_x, min_y, max_y);
+
+    if count > 0 && min_x.is_finite() {
+        let frame = Rect::new(min_x, min_y, max_x, max_y);
+        CoordinateSelection::new(
+            count,
+            frame,
+            session.coord_selection.quadrant, // Preserve the user's quadrant selection
+        )
+    } else {
+        CoordinateSelection::default()
+    }
+}
+
+// --- MARK: COMPLETE COORDINATE PANE VIEW ---
+
+use masonry::properties::types::MainAxisAlignment;
+use xilem::style::Style;
+use xilem::view::{flex_col, flex_row, label, sized_box};
+use xilem::{WidgetView};
+use masonry::properties::types::AsUnit;
+
+/// Complete coordinate info pane with quadrant picker and coordinate labels
+///
+/// This is the main entry point for displaying the coordinate pane in the editor window.
+/// It combines the quadrant picker widget with coordinate text labels.
+pub fn coordinate_info_pane<State: 'static>(
+    coord_sel: CoordinateSelection,
+) -> impl WidgetView<State> {
+    // Calculate coordinate values based on the selection
+    let (x_text, y_text, w_text, h_text) = if coord_sel.count == 0 {
+        ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
+    } else {
+        let pt = coord_sel.reference_point();
+        let x = format!("{:.0}", pt.x);
+        let y = format!("{:.0}", pt.y);
+
+        // Width and height only shown when multiple points are selected
+        let w = if coord_sel.count > 1 {
+            format!("{:.0}", coord_sel.width())
+        } else {
+            "—".to_string()
+        };
+        let h = if coord_sel.count > 1 {
+            format!("{:.0}", coord_sel.height())
+        } else {
+            "—".to_string()
+        };
+
+        (x, y, w, h)
+    };
+
+    // Helper function to create styled coordinate labels
+    let coord_label = |text: String| {
+        label(text)
+            .text_size(12.0)
+            .text_alignment(parley::Alignment::Start)
+            .color(Color::from_rgb8(170, 170, 170))
+    };
+
+    sized_box(
+        flex_row((
+            // Quadrant selector on the left
+            sized_box(coord_pane_view(coord_sel)).width(80.px()),
+            // Coordinate values with fixed-width formatting
+            flex_col((
+                coord_label(format!("x: {:<6}", x_text)),
+                coord_label(format!("y: {:<6}", y_text)),
+                coord_label(format!("w: {:<6}", w_text)),
+                coord_label(format!("h: {:<6}", h_text)),
+            ))
+            .gap(0.px()),
+        ))
+        .main_axis_alignment(MainAxisAlignment::Start)
+        .gap(8.px())
+    )
+    .width(150.px())
+    .height(80.px())
+    .background_color(crate::theme::panel::BACKGROUND)
+    .border_color(crate::theme::panel::OUTLINE)
+    .border_width(1.5)
+    .corner_radius(8.0)
 }
