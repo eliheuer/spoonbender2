@@ -161,6 +161,47 @@ flex_col
 - Currently unimplemented (`Workspace::save()` returns error)
 - Would require converting internal types back to `norad` format
 
+### Custom Widget Reactivity in Multi-Window Apps
+
+When creating custom Masonry widgets that emit actions to update AppState in a multi-window Xilem application, use `MessageResult::Action(())` instead of `MessageResult::RequestRebuild`:
+
+```rust
+fn message(
+    &self,
+    _view_state: &mut Self::ViewState,
+    message: &mut MessageContext,
+    _element: Mut<'_, Self::Element>,
+    app_state: &mut State,
+) -> MessageResult<()> {
+    match message.take_message::<SessionUpdate>() {
+        Some(update) => {
+            // Update AppState via callback
+            (self.on_session_update)(app_state, update.session);
+
+            // Return Action(()) to propagate to root and trigger full app rebuild
+            // MessageResult::RequestRebuild doesn't work for child windows in multi-window apps
+            MessageResult::Action(())
+        }
+        None => MessageResult::Stale,
+    }
+}
+```
+
+**Why this is necessary:**
+- In multi-window apps, `MessageResult::RequestRebuild` only rebuilds the current window
+- It doesn't trigger `app_logic()` to be called, so other windows won't see state updates
+- `MessageResult::Action(())` propagates the action to the root, triggering a full app rebuild
+- This causes `app_logic()` to run, recreating all windows with fresh state from AppState
+
+**Data flow pattern:**
+1. Custom widget emits action: `ctx.submit_action::<SessionUpdate>(SessionUpdate { session })`
+2. View's `message()` method handles action and updates AppState
+3. Return `MessageResult::Action(())` to trigger app rebuild
+4. Xilem calls `app_logic()` which reads fresh state from AppState
+5. All windows recreated with updated data, UI reflects changes
+
+This pattern is essential for reactive UI in multi-window Xilem apps where state changes in one window need to be reflected in others.
+
 ### Testing UFO Files
 - Project requires valid UFO v3 directory structure
 - Use existing font editor UFOs or UFO test files

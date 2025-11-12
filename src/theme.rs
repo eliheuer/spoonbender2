@@ -13,6 +13,11 @@ use masonry::vello::peniko::Color;
 const CANVAS_BACKGROUND: Color = Color::from_rgb8(0x15, 0x15, 0x15);
 
 // ============================================================================
+// UI TEXT AND LABELS
+// ============================================================================
+const PRIMARY_UI_TEXT: Color = Color::from_rgb8(200, 200, 200);  // Light gray for all UI text
+
+// ============================================================================
 // UI PANELS (Toolbar, Coordinate Pane, Glyph Preview)
 // ============================================================================
 const PANEL_BACKGROUND: Color = Color::from_rgb8(0x40, 0x40, 0x40);
@@ -22,7 +27,6 @@ const GLYPH_PREVIEW_COLOR: Color = Color::from_rgb8(0x10, 0x10, 0x10);
 
 // Coordinate Pane specific
 const COORD_PANE_GRID_LINE: Color = Color::from_rgb8(10, 10, 10);  // Gray for grid lines
-const COORD_PANE_TEXT: Color = Color::from_rgb8(200, 200, 200);  // Light gray for text
 
 // ============================================================================
 // PATHS AND OUTLINES
@@ -99,7 +103,7 @@ pub mod toolbar {
 pub mod coord_pane {
     use super::Color;
     pub const GRID_LINE: Color = super::COORD_PANE_GRID_LINE;
-    pub const TEXT: Color = super::COORD_PANE_TEXT;
+    pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
     // Dot colors - selected (same as editor points)
     pub const DOT_SELECTED_INNER: Color = super::SELECTED_POINT_INNER;

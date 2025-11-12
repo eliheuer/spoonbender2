@@ -442,16 +442,17 @@ fn coordinate_info_pane_reactive(state: &AppState, window_id: xilem::WindowId) -
         flex_row((
             // Quadrant selector on the left
             sized_box(coord_pane_view(coord_sel)).width(80.px()),
-            // Coordinate values on the right
+            // Coordinate values on the right with tight spacing
             flex_col((
                 label(format!("x: {}", x_text)).text_size(12.0),
                 label(format!("y: {}", y_text)).text_size(12.0),
                 label("w: —").text_size(12.0),
                 label("h: —").text_size(12.0),
-            )),
+            ))
+            .gap(0.px()),
         ))
     )
-    .width(240.px())
+    .width(128.px())
     .height(80.px())
     .background_color(theme::panel::BACKGROUND)
     .border_color(theme::panel::OUTLINE)
