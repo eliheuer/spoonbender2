@@ -187,6 +187,14 @@ impl AppState {
         // For now, just log it
         println!("Setting coordinate quadrant to {:?}", quadrant);
     }
+
+    /// Update an editor session with new state
+    pub fn update_editor_session(&mut self, window_id: WindowId, session: EditSession) {
+        if let Some((_glyph_name, stored_session)) = self.editor_sessions.get_mut(&window_id) {
+            *stored_session = Arc::new(session);
+            println!("Updated session for window {:?}: selection count = {}", window_id, stored_session.selection.len());
+        }
+    }
 }
 
 /// Implement the Xilem AppState trait

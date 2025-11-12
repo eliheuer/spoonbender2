@@ -26,7 +26,7 @@ use std::sync::Arc;
 /// The main glyph editor canvas widget
 pub struct EditorWidget {
     /// The editing session (mutable copy for editing)
-    session: EditSession,
+    pub session: EditSession,
 
     /// Mouse state machine
     mouse: Mouse,
@@ -95,10 +95,17 @@ impl EditorWidget {
             println!("Redo: restored next state");
         }
     }
+
+}
+
+/// Action emitted by the editor widget when the session is updated
+#[derive(Debug, Clone)]
+pub struct SessionUpdate {
+    pub session: EditSession,
 }
 
 impl Widget for EditorWidget {
-    type Action = NoAction;
+    type Action = SessionUpdate;
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {
         // Leaf widget - no children
@@ -220,7 +227,6 @@ impl Widget for EditorWidget {
                     alt: state.modifiers.alt(),
                     meta: state.modifiers.meta(),
                 };
-                println!("Down event: shift={} ctrl={} alt={} meta={}", mods.shift, mods.ctrl, mods.alt, mods.meta);
 
                 // Create MouseEvent for our mouse state machine
                 let mouse_event = MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
@@ -260,7 +266,6 @@ impl Widget for EditorWidget {
                     alt: state.modifiers.alt(),
                     meta: state.modifiers.meta(),
                 };
-                println!("Up event: shift={} ctrl={} alt={} meta={}", mods.shift, mods.ctrl, mods.alt, mods.meta);
 
                 // Create MouseEvent with modifiers
                 let mouse_event = MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
@@ -275,6 +280,14 @@ impl Widget for EditorWidget {
                 }
 
                 self.session.current_tool = tool;
+
+                // Update coordinate selection after tool operation
+                self.session.update_coord_selection();
+
+                // Emit action to notify view of session changes
+                ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                    session: self.session.clone(),
+                });
 
                 ctx.release_pointer();
                 ctx.request_render();
@@ -303,8 +316,6 @@ impl Widget for EditorWidget {
 
         match event {
             TextEvent::Keyboard(key_event) => {
-                println!("EditorWidget: Keyboard event key={:?} state={:?}", key_event.key, key_event.state);
-
                 // Only handle key down events
                 if key_event.state != KeyState::Down {
                     return;
@@ -633,24 +644,32 @@ use std::marker::PhantomData;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
-/// Create an editor view from an edit session
-pub fn editor_view<State, Action>(session: Arc<EditSession>) -> EditorView<State, Action> {
+/// Create an editor view from an edit session with a callback for session updates
+pub fn editor_view<State, F>(
+    session: Arc<EditSession>,
+    on_session_update: F,
+) -> EditorView<State, F>
+where
+    F: Fn(&mut State, EditSession),
+{
     EditorView {
         session,
+        on_session_update,
         phantom: PhantomData,
     }
 }
 
 /// The Xilem View for EditorWidget
 #[must_use = "View values do nothing unless provided to Xilem."]
-pub struct EditorView<State, Action = ()> {
+pub struct EditorView<State, F> {
     session: Arc<EditSession>,
-    phantom: PhantomData<fn() -> (State, Action)>,
+    on_session_update: F,
+    phantom: PhantomData<fn() -> State>,
 }
 
-impl<State, Action> ViewMarker for EditorView<State, Action> {}
+impl<State, F> ViewMarker for EditorView<State, F> {}
 
-impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for EditorView<State, Action> {
+impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), ViewCtx> for EditorView<State, F> {
     type Element = Pod<EditorWidget>;
     type ViewState = ();
 
@@ -660,7 +679,9 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for EditorVie
         _app_state: &mut State,
     ) -> (Self::Element, Self::ViewState) {
         let widget = EditorWidget::new(self.session.clone());
-        (ctx.create_pod(widget), ())
+        let pod = ctx.create_pod(widget);
+        ctx.record_action(pod.new_widget.id());
+        (pod, ())
     }
 
     fn rebuild(
@@ -671,8 +692,7 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for EditorVie
         _element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // For now, no incremental updates
-        // TODO: Check if session has changed and update widget
+        // Widget state updates are handled via the callback in pointer events
     }
 
     fn teardown(
@@ -687,11 +707,17 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for EditorVie
     fn message(
         &self,
         _view_state: &mut Self::ViewState,
-        _message: &mut MessageContext,
+        message: &mut MessageContext,
         _element: Mut<'_, Self::Element>,
-        _app_state: &mut State,
-    ) -> MessageResult<Action> {
-        // EditorWidget doesn't produce messages yet
-        MessageResult::Stale
+        app_state: &mut State,
+    ) -> MessageResult<()> {
+        // Handle SessionUpdate messages from the widget
+        match message.take_message::<SessionUpdate>() {
+            Some(update) => {
+                (self.on_session_update)(app_state, update.session);
+                MessageResult::Nop
+            }
+            None => MessageResult::Stale,
+        }
     }
 }

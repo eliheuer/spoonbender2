@@ -188,16 +188,11 @@ impl Widget for CoordPaneWidget {
 
     fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
         // Background and border are now handled by the sized_box wrapper in lib.rs
-        // This widget only paints its content (quadrant picker and coordinate values)
-
-        // Debug: always show the quadrant picker for testing
-        println!("CoordPane paint: count={}, frame={:?}", self.coord_sel.count, self.coord_sel.frame);
+        // This widget only paints the quadrant picker
+        // Coordinate text values are handled by Xilem views in lib.rs
 
         // Always show quadrant picker (user can select quadrant even without points selected)
         self.paint_quadrant_picker(scene);
-
-        // Paint coordinate values
-        self.paint_coordinates(scene);
     }
 
     fn accessibility_role(&self) -> Role {
@@ -298,68 +293,6 @@ impl CoordPaneWidget {
             let inner_circle = Circle::new(center, (dot_radius - 1.5).max(0.0));
             masonry::util::fill_color(scene, &inner_circle, inner_color);
         }
-    }
-
-    /// Paint the coordinate values (x, y, w, h)
-    fn paint_coordinates(&self, scene: &mut Scene) {
-        let bounds = self.quadrant_picker_bounds();
-
-        // Calculate positions for labels and values
-        // Quadrant picker is always shown, so coordinates always go to the right of it
-        let label_x = bounds.max_x() + PADDING;
-        let value_x = label_x + LABEL_WIDTH + 4.0;
-
-        // Get coordinate values
-        let (x_text, y_text, w_text, h_text) = if self.coord_sel.count == 0 {
-            ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
-        } else {
-            let pt = self.coord_sel.reference_point();
-            let x = format!("{:.0}", pt.x);
-            let y = format!("{:.0}", pt.y);
-            let w = if self.coord_sel.count > 1 {
-                format!("{:.0}", self.coord_sel.width())
-            } else {
-                "—".to_string()
-            };
-            let h = if self.coord_sel.count > 1 {
-                format!("{:.0}", self.coord_sel.height())
-            } else {
-                "—".to_string()
-            };
-            (x, y, w, h)
-        };
-
-        // For now, we'll just draw placeholder boxes where text would go
-        // Full text rendering would require using the text API
-        // Calculate row height based on selector size (4 rows in the selector height)
-        let row_height = bounds.height() / 4.0;
-        let y_offset = bounds.min_y() + 4.0;
-
-        // Draw labels: x, y, w, h
-        self.draw_text_placeholder(scene, label_x, y_offset, "x");
-        self.draw_text_placeholder(scene, value_x, y_offset, &x_text);
-
-        self.draw_text_placeholder(scene, label_x, y_offset + row_height, "y");
-        self.draw_text_placeholder(scene, value_x, y_offset + row_height, &y_text);
-
-        self.draw_text_placeholder(scene, label_x, y_offset + row_height * 2.0, "w");
-        self.draw_text_placeholder(scene, value_x, y_offset + row_height * 2.0, &w_text);
-
-        self.draw_text_placeholder(scene, label_x, y_offset + row_height * 3.0, "h");
-        self.draw_text_placeholder(scene, value_x, y_offset + row_height * 3.0, &h_text);
-    }
-
-    /// Draw text using simple rectangle representation for now
-    ///
-    /// TODO: Use proper text rendering with system fonts
-    fn draw_text_placeholder(&self, scene: &mut Scene, x: f64, y: f64, text: &str) {
-        // Draw a filled rectangle representing the text
-        let width = (text.len() as f64) * 8.0; // Rough character width
-        let rect = Rect::new(x, y, x + width, y + 14.0);
-
-        // Fill with a lighter color to make it visible
-        masonry::util::fill_color(scene, &rect, Color::from_rgb8(150, 150, 200));
-        masonry::util::stroke(scene, &rect, TEXT, 0.5);
     }
 }
 

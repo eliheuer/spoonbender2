@@ -89,7 +89,7 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
         let window_id = *window_id;
         let window_title = format!("Edit: {}", glyph_name);
 
-        window(window_id, window_title, editor_window_view(session.clone()))
+        window(window_id, window_title, editor_window_view(window_id, session.clone()))
             .with_options(move |o| o.on_close(move |state: &mut AppState| {
                 state.close_editor(window_id);
             }))
@@ -102,16 +102,22 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
 }
 
 /// Editor window view with toolbar floating over canvas
-fn editor_window_view(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
+fn editor_window_view(window_id: xilem::WindowId, session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
     let current_tool = session.current_tool.id();
     let glyph_name = session.glyph_name.clone();
+
+    // Calculate coordinate values from session for display
+    let (x_text, y_text) = calculate_coordinate_text(&session);
 
     const MARGIN: f64 = 16.0; // Fixed 16px margin for all panels
 
     // Use zstack to layer UI elements over the canvas
     zstack((
         // Background: the editor canvas (full screen)
-        editor_view(session.clone()),
+        editor_view(session.clone(), move |state: &mut AppState, updated_session| {
+            // Update the session in AppState when it changes
+            state.update_editor_session(window_id, updated_session);
+        }),
         // Foreground: floating toolbar positioned in top-left with fixed margin
         transformed(
             toolbar_view(current_tool, |state: &mut AppState, tool_id| {
@@ -126,13 +132,43 @@ fn editor_window_view(session: Arc<crate::edit_session::EditSession>) -> impl Wi
         )
         .translate((MARGIN, -MARGIN))
         .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
-        // Bottom-right: coordinate info pane with fixed margin
+        // Bottom-right: coordinate info pane with fixed margin - uses pre-computed values
         transformed(
-            coordinate_info_pane(session.clone())
+            coordinate_info_pane_simple(x_text, y_text)
         )
         .translate((-MARGIN, -MARGIN))
         .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
     ))
+}
+
+/// Calculate coordinate text from session
+fn calculate_coordinate_text(session: &crate::edit_session::EditSession) -> (String, String) {
+    let selection = &session.selection;
+    let paths = &session.paths;
+
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut count = 0;
+
+    for path in paths.iter() {
+        match path {
+            crate::path::Path::Cubic(cubic) => {
+                for pt in cubic.points.iter() {
+                    if selection.contains(&pt.id) {
+                        min_x = min_x.min(pt.point.x);
+                        min_y = min_y.min(pt.point.y);
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if count > 0 && min_x.is_finite() {
+        (format!("{:.0}", min_x), format!("{:.0}", min_y))
+    } else {
+        ("—".to_string(), "—".to_string())
+    }
 }
 
 /// Welcome screen shown when no font is loaded
@@ -306,15 +342,109 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 
 /// Coordinate info pane showing x, y, width, height of selection
 fn coordinate_info_pane(session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
-    // Use the new coord_pane_view with the session's coordinate selection
-    // Height should fit the 64px selector + 16px padding (8px top + 8px bottom) = 80px
-    sized_box(coord_pane_view(session.coord_selection))
-        .width(240.px())
-        .height(80.px())
-        .background_color(theme::panel::BACKGROUND)
-        .border_color(theme::panel::OUTLINE)
-        .border_width(1.5)
-        .corner_radius(8.0)
+    // Calculate coordinate selection from current selection
+    let selection = &session.selection;
+    let paths = &session.paths;
+
+    // Calculate bounding box of selected points
+    let mut min_x = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    let mut count = 0;
+
+    for path in paths.iter() {
+        match path {
+            crate::path::Path::Cubic(cubic) => {
+                for pt in cubic.points.iter() {
+                    if selection.contains(&pt.id) {
+                        min_x = min_x.min(pt.point.x);
+                        max_x = max_x.max(pt.point.x);
+                        min_y = min_y.min(pt.point.y);
+                        max_y = max_y.max(pt.point.y);
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let coord_sel = if count > 0 && min_x.is_finite() {
+        let frame = kurbo::Rect::new(min_x, min_y, max_x, max_y);
+        crate::edit_session::CoordinateSelection::new(
+            count,
+            frame,
+            session.coord_selection.quadrant, // Preserve quadrant
+        )
+    } else {
+        crate::edit_session::CoordinateSelection::default()
+    };
+
+    // Get coordinate values as strings
+    let (x_text, y_text, w_text, h_text) = if coord_sel.count == 0 {
+        ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
+    } else {
+        let pt = coord_sel.reference_point();
+        let x = format!("{:.0}", pt.x);
+        let y = format!("{:.0}", pt.y);
+        let w = if coord_sel.count > 1 {
+            format!("{:.0}", coord_sel.width())
+        } else {
+            "—".to_string()
+        };
+        let h = if coord_sel.count > 1 {
+            format!("{:.0}", coord_sel.height())
+        } else {
+            "—".to_string()
+        };
+        (x, y, w, h)
+    };
+
+    sized_box(
+        flex_row((
+            // Quadrant selector on the left
+            sized_box(coord_pane_view(coord_sel)).width(80.px()),
+            // Coordinate values on the right - aligned to fill remaining space
+            flex_col((
+                label(format!("x: {}", x_text)).text_size(12.0),
+                label(format!("y: {}", y_text)).text_size(12.0),
+                label(format!("w: {}", w_text)).text_size(12.0),
+                label(format!("h: {}", h_text)).text_size(12.0),
+            )),
+        ))
+    )
+    .width(240.px())
+    .height(80.px())
+    .background_color(theme::panel::BACKGROUND)
+    .border_color(theme::panel::OUTLINE)
+    .border_width(1.5)
+    .corner_radius(8.0)
+}
+
+/// Simple coordinate info pane with pre-computed values
+fn coordinate_info_pane_simple(x_text: String, y_text: String) -> impl WidgetView<AppState> + use<> {
+    // Create a default coordinate selection for the quadrant picker
+    let coord_sel = crate::edit_session::CoordinateSelection::default();
+
+    sized_box(
+        flex_row((
+            // Quadrant selector on the left
+            sized_box(coord_pane_view(coord_sel)).width(80.px()),
+            // Coordinate values on the right
+            flex_col((
+                label(format!("x: {}", x_text)).text_size(12.0),
+                label(format!("y: {}", y_text)).text_size(12.0),
+                label("w: —").text_size(12.0),
+                label("h: —").text_size(12.0),
+            )),
+        ))
+    )
+    .width(240.px())
+    .height(80.px())
+    .background_color(theme::panel::BACKGROUND)
+    .border_color(theme::panel::OUTLINE)
+    .border_width(1.5)
+    .corner_radius(8.0)
 }
 
 /// Individual glyph cell in the grid
