@@ -12,7 +12,7 @@ use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, MainAxisAlignment, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -172,16 +172,22 @@ fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         .unwrap_or_default();
 
     flex_col((
-        label("Runebender Xilem").text_size(16.0),
-        label("No font loaded").text_size(16.0),
-        label(error_text).text_size(16.0),
-        button(label("Open UFO..."), |state: &mut AppState| {
-            state.open_font_dialog();
-        }),
-        button(label("New Font"), |state: &mut AppState| {
-            state.create_new_font();
-        }),
+        label("Runebender Xilem").text_size(48.0),
+        label("No font loaded"),
+        label(error_text).text_size(12.0),
+        sized_box(
+            button(label("Open UFO..."), |state: &mut AppState| {
+                state.open_font_dialog();
+            })
+        ).width(150.px()),
+        sized_box(
+            button(label("New Font"), |state: &mut AppState| {
+                state.create_new_font();
+            })
+        ).width(150.px()),
     ))
+    .main_axis_alignment(MainAxisAlignment::Center)
+    .cross_axis_alignment(CrossAxisAlignment::Center)
     .background_color(theme::app::BACKGROUND)
 }
 
