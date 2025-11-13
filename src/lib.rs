@@ -37,7 +37,7 @@ mod widgets;
 mod workspace;
 
 use data::{AppState, Tab};
-use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, toolbar_view};
+use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
 
 /// Entry point for the Spoonbender application
 pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
@@ -104,6 +104,7 @@ fn glyph_grid_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         // Main content: glyph grid
         glyph_grid_view(state),
     ))
+    .background_color(theme::app::BACKGROUND)
 }
 
 /// Tab 1: Editor view with toolbar floating over canvas
@@ -144,16 +145,14 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             )
             .translate((-MARGIN, -MARGIN))
             .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
-            // Top-right: Back button to return to glyph grid
+            // Top-right: Grid toolbar for navigation
             transformed(
-                button(
-                    label("Grid")
-                        .text_size(14.0)
-                        .color(Color::from_rgb8(200, 200, 200)),
-                    |state: &mut AppState| {
-                        state.close_editor();
+                grid_toolbar_view(|state: &mut AppState, button| {
+                    use widgets::grid_toolbar::GridToolbarButton;
+                    match button {
+                        GridToolbarButton::Grid => state.close_editor(),
                     }
-                )
+                })
             )
             .translate((-MARGIN, MARGIN))
             .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_RIGHT)),
@@ -183,6 +182,7 @@ fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             state.create_new_font();
         }),
     ))
+    .background_color(theme::app::BACKGROUND)
 }
 
 /// Helper to create coordinate info pane from session data
@@ -351,10 +351,10 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
     // Choose colors based on selection state
     let (bg_color, border_color) = if is_selected {
         // Darker forest green background with light green outline when selected
-        (Color::from_rgb8(20, 100, 20), Color::from_rgb8(144, 238, 144))
+        (theme::grid::CELL_SELECTED_BACKGROUND, theme::grid::CELL_SELECTED_OUTLINE)
     } else {
         // Dark gray background with mid gray outline when not selected
-        (Color::from_rgb8(50, 50, 50), Color::from_rgb8(100, 100, 100))
+        (theme::grid::CELL_BACKGROUND, theme::grid::CELL_OUTLINE)
     };
 
     // Glyph cell - fixed size works best with flex layout

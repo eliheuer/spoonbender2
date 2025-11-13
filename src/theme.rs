@@ -3,51 +3,120 @@
 
 //! Theme colors and constants
 //!
-//! Format: Color::from_rgb8(red, green, blue) values are 0-255 or 0x00-0xFF
+//! All colors use hexadecimal format: Color::from_rgb8(0xRR, 0xGG, 0xBB)
 
 use masonry::vello::peniko::Color;
 
 // ============================================================================
-// EDITOR CANVAS
+// GRAYSCALE GRADIENT - Generic neutral colors for UI
 // ============================================================================
-const CANVAS_BACKGROUND: Color = Color::from_rgb8(0x15, 0x15, 0x15);
+// Grayscale palette from darkest (A) to lightest (O) in 0x10 increments
+// Use these for consistent neutral colors throughout the UI
+// A=0x10, B=0x20, C=0x30, D=0x40, E=0x50, F=0x60, G=0x70, H=0x80,
+// I=0x90, J=0xa0, K=0xb0, L=0xc0, M=0xd0, N=0xe0, O=0xf0
+
+/// BASE_A - Darkest (0x10)
+const BASE_A: Color = Color::from_rgb8(0x10, 0x10, 0x10);
+
+/// BASE_B - Very dark (0x20)
+const BASE_B: Color = Color::from_rgb8(0x20, 0x20, 0x20);
+
+/// BASE_C - Dark (0x30)
+const BASE_C: Color = Color::from_rgb8(0x30, 0x30, 0x30);
+
+/// BASE_D - Medium-dark (0x40)
+const BASE_D: Color = Color::from_rgb8(0x40, 0x40, 0x40);
+
+/// BASE_E - Medium (0x50)
+const BASE_E: Color = Color::from_rgb8(0x50, 0x50, 0x50);
+
+/// BASE_F - Medium (0x60)
+const BASE_F: Color = Color::from_rgb8(0x60, 0x60, 0x60);
+
+/// BASE_G - Medium-light (0x70)
+const BASE_G: Color = Color::from_rgb8(0x70, 0x70, 0x70);
+
+/// BASE_H - Light (0x80)
+const BASE_H: Color = Color::from_rgb8(0x80, 0x80, 0x80);
+
+/// BASE_I - Light (0x90)
+const BASE_I: Color = Color::from_rgb8(0x90, 0x90, 0x90);
+
+/// BASE_J - Very light (0xa0)
+const BASE_J: Color = Color::from_rgb8(0xa0, 0xa0, 0xa0);
+
+/// BASE_K - Very light (0xb0)
+const BASE_K: Color = Color::from_rgb8(0xb0, 0xb0, 0xb0);
+
+/// BASE_L - Near white (0xc0)
+const BASE_L: Color = Color::from_rgb8(0xc0, 0xc0, 0xc0);
+
+/// BASE_M - Near white (0xd0)
+const BASE_M: Color = Color::from_rgb8(0xd0, 0xd0, 0xd0);
+
+/// BASE_N - Almost white (0xe0)
+const BASE_N: Color = Color::from_rgb8(0xe0, 0xe0, 0xe0);
+
+/// BASE_O - Lightest (0xf0)
+const BASE_O: Color = Color::from_rgb8(0xf0, 0xf0, 0xf0);
+
+// ============================================================================
+// GLOBAL BACKGROUNDS
+// ============================================================================
+/// Main application background - used for welcome screen, grid view, editor canvas
+const APP_BACKGROUND: Color = BASE_B;  // Using BASE_B (0x20, close to original 0x15)
 
 // ============================================================================
 // UI TEXT AND LABELS
 // ============================================================================
-const PRIMARY_UI_TEXT: Color = Color::from_rgb8(200, 200, 200);  // Light gray for all UI text
+const PRIMARY_UI_TEXT: Color = BASE_L;  // 0xc0 - Near white for primary UI text
+const LABEL_TEXT: Color = BASE_J;       // 0xa0 - Dimmer for labels
 
 // ============================================================================
 // UI PANELS (Toolbar, Coordinate Pane, Glyph Preview)
 // ============================================================================
-const PANEL_BACKGROUND: Color = Color::from_rgb8(0x40, 0x40, 0x40);
-const PANEL_OUTLINE: Color = Color::from_rgb8(0x60, 0x60, 0x60);
-const TOOLBAR_BUTTON_OUTLINE: Color = Color::from_rgb8(0x10, 0x10, 0x10);
-const GLYPH_PREVIEW_COLOR: Color = Color::from_rgb8(0x10, 0x10, 0x10);
+const PANEL_BACKGROUND: Color = BASE_D;           // 0x40 - Medium-dark gray
+const PANEL_OUTLINE: Color = BASE_F;              // 0x60 - Medium gray
+const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;     // 0x10 - Darkest
+const GLYPH_PREVIEW_COLOR: Color = BASE_A;        // 0x10 - Darkest
 
 // Coordinate Pane specific
-const COORD_PANE_GRID_LINE: Color = Color::from_rgb8(10, 10, 10);  // Gray for grid lines
+const COORD_PANE_GRID_LINE: Color = BASE_A;       // 0x10 - Darkest (was 0x0a, rounded up)
+
+// ============================================================================
+// GLYPH GRID VIEW
+// ============================================================================
+// Grid cell backgrounds
+const GRID_CELL_BACKGROUND: Color = BASE_C;       // 0x30 - Dark gray (was 0x32)
+const GRID_CELL_OUTLINE: Color = BASE_F;          // 0x60 - Medium gray (was 0x64)
+const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14);  // Keep green
+const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90);     // Keep light green
+
+// Glyph rendering in grid
+const GRID_GLYPH_COLOR: Color = Color::from_rgb8(0x00, 0x00, 0x00);  // Pure black
+const GRID_CELL_TEXT: Color = BASE_L;             // 0xc0 - Near white
 
 // ============================================================================
 // PATHS AND OUTLINES
 // ============================================================================
-const PATH_STROKE: Color = Color::from_rgb8(200, 200, 200);  // Light gray
-const PATH_FILL: Color = Color::from_rgb8(100, 100, 100);    // Medium gray
+const PATH_STROKE: Color = BASE_L;                // 0xc0 - Near white (was 0xc8)
+const PATH_FILL: Color = BASE_F;                  // 0x60 - Medium gray (was 0x64)
+const PATH_PREVIEW_FILL: Color = BASE_L;          // 0xc0 - Near white (was 0xc8)
 
 // ============================================================================
 // METRICS GUIDES
 // ============================================================================
-const METRICS_GUIDE: Color = Color::from_rgb8(100, 100, 100);  // Medium gray
+const METRICS_GUIDE: Color = BASE_F;              // 0x60 - Medium gray (was 0x64)
 
 // ============================================================================
 // GRID
 // ============================================================================
-const GRID_LINE: Color = Color::from_rgba8(60, 60, 60, 255);  // Dark gray
+const GRID_LINE: Color = BASE_D;                  // 0x40 - Medium-dark gray (was 0x3c)
 
 // ============================================================================
 // CONTROL POINT HANDLES
 // ============================================================================
-const HANDLE_LINE: Color = Color::from_rgba8(150, 150, 150, 255);  // Light gray
+const HANDLE_LINE: Color = BASE_I;                // 0x90 - Light gray (was 0x96)
 
 // ============================================================================
 // POINT COLORS
@@ -73,10 +142,63 @@ const SELECTED_POINT_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33);  // Oran
 // PUBLIC API - Don't edit below this line
 // ============================================================================
 
+/// Grayscale gradient - generic neutral colors for UI
+/// Use these base colors for consistent theming throughout the application
+pub mod base {
+    use super::Color;
+
+    /// BASE_A - Darkest (0x10)
+    pub const A: Color = super::BASE_A;
+    /// BASE_B - Very dark (0x20)
+    pub const B: Color = super::BASE_B;
+    /// BASE_C - Dark (0x30)
+    pub const C: Color = super::BASE_C;
+    /// BASE_D - Medium-dark (0x40)
+    pub const D: Color = super::BASE_D;
+    /// BASE_E - Medium (0x50)
+    pub const E: Color = super::BASE_E;
+    /// BASE_F - Medium (0x60)
+    pub const F: Color = super::BASE_F;
+    /// BASE_G - Medium-light (0x70)
+    pub const G: Color = super::BASE_G;
+    /// BASE_H - Light (0x80)
+    pub const H: Color = super::BASE_H;
+    /// BASE_I - Light (0x90)
+    pub const I: Color = super::BASE_I;
+    /// BASE_J - Very light (0xa0)
+    pub const J: Color = super::BASE_J;
+    /// BASE_K - Very light (0xb0)
+    pub const K: Color = super::BASE_K;
+    /// BASE_L - Near white (0xc0)
+    pub const L: Color = super::BASE_L;
+    /// BASE_M - Near white (0xd0)
+    pub const M: Color = super::BASE_M;
+    /// BASE_N - Almost white (0xe0)
+    pub const N: Color = super::BASE_N;
+    /// BASE_O - Lightest (0xf0)
+    pub const O: Color = super::BASE_O;
+}
+
+/// Global application background color
+pub mod app {
+    use super::Color;
+    /// Main background color used across all views (welcome, grid, editor)
+    pub const BACKGROUND: Color = super::APP_BACKGROUND;
+}
+
 /// Colors for editor canvas
 pub mod canvas {
     use super::Color;
-    pub const BACKGROUND: Color = super::CANVAS_BACKGROUND;
+    pub const BACKGROUND: Color = super::APP_BACKGROUND;
+}
+
+/// Colors for UI text
+pub mod text {
+    use super::Color;
+    /// Primary text color for UI elements
+    pub const PRIMARY: Color = super::PRIMARY_UI_TEXT;
+    /// Dimmer text for labels and secondary information
+    pub const LABEL: Color = super::LABEL_TEXT;
 }
 
 /// Colors for UI panels (toolbar, info panes, etc.)
@@ -92,11 +214,11 @@ pub mod panel {
 pub mod toolbar {
     use super::Color;
     // Button background colors
-    pub const BUTTON_UNSELECTED: Color = Color::from_rgb8(0x60, 0x60, 0x60);  // Light gray
-    pub const BUTTON_SELECTED: Color = Color::from_rgb8(0x90, 0x90, 0x90);     // Very light gray (brightest)
+    pub const BUTTON_UNSELECTED: Color = super::BASE_F;  // 0x60 - Medium gray
+    pub const BUTTON_SELECTED: Color = super::BASE_I;     // 0x90 - Light gray (brightest)
 
     // Icon color
-    pub const ICON: Color = Color::from_rgb8(0x40, 0x40, 0x40);  // Medium-dark gray
+    pub const ICON: Color = super::BASE_D;  // 0x40 - Medium-dark gray
 }
 
 /// Colors and sizes for coordinate pane
@@ -110,8 +232,8 @@ pub mod coord_pane {
     pub const DOT_SELECTED_OUTER: Color = super::SELECTED_POINT_OUTER;
 
     // Dot colors - unselected (gray)
-    pub const DOT_UNSELECTED_INNER: Color = Color::from_rgb8(90, 90, 90);
-    pub const DOT_UNSELECTED_OUTER: Color = Color::from_rgb8(40, 40, 40);
+    pub const DOT_UNSELECTED_INNER: Color = super::BASE_F;  // 0x60 - Medium gray (was 0x5a)
+    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_B;  // 0x20 - Very dark gray (was 0x28)
 
     // Sizes (matching Runebender)
     pub const PADDING: f64 = 16.0;  // Increased from 8px for more even margins
@@ -120,23 +242,39 @@ pub mod coord_pane {
     pub const STROKE_WIDTH: f64 = 1.0;  // Match container outline width
 }
 
+/// Colors for glyph grid view
+pub mod grid {
+    use super::Color;
+
+    /// Grid cell background (unselected)
+    pub const CELL_BACKGROUND: Color = super::GRID_CELL_BACKGROUND;
+    /// Grid cell outline (unselected)
+    pub const CELL_OUTLINE: Color = super::GRID_CELL_OUTLINE;
+    /// Grid cell background when selected
+    pub const CELL_SELECTED_BACKGROUND: Color = super::GRID_CELL_SELECTED_BACKGROUND;
+    /// Grid cell outline when selected
+    pub const CELL_SELECTED_OUTLINE: Color = super::GRID_CELL_SELECTED_OUTLINE;
+    /// Text color for glyph names in grid
+    pub const CELL_TEXT: Color = super::GRID_CELL_TEXT;
+    /// Glyph fill color in grid cells
+    pub const GLYPH_COLOR: Color = super::GRID_GLYPH_COLOR;
+
+    /// Editor canvas grid lines
+    pub const LINE: Color = super::GRID_LINE;
+}
+
 /// Colors for paths and outlines
 pub mod path {
     use super::Color;
     pub const STROKE: Color = super::PATH_STROKE;
     pub const FILL: Color = super::PATH_FILL;
+    pub const PREVIEW_FILL: Color = super::PATH_PREVIEW_FILL;
 }
 
 /// Colors for font metrics guides
 pub mod metrics {
     use super::Color;
     pub const GUIDE: Color = super::METRICS_GUIDE;
-}
-
-/// Colors for grid
-pub mod grid {
-    use super::Color;
-    pub const LINE: Color = super::GRID_LINE;
 }
 
 /// Colors for control point lines (handles)

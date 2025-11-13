@@ -217,7 +217,7 @@ impl Widget for EditorWidget {
 
         if is_preview_mode {
             // Preview mode: Fill the glyph with light gray (visible on dark theme)
-            let fill_brush = Brush::Solid(Color::from_rgb8(200, 200, 200));
+            let fill_brush = Brush::Solid(theme::path::PREVIEW_FILL);
             scene.fill(
                 peniko::Fill::NonZero,
                 Affine::IDENTITY,

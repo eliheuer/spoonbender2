@@ -8,6 +8,7 @@
 //! the reference point for multi-point selections.
 
 use crate::quadrant::Quadrant;
+use crate::theme;
 use kurbo::{Circle, Point, Rect, Shape};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
@@ -517,7 +518,7 @@ pub fn coordinate_info_pane<State: 'static>(
         label(text)
             .text_size(12.0)
             .text_alignment(parley::Alignment::Start)
-            .color(Color::from_rgb8(170, 170, 170))
+            .color(theme::text::LABEL)
     };
 
     sized_box(

@@ -33,7 +33,7 @@ impl GlyphWidget {
     pub fn new(path: BezPath, size: Size, upm: f64) -> Self {
         Self {
             path,
-            color: Color::from_rgb8(0, 0, 0), // Default to black
+            color: crate::theme::grid::GLYPH_COLOR, // Default glyph color from theme
             size,
             upm,
             baseline_offset: 0.02, // Default baseline offset
