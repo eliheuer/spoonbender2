@@ -207,8 +207,8 @@ impl Widget for EditorWidget {
         let transformed_path = transform * &glyph_path;
 
         if is_preview_mode {
-            // Preview mode: Fill the glyph with solid black (like glyph preview pane)
-            let fill_brush = Brush::Solid(Color::from_rgb8(0, 0, 0));
+            // Preview mode: Fill the glyph with light gray (visible on dark theme)
+            let fill_brush = Brush::Solid(Color::from_rgb8(200, 200, 200));
             scene.fill(
                 peniko::Fill::NonZero,
                 Affine::IDENTITY,
@@ -240,6 +240,10 @@ impl Widget for EditorWidget {
             PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
                 println!("[EditorWidget::on_pointer_event] Down at {:?}, current_tool: {:?}",
                          state.position, self.session.current_tool.id());
+
+                // Capture pointer to receive drag events
+                ctx.capture_pointer();
+
                 let local_pos = ctx.local_position(state.position);
 
                 // Extract modifier keys from pointer state
@@ -269,22 +273,13 @@ impl Widget for EditorWidget {
                 // Create MouseEvent
                 let mouse_event = MouseEvent::new(local_pos, None);
 
-                // Store old viewport to detect changes
-                let old_viewport = self.session.viewport.clone();
-
                 // Temporarily take ownership of the tool
                 let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
                 self.mouse.mouse_moved(mouse_event, &mut tool, &mut self.session);
                 self.session.current_tool = tool;
 
+                // During active drag, just render - don't emit actions (to avoid breaking mouse state)
                 if ctx.is_active() {
-                    // Only emit action if viewport actually changed (to avoid feedback loops)
-                    if self.session.viewport.offset != old_viewport.offset ||
-                       (self.session.viewport.zoom - old_viewport.zoom).abs() > 0.001 {
-                        ctx.submit_action::<SessionUpdate>(SessionUpdate {
-                            session: self.session.clone(),
-                        });
-                    }
                     ctx.request_render();
                 }
             }
@@ -759,7 +754,8 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
         _element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // Widget state updates are handled via the callback in pointer events
+        // Widget state updates are handled internally
+        // Don't update session here to avoid breaking mouse state during drag
     }
 
     fn teardown(
