@@ -23,6 +23,11 @@ use masonry::vello::peniko::{Brush, Color};
 use masonry::vello::Scene;
 use std::sync::Arc;
 
+/// Zoom constraints (from Runebender)
+const MIN_ZOOM: f64 = 0.02;
+const MAX_ZOOM: f64 = 50.0;
+const ZOOM_SCALE: f64 = 0.001;
+
 /// The main glyph editor canvas widget
 pub struct EditorWidget {
     /// The editing session (mutable copy for editing)
@@ -145,48 +150,54 @@ impl Widget for EditorWidget {
             glyph_path.extend(path.to_bezpath());
         }
 
-        // Calculate initial viewport positioning to center the glyph
-        // We'll center based on the advance width and font metrics
-        let ascender = self.session.ascender;
-        let descender = self.session.descender;
+        // Initialize viewport on first paint
+        if !self.session.viewport_initialized {
+            // Calculate initial viewport positioning to center the glyph
+            let ascender = self.session.ascender;
+            let descender = self.session.descender;
 
-        // Calculate the visible height in design space
-        let design_height = ascender - descender;
+            // Calculate the visible height in design space
+            let design_height = ascender - descender;
 
-        // Center the viewport on the canvas
-        // We want the glyph to be centered horizontally and vertically
-        let center_x = canvas_size.width / 2.0;
-        let center_y = canvas_size.height / 2.0;
+            // Center the viewport on the canvas
+            let center_x = canvas_size.width / 2.0;
+            let center_y = canvas_size.height / 2.0;
 
-        // Create a transform that:
-        // 1. Scales to fit the canvas (with some padding)
-        // 2. Centers the glyph
-        let padding = 0.8; // Leave 20% padding
-        let scale = (canvas_size.height * padding) / design_height;
+            // Create a transform that:
+            // 1. Scales to fit the canvas (with some padding)
+            // 2. Centers the glyph
+            let padding = 0.8; // Leave 20% padding
+            let scale = (canvas_size.height * padding) / design_height;
 
-        // Center point in design space (middle of advance width, middle of height)
-        let design_center_x = self.session.glyph.width / 2.0;
-        let design_center_y = (ascender + descender) / 2.0;
+            // Center point in design space (middle of advance width, middle of height)
+            let design_center_x = self.session.glyph.width / 2.0;
+            let design_center_y = (ascender + descender) / 2.0;
 
-        // Update the viewport to match our rendering transform
-        // The viewport uses: zoom (scale) and offset (translation after scale)
-        self.session.viewport.zoom = scale;
-        // Offset calculation based on to_screen formula:
-        // screen.x = design.x * zoom + offset.x
-        // screen.y = -design.y * zoom + offset.y
-        // For design_center to map to canvas_center:
-        self.session.viewport.offset = kurbo::Vec2::new(
-            center_x - design_center_x * scale,
-            center_y - (-design_center_y * scale), // Note the Y-flip
-        );
+            // Update the viewport to match our rendering transform
+            // The viewport uses: zoom (scale) and offset (translation after scale)
+            self.session.viewport.zoom = scale;
+            // Offset calculation based on to_screen formula:
+            // screen.x = design.x * zoom + offset.x
+            // screen.y = -design.y * zoom + offset.y
+            // For design_center to map to canvas_center:
+            self.session.viewport.offset = kurbo::Vec2::new(
+                center_x - design_center_x * scale,
+                center_y + design_center_y * scale, // Y is flipped in to_affine
+            );
 
-        // Create transform: translate to origin, scale, flip Y, translate to canvas center
-        let transform = Affine::translate((center_x, center_y))
-            * Affine::scale_non_uniform(scale, -scale) // Negative Y scale for flip
-            * Affine::translate((-design_center_x, -design_center_y));
+            self.session.viewport_initialized = true;
+        }
 
-        // Draw font metrics guides (always visible, even if glyph is empty)
-        draw_metrics_guides(scene, &transform, &self.session, canvas_size);
+        // Build transform from viewport (always uses current zoom/offset)
+        let transform = self.session.viewport.affine();
+
+        // Check if we're in preview mode (Preview tool is active)
+        let is_preview_mode = self.session.current_tool.id() == crate::tools::ToolId::Preview;
+
+        if !is_preview_mode {
+            // Edit mode: Draw font metrics guides
+            draw_metrics_guides(scene, &transform, &self.session, canvas_size);
+        }
 
         if glyph_path.is_empty() {
             return;
@@ -195,13 +206,25 @@ impl Widget for EditorWidget {
         // Apply transform to path
         let transformed_path = transform * &glyph_path;
 
-        // Draw the glyph outline
-        let stroke = Stroke::new(theme::size::PATH_STROKE_WIDTH);
-        let brush = Brush::Solid(theme::path::STROKE);
-        scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &transformed_path);
+        if is_preview_mode {
+            // Preview mode: Fill the glyph with solid black (like glyph preview pane)
+            let fill_brush = Brush::Solid(Color::from_rgb8(0, 0, 0));
+            scene.fill(
+                peniko::Fill::NonZero,
+                Affine::IDENTITY,
+                &fill_brush,
+                None,
+                &transformed_path,
+            );
+        } else {
+            // Edit mode: Draw the glyph outline with stroke
+            let stroke = Stroke::new(theme::size::PATH_STROKE_WIDTH);
+            let brush = Brush::Solid(theme::path::STROKE);
+            scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &transformed_path);
 
-        // Draw control point lines and points
-        draw_paths_with_points(scene, &self.session, &transform);
+            // Draw control point lines and points
+            draw_paths_with_points(scene, &self.session, &transform);
+        }
     }
 
     fn on_pointer_event(
@@ -215,7 +238,8 @@ impl Widget for EditorWidget {
 
         match event {
             PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
-                ctx.capture_pointer();
+                println!("[EditorWidget::on_pointer_event] Down at {:?}, current_tool: {:?}",
+                         state.position, self.session.current_tool.id());
                 let local_pos = ctx.local_position(state.position);
 
                 // Extract modifier keys from pointer state
@@ -245,12 +269,22 @@ impl Widget for EditorWidget {
                 // Create MouseEvent
                 let mouse_event = MouseEvent::new(local_pos, None);
 
+                // Store old viewport to detect changes
+                let old_viewport = self.session.viewport.clone();
+
                 // Temporarily take ownership of the tool
                 let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
                 self.mouse.mouse_moved(mouse_event, &mut tool, &mut self.session);
                 self.session.current_tool = tool;
 
                 if ctx.is_active() {
+                    // Only emit action if viewport actually changed (to avoid feedback loops)
+                    if self.session.viewport.offset != old_viewport.offset ||
+                       (self.session.viewport.zoom - old_viewport.zoom).abs() > 0.001 {
+                        ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                            session: self.session.clone(),
+                        });
+                    }
                     ctx.request_render();
                 }
             }
@@ -302,7 +336,10 @@ impl Widget for EditorWidget {
                 ctx.request_render();
             }
 
-            _ => {}
+            _ => {
+                // TODO: Implement wheel event handling once Masonry exposes it
+                // For now, zooming can be done via keyboard shortcuts or commands
+            }
         }
     }
 
@@ -340,6 +377,36 @@ impl Widget for EditorWidget {
                         ctx.set_handled();
                         return;
                     }
+                }
+
+                // Zoom in (+ or = key)
+                if matches!(&key_event.key, Key::Character(c) if c == "+" || c == "=") {
+                    let new_zoom = (self.session.viewport.zoom * 1.1).min(MAX_ZOOM);
+                    self.session.viewport.zoom = new_zoom;
+                    println!("Zoom in: new zoom = {:.2}", new_zoom);
+                    ctx.request_render();
+                    ctx.set_handled();
+                    return;
+                }
+
+                // Zoom out (- key)
+                if matches!(&key_event.key, Key::Character(c) if c == "-") {
+                    let new_zoom = (self.session.viewport.zoom / 1.1).max(MIN_ZOOM);
+                    self.session.viewport.zoom = new_zoom;
+                    println!("Zoom out: new zoom = {:.2}", new_zoom);
+                    ctx.request_render();
+                    ctx.set_handled();
+                    return;
+                }
+
+                // Fit to window (Cmd/Ctrl+0)
+                if cmd && matches!(&key_event.key, Key::Character(c) if c == "0") {
+                    // Reset viewport to fit glyph in window
+                    self.session.viewport_initialized = false;
+                    println!("Fit to window: resetting viewport");
+                    ctx.request_render();
+                    ctx.set_handled();
+                    return;
                 }
 
                 // Delete selected points (Backspace or Delete key)

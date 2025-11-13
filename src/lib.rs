@@ -12,7 +12,7 @@ use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -36,7 +36,7 @@ mod undo;
 mod widgets;
 mod workspace;
 
-use data::AppState;
+use data::{AppState, Tab};
 use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, toolbar_view};
 
 /// Entry point for the Spoonbender application
@@ -63,78 +63,100 @@ pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
     Ok(())
 }
 
-/// Main application logic - builds multiple windows
+/// Main application logic - single window with tabs
 fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>> + use<> {
-    println!("[app_logic] Called with {} editor sessions", state.editor_sessions.len());
-    let main_window_view = if state.workspace.is_some() {
-        // Font is loaded - show main editor view
-        Either::A(main_editor_view(state))
+    let content = if state.workspace.is_some() {
+        // Font is loaded - show tabbed interface
+        Either::A(tabbed_view(state))
     } else {
         // No font loaded - show welcome screen
         Either::B(welcome_view(state))
     };
 
-    let main_window = window(state.main_window_id, "Spoonbender", main_window_view)
-        .with_options(|o| o.on_close(|state: &mut AppState| {
-            state.running = false;
-        }));
-
-    // Create editor windows for each open session
-    let editor_windows = state.editor_sessions.iter().map(|(window_id, (glyph_name, session))| {
-        let window_id = *window_id;
-        let window_title = format!("Edit: {}", glyph_name);
-        println!("[app_logic] Creating window for {:?}, session.selection.len()={}", window_id, session.selection.len());
-
-        window(window_id, window_title, editor_window_view(state, window_id, session.clone()))
-            .with_options(move |o| o.on_close(move |state: &mut AppState| {
-                state.close_editor(window_id);
+    std::iter::once(
+        window(xilem::WindowId::next(), "Spoonbender", content)
+            .with_options(|o| o.on_close(|state: &mut AppState| {
+                state.running = false;
             }))
-    });
-
-    std::iter::once(main_window)
-        .chain(editor_windows)
-        .collect::<Vec<_>>()
-        .into_iter()
+    )
 }
 
-/// Editor window view with toolbar floating over canvas
-fn editor_window_view(state: &AppState, window_id: xilem::WindowId, session: Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> {
-    let current_tool = session.current_tool.id();
-    let glyph_name = session.glyph_name.clone();
-
-    const MARGIN: f64 = 16.0; // Fixed 16px margin for all panels
-
-    // Use zstack to layer UI elements over the canvas
-    zstack((
-        // Background: the editor canvas (full screen)
-        // Get the current session from state and pass update closure
-        editor_view(
-            session.clone(),
-            move |state: &mut AppState, updated_session| {
-                state.update_editor_session(window_id, updated_session);
-            }
-        ),
-        // Foreground: floating toolbar positioned in top-left with fixed margin
-        transformed(
-            toolbar_view(current_tool, |state: &mut AppState, tool_id| {
-                state.set_editor_tool(tool_id);
-            })
-        )
-        .translate((MARGIN, MARGIN))
-        .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_LEFT)),
-        // Bottom-left: glyph preview pane with fixed margin
-        transformed(
-            glyph_preview_pane(session.clone(), glyph_name.clone())
-        )
-        .translate((MARGIN, -MARGIN))
-        .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
-        // Bottom-right: coordinate info pane with fixed margin - reads from AppState
-        transformed(
-            coordinate_info_pane_reactive(state, window_id)
-        )
-        .translate((-MARGIN, -MARGIN))
-        .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
+/// Tabbed interface with glyph grid and editor tabs
+fn tabbed_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
+    indexed_stack((
+        // Tab 0: Glyph Grid
+        glyph_grid_tab(state),
+        // Tab 1: Editor
+        editor_tab(state),
     ))
+    .active(state.active_tab as usize)
+}
+
+/// Tab 0: Glyph grid view with header
+fn glyph_grid_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
+    flex_col((
+        // Top margin
+        sized_box(label("")).height(10.px()),
+        // Header bar
+        header_bar(state),
+        // Selected glyph info bar
+        selected_glyph_info(state),
+        // Main content: glyph grid
+        glyph_grid_view(state),
+    ))
+}
+
+/// Tab 1: Editor view with toolbar floating over canvas
+fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
+    if let Some(session) = &state.editor_session {
+        let current_tool = session.current_tool.id();
+        let glyph_name = session.glyph_name.clone();
+        let session_arc = Arc::new(session.clone());
+
+        const MARGIN: f64 = 16.0; // Fixed 16px margin for all panels
+
+        // Use zstack to layer UI elements over the canvas
+        Either::A(zstack((
+            // Background: the editor canvas (full screen)
+            editor_view(
+                session_arc.clone(),
+                |state: &mut AppState, updated_session| {
+                    state.update_editor_session(updated_session);
+                }
+            ),
+            // Foreground: floating toolbar positioned in top-left with fixed margin
+            transformed(
+                toolbar_view(current_tool, |state: &mut AppState, tool_id| {
+                    state.set_editor_tool(tool_id);
+                })
+            )
+            .translate((MARGIN, MARGIN))
+            .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_LEFT)),
+            // Bottom-left: glyph preview pane with fixed margin
+            transformed(
+                glyph_preview_pane(session_arc.clone(), glyph_name.clone())
+            )
+            .translate((MARGIN, -MARGIN))
+            .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
+            // Bottom-right: coordinate info pane with fixed margin
+            transformed(
+                coordinate_info_pane_from_session(session)
+            )
+            .translate((-MARGIN, -MARGIN))
+            .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
+            // Top-right: Back button to return to glyph grid
+            transformed(
+                button(label("← Back to Grid"), |state: &mut AppState| {
+                    state.close_editor();
+                })
+            )
+            .translate((-MARGIN, MARGIN))
+            .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_RIGHT)),
+        )))
+    } else {
+        // No session - show empty view (shouldn't happen)
+        Either::B(flex_col((label("No editor session"),)))
+    }
 }
 
 /// Welcome screen shown when no font is loaded
@@ -158,18 +180,10 @@ fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     ))
 }
 
-/// Main editor view with sidebar and glyph grid
-fn main_editor_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
-    flex_col((
-        // Top margin
-        sized_box(label("")).height(10.px()),
-        // Header bar
-        header_bar(state),
-        // Selected glyph info bar
-        selected_glyph_info(state),
-        // Main content: glyph grid
-        glyph_grid_view(state),
-    ))
+/// Helper to create coordinate info pane from session data
+fn coordinate_info_pane_from_session(session: &crate::edit_session::EditSession) -> impl WidgetView<AppState> + use<> {
+    let coord_selection = calculate_coordinate_selection(session);
+    coordinate_info_pane(coord_selection)
 }
 
 /// Header bar with font name and action buttons
@@ -306,27 +320,6 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
     .corner_radius(8.0)
 }
 
-/// Reactive coordinate info pane that reads from AppState
-fn coordinate_info_pane_reactive(
-    state: &AppState,
-    window_id: xilem::WindowId,
-) -> impl WidgetView<AppState> {
-    // Calculate coordinate selection from the current session
-    let coord_sel = if let Some((_glyph_name, session)) = state.editor_sessions.get(&window_id) {
-        let coord_sel = calculate_coordinate_selection(session);
-        println!(
-            "[coordinate_info_pane_reactive] Building coordinate pane for window {:?}: count={}, frame={:?}",
-            window_id, coord_sel.count, coord_sel.frame
-        );
-        coord_sel
-    } else {
-        println!("[coordinate_info_pane_reactive] window={:?} NOT FOUND in sessions", window_id);
-        widgets::CoordinateSelection::default()
-    };
-
-    // Use the coordinate_info_pane from the widgets module
-    coordinate_info_pane(coord_sel)
-}
 
 /// Individual glyph cell in the grid
 fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected: bool, upm: f64) -> impl WidgetView<AppState> + use<> {

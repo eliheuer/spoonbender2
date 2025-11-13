@@ -117,6 +117,9 @@ pub struct EditSession {
     /// Viewport transformation
     pub viewport: ViewPort,
 
+    /// Whether the viewport has been initialized (to avoid recalculating on every frame)
+    pub viewport_initialized: bool,
+
     /// Font metrics (for drawing guides)
     pub units_per_em: f64,
     pub ascender: f64,
@@ -152,6 +155,7 @@ impl EditSession {
             coord_selection: CoordinateSelection::default(),
             current_tool: ToolBox::for_id(ToolId::Select),
             viewport: ViewPort::new(),
+            viewport_initialized: false,
             units_per_em,
             ascender,
             descender,

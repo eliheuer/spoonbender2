@@ -5,10 +5,17 @@
 
 use crate::edit_session::EditSession;
 use crate::workspace::Workspace;
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
-use xilem::WindowId;
+
+/// Which tab is currently active
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(usize)]
+pub enum Tab {
+    /// Glyph grid view (font overview)
+    GlyphGrid = 0,
+    /// Editor view for a specific glyph
+    Editor = 1,
+}
 
 /// Main application state
 pub struct AppState {
@@ -18,20 +25,17 @@ pub struct AppState {
     /// Error message to display, if any
     pub error_message: Option<String>,
 
-    /// Currently selected glyph name
+    /// Currently selected glyph name (for showing in grid)
     pub selected_glyph: Option<String>,
 
-    /// Open editor sessions (window ID -> (glyph name, session))
-    pub editor_sessions: HashMap<WindowId, (String, Arc<EditSession>)>,
+    /// Current editor session (when Editor tab is active)
+    pub editor_session: Option<EditSession>,
 
-    /// Main window ID
-    pub main_window_id: WindowId,
+    /// Which tab is currently active
+    pub active_tab: Tab,
 
     /// Whether the app should keep running
     pub running: bool,
-
-    /// Update counter - incremented whenever sessions change to force Xilem rebuilds
-    pub update_counter: u64,
 }
 
 impl AppState {
@@ -41,10 +45,9 @@ impl AppState {
             workspace: None,
             error_message: None,
             selected_glyph: None,
-            editor_sessions: HashMap::new(),
-            main_window_id: WindowId::next(),
+            editor_session: None,
+            active_tab: Tab::GlyphGrid,
             running: true,
-            update_counter: 0,
         }
     }
 
@@ -153,53 +156,30 @@ impl AppState {
 
     /// Open or focus an editor for a glyph
     pub fn open_editor(&mut self, glyph_name: String) {
-        // Check if we already have a window for this glyph
-        let already_open = self.editor_sessions.values()
-            .any(|(name, _)| name == &glyph_name);
-
-        if !already_open {
-            if let Some(session) = self.create_edit_session(&glyph_name) {
-                let window_id = WindowId::next();
-                self.editor_sessions.insert(window_id, (glyph_name, Arc::new(session)));
-            }
+        if let Some(session) = self.create_edit_session(&glyph_name) {
+            self.editor_session = Some(session);
+            self.active_tab = Tab::Editor;
         }
     }
 
-    /// Close an editor session by window ID
-    pub fn close_editor(&mut self, window_id: WindowId) {
-        self.editor_sessions.remove(&window_id);
+    /// Close the editor and return to glyph grid
+    pub fn close_editor(&mut self) {
+        self.editor_session = None;
+        self.active_tab = Tab::GlyphGrid;
     }
 
-    /// Set the tool for all editor sessions
-    ///
-    /// Note: In a real implementation, each editor would have its own tool state.
-    /// For now, we'll just update all editors to use the same tool.
+    /// Set the tool for the current editor session
     pub fn set_editor_tool(&mut self, tool_id: crate::tools::ToolId) {
-        for (_window_id, (_glyph_name, session)) in self.editor_sessions.iter_mut() {
-            // We need to make the session mutable
-            // For now this is a no-op, but the tool change will be reflected
-            // when the editor widget recreates from the session
-            println!("Setting tool to {:?}", tool_id);
-            // TODO: Actually update the session's tool
-            // This requires making session mutable or using interior mutability
+        println!("Setting tool to {:?}", tool_id);
+        if let Some(session) = &mut self.editor_session {
+            session.current_tool = crate::tools::ToolBox::for_id(tool_id);
         }
     }
 
-    /// Set the coordinate quadrant for an editor session
-    pub fn set_coord_quadrant(&mut self, _window_id: WindowId, quadrant: crate::quadrant::Quadrant) {
-        // TODO: Update the specific session's coordinate quadrant
-        // For now, just log it
-        println!("Setting coordinate quadrant to {:?}", quadrant);
-    }
-
-    /// Update an editor session with new state
-    pub fn update_editor_session(&mut self, window_id: WindowId, session: EditSession) {
-        if let Some((_glyph_name, stored_session)) = self.editor_sessions.get_mut(&window_id) {
-            *stored_session = Arc::new(session);
-            // Increment counter to force Xilem to detect state change
-            self.update_counter += 1;
-            println!("Updated session for window {:?}: selection count = {}, counter = {}", window_id, stored_session.selection.len(), self.update_counter);
-        }
+    /// Update the current editor session with new state
+    pub fn update_editor_session(&mut self, session: EditSession) {
+        println!("Updated session: selection count = {}", session.selection.len());
+        self.editor_session = Some(session);
     }
 }
 

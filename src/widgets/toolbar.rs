@@ -183,8 +183,11 @@ impl Widget for ToolbarWidget {
     ) {
         match event {
             PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
+                println!("[ToolbarWidget::on_pointer_event] Down at {:?}", state.position);
                 let local_pos = ctx.local_position(state.position);
+                println!("[ToolbarWidget::on_pointer_event] local_pos: {:?}", local_pos);
                 if let Some(tool) = self.tool_at_point(local_pos) {
+                    println!("[ToolbarWidget::on_pointer_event] Hit tool: {:?}", tool);
                     if tool != self.selected_tool {
                         self.selected_tool = tool;
                         ctx.submit_action::<ToolSelected>(ToolSelected(tool));
@@ -395,7 +398,7 @@ pub struct ToolbarView<State, Action = ()> {
 
 impl<State, Action> ViewMarker for ToolbarView<State, Action> {}
 
-impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for ToolbarView<State, Action> {
+impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx> for ToolbarView<State, Action> {
     type Element = Pod<ToolbarWidget>;
     type ViewState = ();
 
@@ -443,8 +446,11 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for ToolbarVi
         // Handle tool selection actions from widget
         match message.take_message::<ToolSelected>() {
             Some(action) => {
+                println!("[ToolbarView::message] Tool selected: {:?}", action.0);
                 (self.callback)(app_state, action.0);
-                MessageResult::Nop
+                // Return Action to propagate to root and trigger full app rebuild
+                // This is necessary for multi-window apps (see CLAUDE.md)
+                MessageResult::Action(Default::default())
             }
             None => MessageResult::Stale,
         }

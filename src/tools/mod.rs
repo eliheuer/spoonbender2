@@ -86,7 +86,7 @@ pub trait Tool: MouseDelegate<Data = EditSession> {
 pub enum ToolBox {
     Select(select::SelectTool),
     Pen(pen::PenTool),
-    // Preview(preview::PreviewTool),
+    Preview(preview::PreviewTool),
     // etc.
 }
 
@@ -96,6 +96,7 @@ impl ToolBox {
         match id {
             ToolId::Select => ToolBox::Select(select::SelectTool::default()),
             ToolId::Pen => ToolBox::Pen(pen::PenTool::default()),
+            ToolId::Preview => ToolBox::Preview(preview::PreviewTool::default()),
             _ => {
                 // For now, default to Select for unimplemented tools
                 eprintln!("Tool {:?} not yet implemented, using Select", id);
@@ -109,6 +110,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.id(),
             ToolBox::Pen(tool) => tool.id(),
+            ToolBox::Preview(tool) => tool.id(),
         }
     }
 
@@ -117,6 +119,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.paint(scene, session, transform),
             ToolBox::Pen(tool) => tool.paint(scene, session, transform),
+            ToolBox::Preview(_) => {}, // Preview tool has no overlays
         }
     }
 
@@ -125,6 +128,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.edit_type(),
             ToolBox::Pen(tool) => tool.edit_type(),
+            ToolBox::Preview(tool) => tool.edit_type(),
         }
     }
 
@@ -133,6 +137,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.left_down(event, session),
             ToolBox::Pen(tool) => tool.left_down(event, session),
+            ToolBox::Preview(tool) => tool.left_down(event, session),
         }
     }
 
@@ -141,6 +146,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.left_up(event, session),
             ToolBox::Pen(tool) => tool.left_up(event, session),
+            ToolBox::Preview(tool) => tool.left_up(event, session),
         }
     }
 
@@ -149,6 +155,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.mouse_moved(event, session),
             ToolBox::Pen(tool) => tool.mouse_moved(event, session),
+            ToolBox::Preview(tool) => tool.mouse_moved(event, session),
         }
     }
 
@@ -157,6 +164,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.left_drag_began(event, drag, session),
             ToolBox::Pen(tool) => tool.left_drag_began(event, drag, session),
+            ToolBox::Preview(tool) => tool.left_drag_began(event, drag, session),
         }
     }
 
@@ -165,6 +173,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.left_drag_changed(event, drag, session),
             ToolBox::Pen(tool) => tool.left_drag_changed(event, drag, session),
+            ToolBox::Preview(tool) => tool.left_drag_changed(event, drag, session),
         }
     }
 
@@ -173,6 +182,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.left_drag_ended(event, drag, session),
             ToolBox::Pen(tool) => tool.left_drag_ended(event, drag, session),
+            ToolBox::Preview(tool) => tool.left_drag_ended(event, drag, session),
         }
     }
 
@@ -181,6 +191,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.cancel(session),
             ToolBox::Pen(tool) => tool.cancel(session),
+            ToolBox::Preview(tool) => tool.cancel(session),
         }
     }
 }
@@ -201,6 +212,7 @@ impl MouseDelegate for ToolBox {
         match self {
             ToolBox::Select(tool) => tool.left_click(event, data),
             ToolBox::Pen(tool) => tool.left_click(event, data),
+            ToolBox::Preview(tool) => tool.left_click(event, data),
         }
     }
 
@@ -208,6 +220,7 @@ impl MouseDelegate for ToolBox {
         match self {
             ToolBox::Select(tool) => tool.mouse_moved(event, data),
             ToolBox::Pen(tool) => tool.mouse_moved(event, data),
+            ToolBox::Preview(tool) => tool.mouse_moved(event, data),
         }
     }
 
@@ -227,6 +240,7 @@ impl MouseDelegate for ToolBox {
         match self {
             ToolBox::Select(tool) => tool.cancel(data),
             ToolBox::Pen(tool) => tool.cancel(data),
+            ToolBox::Preview(tool) => tool.cancel(data),
         }
     }
 }
@@ -234,3 +248,4 @@ impl MouseDelegate for ToolBox {
 // Tool modules
 pub mod select;
 pub mod pen;
+pub mod preview;
