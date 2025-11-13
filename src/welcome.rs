@@ -80,11 +80,11 @@ fn create_demo_session() -> EditSession {
     let mut session = EditSession::new(
         "R".to_string(),
         glyph,
-        1000.0,     // UPM (units per em)
-        800.0,      // ascender
-        -200.0,     // descender
-        Some(500.0), // x_height
-        Some(700.0), // cap_height
+        1024.0,     // UPM (units per em) - from VirtuaGrotesk
+        832.0,      // ascender - from VirtuaGrotesk
+        -256.0,     // descender - from VirtuaGrotesk
+        Some(576.0), // x_height - from VirtuaGrotesk
+        Some(768.0), // cap_height - from VirtuaGrotesk
     );
 
     // Pan the viewport down and to the right for better visual balance
