@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Spoonbender is a font editor built with Xilem, a modern Rust UI framework from the Linebender ecosystem. This is a port of Runebender from Druid to Xilem, leveraging GPU-accelerated rendering via Vello.
+Runebender Xilem is a font editor built with Xilem, a modern Rust UI framework from the Linebender ecosystem. This is a port of Runebender from Druid to Xilem, leveraging GPU-accelerated rendering via Vello.
 
 **Status**: Very alpha and mostly Claude-generated.
 
@@ -24,7 +24,7 @@ cargo run path/to/font.ufo
 cargo build --release
 
 # Run release binary with a file
-./target/release/spoonbender path/to/font.ufo
+./target/release/runebender path/to/font.ufo
 
 # Check for compilation errors without building
 cargo check

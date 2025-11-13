@@ -1,7 +1,7 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Spoonbender: A font editor built with Xilem
+//! Runebender Xilem: A font editor built with Xilem
 //!
 //! This is a port of Runebender from Druid to Xilem, using modern
 //! Linebender crates for rendering and UI.
@@ -39,7 +39,7 @@ mod workspace;
 use data::{AppState, Tab};
 use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
 
-/// Entry point for the Spoonbender application
+/// Entry point for the Runebender Xilem application
 pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
     let mut initial_state = AppState::new();
 
@@ -74,7 +74,7 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
     };
 
     std::iter::once(
-        window(xilem::WindowId::next(), "Spoonbender", content)
+        window(xilem::WindowId::next(), "Runebender Xilem", content)
             .with_options(|o| o.on_close(|state: &mut AppState| {
                 state.running = false;
             }))
@@ -172,7 +172,7 @@ fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         .unwrap_or_default();
 
     flex_col((
-        label("Spoonbender - Font Editor").text_size(16.0),
+        label("Runebender Xilem").text_size(16.0),
         label("No font loaded").text_size(16.0),
         label(error_text).text_size(16.0),
         button(label("Open UFO..."), |state: &mut AppState| {

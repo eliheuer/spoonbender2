@@ -1,12 +1,16 @@
 [package]
-name = "spoonbender"
+name = "runebender"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
-authors = ["Spoonbender Contributors"]
+authors = ["Runebender Contributors"]
 license = "Apache-2.0"
-description = "A font editor written in Rust using Xilem"
+description = "Runebender Xilem - A font editor written in Rust using Xilem"
 repository = "https://github.com/linebender/spoonbender2"
+
+[[bin]]
+name = "runebender"
+path = "src/main.rs"
 
 [dependencies]
 # UI
