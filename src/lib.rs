@@ -12,7 +12,7 @@ use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, MainAxisAlignment, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -33,10 +33,12 @@ mod theme;
 mod toolbar;
 mod tools;
 mod undo;
+mod welcome;
 mod widgets;
 mod workspace;
 
 use data::{AppState, Tab};
+use welcome::welcome_view;
 use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
 
 /// Entry point for the Runebender Xilem application
@@ -163,33 +165,6 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     }
 }
 
-/// Welcome screen shown when no font is loaded
-fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
-    let error_text = state
-        .error_message
-        .as_ref()
-        .map(|msg| format!("Error: {}", msg))
-        .unwrap_or_default();
-
-    flex_col((
-        label("Runebender Xilem").text_size(48.0),
-        label("No font loaded"),
-        label(error_text).text_size(12.0),
-        sized_box(
-            button(label("Open UFO..."), |state: &mut AppState| {
-                state.open_font_dialog();
-            })
-        ).width(150.px()),
-        sized_box(
-            button(label("New Font"), |state: &mut AppState| {
-                state.create_new_font();
-            })
-        ).width(150.px()),
-    ))
-    .main_axis_alignment(MainAxisAlignment::Center)
-    .cross_axis_alignment(CrossAxisAlignment::Center)
-    .background_color(theme::app::BACKGROUND)
-}
 
 /// Helper to create coordinate info pane from session data
 fn coordinate_info_pane_from_session(session: &crate::edit_session::EditSession) -> impl WidgetView<AppState> + use<> {
