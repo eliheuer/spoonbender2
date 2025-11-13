@@ -6,9 +6,11 @@
 use crate::data::AppState;
 use crate::edit_session::EditSession;
 use crate::workspace::Glyph;
+use kurbo::Vec2;
 use masonry::properties::types::AsUnit;
 use std::sync::Arc;
-use xilem::view::{button, flex_col, label, sized_box, zstack, CrossAxisAlignment, MainAxisAlignment};
+use masonry::properties::types::UnitPoint;
+use xilem::view::{button, flex_col, label, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, MainAxisAlignment, ZStackExt};
 use xilem::WidgetView;
 
 /// Create a hardcoded "R" glyph from VirtuaGrotesk-Regular
@@ -75,7 +77,7 @@ fn create_r_glyph() -> Glyph {
 fn create_demo_session() -> EditSession {
     let glyph = create_r_glyph();
 
-    EditSession::new(
+    let mut session = EditSession::new(
         "R".to_string(),
         glyph,
         1000.0,     // UPM (units per em)
@@ -83,7 +85,19 @@ fn create_demo_session() -> EditSession {
         -200.0,     // descender
         Some(500.0), // x_height
         Some(700.0), // cap_height
-    )
+    );
+
+    // Pan the viewport down and to the right for better visual balance
+    // The offset translates the content: positive x moves content right,
+    // positive y moves content down
+    session.viewport.offset = kurbo::Vec2::new(200.0, 730.0);
+
+    // Adjust zoom level: 1.0 is default, < 1.0 zooms out, > 1.0 zooms in
+    session.viewport.zoom = 0.82;
+
+    session.viewport_initialized = true;
+
+    session
 }
 
 /// Welcome screen shown when no font is loaded
@@ -98,6 +112,8 @@ pub fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let demo_session = create_demo_session();
     let session_arc = Arc::new(demo_session);
 
+    const MARGIN: f64 = 16.0; // Match toolbar margins
+
     // Use zstack to layer the welcome UI over the interactive editor background
     zstack((
         // Background: Interactive editor canvas with the R glyph
@@ -107,23 +123,29 @@ pub fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 // No-op: we don't need to update state from the background editor
             }
         ),
-        // Foreground: Welcome screen UI
-        flex_col((
-            label("Runebender Xilem").text_size(48.0),
-            label("No font loaded"),
-            label(error_text).text_size(12.0),
-            sized_box(
-                button(label("Open UFO..."), |state: &mut AppState| {
-                    state.open_font_dialog();
-                })
-            ).width(150.px()),
-            sized_box(
-                button(label("New Font"), |state: &mut AppState| {
-                    state.create_new_font();
-                })
-            ).width(150.px()),
-        ))
-        .main_axis_alignment(MainAxisAlignment::Center)
-        .cross_axis_alignment(CrossAxisAlignment::Center),
+        // Foreground: Welcome screen UI - Swiss modernist style, positioned in upper left
+        transformed(
+            flex_col((
+                label("Runebender Xilem").text_size(48.0),
+                label("No font loaded"),
+                label(error_text).text_size(12.0),
+                // Spacer between text and buttons
+                sized_box(label("")).height(16.px()),
+                sized_box(
+                    button(label("Open UFO..."), |state: &mut AppState| {
+                        state.open_font_dialog();
+                    })
+                ).width(200.px()),
+                sized_box(
+                    button(label("New Font"), |state: &mut AppState| {
+                        state.create_new_font();
+                    })
+                ).width(200.px()),
+            ))
+            .main_axis_alignment(MainAxisAlignment::Start)
+            .cross_axis_alignment(CrossAxisAlignment::Start)
+        )
+        .translate((MARGIN, MARGIN))
+        .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_LEFT)),
     ))
 }
