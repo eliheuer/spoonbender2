@@ -112,21 +112,20 @@ impl Widget for GridToolbarWidget {
         bc.constrain(self.toolbar_size())
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
+    fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
+        // Draw a solid background panel behind all buttons to prevent transparency issues
         let size = self.toolbar_size();
-
-        // Draw panel background with rounded corners
         let panel_rect = Rect::new(0.0, 0.0, size.width, size.height);
-        let panel_path = kurbo::RoundedRect::from_rect(panel_rect, BUTTON_RADIUS);
-        fill_color(scene, &panel_path, COLOR_PANEL);
+        let panel_rrect = kurbo::RoundedRect::from_rect(panel_rect, 8.0);
 
-        // Draw panel border
-        stroke(
-            scene,
-            &panel_path,
-            COLOR_PANEL_BORDER,
-            BORDER_WIDTH,
-        );
+        // Solid opaque background - darker than buttons but brighter than canvas
+        fill_color(scene, &panel_rrect, COLOR_PANEL);
+
+        // Draw panel border - inset slightly to prevent corner artifacts
+        let border_inset = BORDER_WIDTH / 2.0;
+        let inset_rect = panel_rect.inset(-border_inset);
+        let inset_rrect = kurbo::RoundedRect::from_rect(inset_rect, 8.0);
+        stroke(scene, &inset_rrect, COLOR_PANEL_BORDER, BORDER_WIDTH);
 
         // Draw grid button
         let button_rect = self.button_rect(0);
