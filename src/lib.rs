@@ -146,9 +146,14 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
             // Top-right: Back button to return to glyph grid
             transformed(
-                button(label("← Back to Grid"), |state: &mut AppState| {
-                    state.close_editor();
-                })
+                button(
+                    label("Grid")
+                        .text_size(14.0)
+                        .color(Color::from_rgb8(200, 200, 200)),
+                    |state: &mut AppState| {
+                        state.close_editor();
+                    }
+                )
             )
             .translate((-MARGIN, MARGIN))
             .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_RIGHT)),

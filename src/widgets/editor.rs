@@ -44,6 +44,9 @@ pub struct EditorWidget {
 
     /// The last edit type (for grouping consecutive edits)
     last_edit_type: Option<EditType>,
+
+    /// Tool to return to when spacebar is released (for temporary preview mode)
+    previous_tool: Option<crate::tools::ToolId>,
 }
 
 impl EditorWidget {
@@ -57,6 +60,7 @@ impl EditorWidget {
             size: Size::new(800.0, 600.0),
             undo: UndoState::new(),
             last_edit_type: None,
+            previous_tool: None,
         }
     }
 
@@ -111,6 +115,11 @@ pub struct SessionUpdate {
 
 impl Widget for EditorWidget {
     type Action = SessionUpdate;
+
+    fn accepts_focus(&self) -> bool {
+        // Allow this widget to receive keyboard events
+        true
+    }
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {
         // Leaf widget - no children
@@ -241,6 +250,10 @@ impl Widget for EditorWidget {
                 println!("[EditorWidget::on_pointer_event] Down at {:?}, current_tool: {:?}",
                          state.position, self.session.current_tool.id());
 
+                // Request focus to receive keyboard events
+                println!("[EditorWidget] Requesting focus!");
+                ctx.request_focus();
+
                 // Capture pointer to receive drag events
                 ctx.capture_pointer();
 
@@ -348,7 +361,50 @@ impl Widget for EditorWidget {
 
         match event {
             TextEvent::Keyboard(key_event) => {
-                // Only handle key down events
+                println!("[EditorWidget::on_text_event] key: {:?}, state: {:?}", key_event.key, key_event.state);
+
+                // Handle spacebar for temporary preview mode (both down and up)
+                if matches!(&key_event.key, Key::Character(c) if c == " ") {
+                    println!("[EditorWidget] Spacebar detected! state: {:?}, previous_tool: {:?}", key_event.state, self.previous_tool);
+
+                    if key_event.state == KeyState::Down && self.previous_tool.is_none() {
+                        // Spacebar pressed: save current tool and switch to Preview
+                        let current_tool = self.session.current_tool.id();
+                        if current_tool != crate::tools::ToolId::Preview {
+                            self.previous_tool = Some(current_tool);
+
+                            // Cancel the current tool and reset mouse state (like Runebender)
+                            use crate::tools::ToolBox;
+                            let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(crate::tools::ToolId::Select));
+                            self.mouse.cancel(&mut tool, &mut self.session);
+
+                            // Reset mouse state by creating new instance
+                            self.mouse = Mouse::new();
+
+                            // Switch to Preview tool
+                            self.session.current_tool = ToolBox::for_id(crate::tools::ToolId::Preview);
+
+                            println!("Spacebar down: switched to Preview, will return to {:?}", current_tool);
+                            ctx.request_render();
+                            ctx.set_handled();
+                        }
+                        return;
+                    } else if key_event.state == KeyState::Up && self.previous_tool.is_some() {
+                        // Spacebar released: return to previous tool
+                        if let Some(previous) = self.previous_tool.take() {
+                            // Reset mouse state by creating new instance
+                            self.mouse = Mouse::new();
+
+                            self.session.current_tool = crate::tools::ToolBox::for_id(previous);
+                            println!("Spacebar up: returned to {:?}", previous);
+                            ctx.request_render();
+                            ctx.set_handled();
+                        }
+                        return;
+                    }
+                }
+
+                // Only handle key down events for other keys
                 if key_event.state != KeyState::Down {
                     return;
                 }
@@ -374,8 +430,8 @@ impl Widget for EditorWidget {
                     }
                 }
 
-                // Zoom in (+ or = key)
-                if matches!(&key_event.key, Key::Character(c) if c == "+" || c == "=") {
+                // Zoom in (Cmd/Ctrl + or =)
+                if cmd && matches!(&key_event.key, Key::Character(c) if c == "+" || c == "=") {
                     let new_zoom = (self.session.viewport.zoom * 1.1).min(MAX_ZOOM);
                     self.session.viewport.zoom = new_zoom;
                     println!("Zoom in: new zoom = {:.2}", new_zoom);
@@ -384,8 +440,8 @@ impl Widget for EditorWidget {
                     return;
                 }
 
-                // Zoom out (- key)
-                if matches!(&key_event.key, Key::Character(c) if c == "-") {
+                // Zoom out (Cmd/Ctrl -)
+                if cmd && matches!(&key_event.key, Key::Character(c) if c == "-") {
                     let new_zoom = (self.session.viewport.zoom / 1.1).max(MIN_ZOOM);
                     self.session.viewport.zoom = new_zoom;
                     println!("Zoom out: new zoom = {:.2}", new_zoom);
@@ -779,10 +835,10 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
             Some(update) => {
                 println!("[EditorView::message] Handling SessionUpdate, calling callback, selection.len()={}", update.session.selection.len());
                 (self.on_session_update)(app_state, update.session);
-                println!("[EditorView::message] Callback complete, returning Action(())");
-                // Return Action(()) to propagate to root and trigger full app rebuild
-                // This is needed for multi-window apps where RequestRebuild doesn't work
-                MessageResult::Action(())
+                println!("[EditorView::message] Callback complete, returning RequestRebuild");
+                // Use RequestRebuild instead of Action to avoid destroying the window
+                // We're a single-window app with tabs, not multi-window
+                MessageResult::RequestRebuild
             }
             None => MessageResult::Stale,
         }

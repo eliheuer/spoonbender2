@@ -448,9 +448,9 @@ impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx> for
             Some(action) => {
                 println!("[ToolbarView::message] Tool selected: {:?}", action.0);
                 (self.callback)(app_state, action.0);
-                // Return Action to propagate to root and trigger full app rebuild
-                // This is necessary for multi-window apps (see CLAUDE.md)
-                MessageResult::Action(Default::default())
+                // Use RequestRebuild instead of Action to avoid destroying the window
+                // We're a single-window app with tabs, not multi-window
+                MessageResult::RequestRebuild
             }
             None => MessageResult::Stale,
         }
