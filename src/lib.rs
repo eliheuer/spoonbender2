@@ -96,17 +96,24 @@ fn tabbed_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
 /// Tab 0: Glyph grid view with header
 fn glyph_grid_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
+    // Just the glyph grid - info sections commented out for now
     flex_col((
-        // Top margin
-        sized_box(label("")).height(10.px()),
-        // Header bar
-        header_bar(state),
-        // Selected glyph info bar
-        selected_glyph_info(state),
-        // Main content: glyph grid
         glyph_grid_view(state),
     ))
     .background_color(theme::app::BACKGROUND)
+
+    // TODO: Re-enable header and info sections later if needed
+    // flex_col((
+    //     // Top margin
+    //     sized_box(label("")).height(10.px()),
+    //     // Header bar
+    //     header_bar(state),
+    //     // Selected glyph info bar
+    //     selected_glyph_info(state),
+    //     // Main content: glyph grid
+    //     glyph_grid_view(state),
+    // ))
+    // .background_color(theme::app::BACKGROUND)
 }
 
 /// Tab 1: Editor view with toolbar floating over canvas
@@ -230,7 +237,6 @@ fn selected_glyph_info(state: &mut AppState) -> impl WidgetView<AppState> + use<
 /// Glyph grid showing all glyphs
 fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let glyph_names = state.glyph_names();
-    let glyph_count = glyph_names.len();
 
     // Get UPM from workspace for uniform scaling
     let upm = state.workspace.as_ref()
@@ -263,13 +269,13 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         rows_of_cells.push(flex_row(row_items));
     }
 
-    flex_col((
-        label(format!("{} glyphs", glyph_count)).text_size(16.0),
-        // Spacer between label and grid
-        sized_box(label("")).height(10.px()),
-        // Wrap in portal for scrolling - now works because data is thread-safe!
-        portal(flex_col(rows_of_cells)),
-    ))
+    // Wrap in portal for scrolling - now works because data is thread-safe!
+    // Add padding around the grid to match spacing between grid items
+    // Double the item spacing since internal gaps are two margins end-to-end
+    portal(
+        flex_col(rows_of_cells)
+            .padding(12.0)
+    )
 }
 
 /// Glyph preview pane showing the rendered glyph
