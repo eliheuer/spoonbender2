@@ -36,7 +36,7 @@ impl GlyphWidget {
             color: crate::theme::grid::GLYPH_COLOR, // Default glyph color from theme
             size,
             upm,
-            baseline_offset: 0.02, // Default baseline offset
+            baseline_offset: 0.12, // Default baseline offset - higher = more space at bottom
         }
     }
 
@@ -91,7 +91,7 @@ impl Widget for GlyphWidget {
         // Calculate uniform scale based on UPM (units per em)
         // This ensures all glyphs are rendered at the same scale
         let scale = widget_size.height / self.upm;
-        let scale = scale * 1.0; // No padding - fill the space
+        let scale = scale * 0.8; // 20% smaller glyphs (0.8 = 80% of original size)
 
         // Center the glyph horizontally based on its bounding box
         let scaled_width = bounds.width() * scale;

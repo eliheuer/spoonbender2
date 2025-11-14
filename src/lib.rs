@@ -335,9 +335,9 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, codepoints: 
     };
 
     // Create glyph view widget from pre-computed path
-    // Smaller glyph preview (75x75) constrained to fit better
+    // Smaller glyph preview (60x60) - 20% smaller than before
     let glyph_view_widget = if let Some(path) = path_opt {
-        Either::A(sized_box(glyph_view(path, 75.0, 75.0, upm)).height(80.px()))
+        Either::A(sized_box(glyph_view(path, 60.0, 60.0, upm)).height(80.px()))
     } else {
         Either::B(sized_box(label("?").text_size(40.0)).height(80.px()))
     };
