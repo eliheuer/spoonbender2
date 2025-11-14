@@ -816,14 +816,30 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
 
     fn rebuild(
         &self,
-        _prev: &Self,
+        prev: &Self,
         _view_state: &mut Self::ViewState,
         _ctx: &mut ViewCtx,
-        _element: Mut<'_, Self::Element>,
+        mut element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // Widget state updates are handled internally
-        // Don't update session here to avoid breaking mouse state during drag
+        // Update the widget's session if it changed (e.g., tool selection changed)
+        // We compare Arc pointers - if they're different, the session was updated
+        if !Arc::ptr_eq(&self.session, &prev.session) {
+            println!("[EditorView::rebuild] Session Arc changed, updating widget");
+            println!("[EditorView::rebuild] Old tool: {:?}, New tool: {:?}",
+                     prev.session.current_tool.id(), self.session.current_tool.id());
+
+            // Get mutable access to the widget
+            let mut widget = element.downcast::<EditorWidget>();
+
+            // Update the session, but preserve:
+            // - Mouse state (to avoid breaking active drag operations)
+            // - Undo state
+            // - Canvas size
+            // This allows tool changes and other session updates to take effect
+            widget.widget.session = (*self.session).clone();
+            widget.ctx.request_render();
+        }
     }
 
     fn teardown(

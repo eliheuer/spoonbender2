@@ -175,9 +175,10 @@ impl AppState {
 
     /// Set the tool for the current editor session
     pub fn set_editor_tool(&mut self, tool_id: crate::tools::ToolId) {
-        println!("Setting tool to {:?}", tool_id);
+        println!("[AppState::set_editor_tool] Setting tool to {:?}", tool_id);
         if let Some(session) = &mut self.editor_session {
             session.current_tool = crate::tools::ToolBox::for_id(tool_id);
+            println!("[AppState::set_editor_tool] Updated session, current_tool is now {:?}", session.current_tool.id());
         }
     }
 
