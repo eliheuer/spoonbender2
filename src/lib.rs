@@ -81,8 +81,10 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
     // Height: comfortable for scrolling glyph grid
     let window_size = LogicalSize::new(1030.0, 800.0);
 
+    // Use a stable window ID stored in state so the window persists across rebuilds
+    // This prevents the window from resetting to default size when switching modes
     std::iter::once(
-        window(xilem::WindowId::next(), "Runebender Xilem", content)
+        window(state.main_window_id, "Runebender Xilem", content)
             .with_options(|o| {
                 o.with_initial_inner_size(window_size)
                     .on_close(|state: &mut AppState| {

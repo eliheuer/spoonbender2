@@ -6,6 +6,7 @@
 use crate::edit_session::EditSession;
 use crate::workspace::Workspace;
 use std::path::PathBuf;
+use xilem::WindowId;
 
 /// Which tab is currently active
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +37,9 @@ pub struct AppState {
 
     /// Whether the app should keep running
     pub running: bool,
+
+    /// Main window ID (stable across rebuilds to prevent window recreation)
+    pub main_window_id: WindowId,
 }
 
 impl AppState {
@@ -48,6 +52,7 @@ impl AppState {
             editor_session: None,
             active_tab: Tab::GlyphGrid,
             running: true,
+            main_window_id: WindowId::next(),
         }
     }
 
