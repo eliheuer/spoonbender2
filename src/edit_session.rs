@@ -256,24 +256,65 @@ impl EditSession {
     ///
     /// This mutates the paths using Arc::make_mut, which will clone
     /// the path data if there are other references to it.
+    ///
+    /// When moving on-curve points, their adjacent off-curve control points
+    /// (handles) are also moved to maintain curve shape. This is standard
+    /// font editor behavior.
     pub fn move_selection(&mut self, delta: kurbo::Vec2) {
         if self.selection.is_empty() {
             return;
         }
 
+        use crate::entity_id::EntityId;
+        use std::collections::HashSet;
+
         // We need to mutate paths, so convert Arc<Vec<Path>> to mutable Vec
         let paths_vec = Arc::make_mut(&mut self.paths);
 
-        // Iterate through paths and update selected points
+        // Build a set of IDs to move:
+        // - All selected points
+        // - Adjacent off-curve points of selected on-curve points
+        let mut points_to_move: HashSet<EntityId> = self.selection.iter().copied().collect();
+
+        // First pass: identify adjacent off-curve points of selected on-curve points
+        for path in paths_vec.iter() {
+            match path {
+                Path::Cubic(cubic) => {
+                    let points: Vec<_> = cubic.points.iter().collect();
+                    let len = points.len();
+
+                    for i in 0..len {
+                        let point = points[i];
+
+                        // If this on-curve point is selected, mark its adjacent off-curve points
+                        if point.is_on_curve() && self.selection.contains(&point.id) {
+                            // Check previous point
+                            let prev_i = if i > 0 { i - 1 } else if cubic.closed { len - 1 } else { continue };
+                            if prev_i < len && points[prev_i].is_off_curve() {
+                                points_to_move.insert(points[prev_i].id);
+                            }
+
+                            // Check next point
+                            let next_i = if i + 1 < len { i + 1 } else if cubic.closed { 0 } else { continue };
+                            if next_i < len && points[next_i].is_off_curve() {
+                                points_to_move.insert(points[next_i].id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Second pass: move all identified points
         for path in paths_vec.iter_mut() {
             match path {
                 Path::Cubic(cubic) => {
                     // Get mutable access to points (will clone if needed)
                     let points = cubic.points.make_mut();
 
-                    // Update positions of selected points
+                    // Update positions of points to move
                     for point in points.iter_mut() {
-                        if self.selection.contains(&point.id) {
+                        if points_to_move.contains(&point.id) {
                             point.point = Point::new(
                                 point.point.x + delta.x,
                                 point.point.y + delta.y,
