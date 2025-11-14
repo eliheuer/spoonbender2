@@ -165,7 +165,8 @@ impl Widget for GridToolbarWidget {
             * Affine::scale(scale)
             * Affine::translate((-icon_center.x, -icon_center.y));
 
-        stroke(scene, &(transform * icon), COLOR_ICON, ITEM_STROKE_WIDTH);
+        // Fill icon with dark gray color (no stroke)
+        fill_color(scene, &(transform * icon), COLOR_ICON);
     }
 
     fn accessibility_role(&self) -> Role {

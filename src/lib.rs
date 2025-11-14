@@ -319,6 +319,8 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 
     sized_box(
         flex_col((
+            // Add 4px spacer above glyph preview
+            sized_box(label("")).height(4.px()),
             // Glyph preview - use theme color with custom baseline offset
             if !glyph_path.is_empty() {
                 Either::A(glyph_view(glyph_path.clone(), preview_size, preview_size, upm)
@@ -336,9 +338,10 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
                     label(unicode_display)
                         .text_size(11.0)
                         .color(theme::grid::GLYPH_COLOR),
+                    sized_box(label("")).height(4.px()), // Add 4px spacer below labels for margin
                 ))
                 .gap(2.px())
-            ).height(28.px()),
+            ).height(32.px()), // Increased from 28px to account for spacer
         ))
     )
     .width(160.px())
@@ -369,9 +372,19 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, codepoints: 
     // Create glyph view widget from pre-computed path
     // Smaller glyph preview (60x60) - 20% smaller than before
     let glyph_view_widget = if let Some(path) = path_opt {
-        Either::A(sized_box(glyph_view(path, 60.0, 60.0, upm)).height(80.px()))
+        Either::A(sized_box(
+            flex_col((
+                sized_box(label("")).height(4.px()), // Add 4px spacer above glyph
+                glyph_view(path, 60.0, 60.0, upm),
+            ))
+        ).height(84.px()))
     } else {
-        Either::B(sized_box(label("?").text_size(40.0)).height(80.px()))
+        Either::B(sized_box(
+            flex_col((
+                sized_box(label("")).height(4.px()), // Add 4px spacer above glyph
+                label("?").text_size(40.0),
+            ))
+        ).height(84.px()))
     };
 
     // Create label with glyph name and unicode
@@ -387,9 +400,13 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, codepoints: 
 
     // Wrap labels in a centered column with minimal gap, constrained height
     let label_with_spacing = sized_box(
-        flex_col((name_label, unicode_label))
+        flex_col((
+            name_label,
+            unicode_label,
+            sized_box(label("")).height(4.px()), // Add 4px spacer below labels for margin
+        ))
             .gap(2.px())
-    ).height(28.px());
+    ).height(32.px()); // Increased from 28px to account for spacer
 
     // Choose colors based on selection state
     let (bg_color, border_color) = if is_selected {
