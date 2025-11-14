@@ -78,7 +78,7 @@ const LABEL_TEXT: Color = BASE_J;       // 0xa0 - Dimmer for labels
 const PANEL_BACKGROUND: Color = BASE_D;           // 0x40 - Medium-dark gray
 const PANEL_OUTLINE: Color = BASE_F;              // 0x60 - Medium gray
 const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;     // 0x10 - Darkest
-const GLYPH_PREVIEW_COLOR: Color = BASE_A;        // 0x10 - Darkest
+const GLYPH_PREVIEW_COLOR: Color = BASE_J;        // 0xa0 - Light gray (matches grid)
 
 // Coordinate Pane specific
 const COORD_PANE_GRID_LINE: Color = BASE_A;       // 0x10 - Darkest (was 0x0a, rounded up)

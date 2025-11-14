@@ -10,6 +10,7 @@ use kurbo::Vec2;
 use masonry::properties::types::AsUnit;
 use std::sync::Arc;
 use masonry::properties::types::UnitPoint;
+use xilem::style::Style;
 use xilem::view::{button, flex_col, label, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, MainAxisAlignment, ZStackExt};
 use xilem::WidgetView;
 
@@ -87,13 +88,11 @@ fn create_demo_session() -> EditSession {
         Some(768.0), // cap_height - from VirtuaGrotesk
     );
 
-    // Pan the viewport down and to the right for better visual balance
-    // The offset translates the content: positive x moves content right,
-    // positive y moves content down
-    session.viewport.offset = kurbo::Vec2::new(200.0, 730.0);
+    // Center the glyph perfectly in the window
+    session.viewport.offset = kurbo::Vec2::new(500.0, 700.0);
 
-    // Adjust zoom level: 1.0 is default, < 1.0 zooms out, > 1.0 zooms in
-    session.viewport.zoom = 0.82;
+    // Adjust zoom level for nice preview size
+    session.viewport.zoom = 0.7;
 
     session.viewport_initialized = true;
 
@@ -126,18 +125,17 @@ pub fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         // Foreground: Welcome screen UI - Swiss modernist style, positioned in upper left
         transformed(
             flex_col((
-                label("Runebender Xilem").text_size(48.0),
-                label("No font loaded"),
-                label(error_text).text_size(12.0),
-                // Spacer between text and buttons
-                sized_box(label("")).height(16.px()),
+                label("Runebender Xilem").text_size(48.0).color(crate::theme::grid::GLYPH_COLOR),
+                label(error_text).text_size(12.0).color(crate::theme::grid::GLYPH_COLOR),
+                // Smaller spacer between text and buttons
+                sized_box(label("")).height(8.px()),
                 sized_box(
-                    button(label("Open UFO..."), |state: &mut AppState| {
+                    button(label("Open UFO...").color(crate::theme::grid::GLYPH_COLOR), |state: &mut AppState| {
                         state.open_font_dialog();
                     })
                 ).width(200.px()),
                 sized_box(
-                    button(label("New Font"), |state: &mut AppState| {
+                    button(label("New Font").color(crate::theme::grid::GLYPH_COLOR), |state: &mut AppState| {
                         state.create_new_font();
                     })
                 ).width(200.px()),

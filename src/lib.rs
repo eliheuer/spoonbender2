@@ -306,9 +306,16 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
         glyph_path.extend(path.to_bezpath());
     }
 
-    // Make the preview larger to fill more space - only 20px for the label
+    // Make the preview larger to fill more space
     let preview_size = 150.0;
     let upm = session.ascender - session.descender;
+
+    // Format Unicode codepoint (use first codepoint if available)
+    let unicode_display = if let Some(first_char) = session.glyph.codepoints.first() {
+        format!("U+{:04X}", *first_char as u32)
+    } else {
+        String::new()
+    };
 
     sized_box(
         flex_col((
@@ -320,8 +327,18 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
             } else {
                 Either::B(label(""))
             },
-            // Glyph name label - smaller height for less spacing
-            sized_box(label(glyph_name).text_size(12.0)).height(20.px()),
+            // Glyph name and unicode labels - match grid style
+            sized_box(
+                flex_col((
+                    label(glyph_name)
+                        .text_size(11.0)
+                        .color(theme::grid::GLYPH_COLOR),
+                    label(unicode_display)
+                        .text_size(11.0)
+                        .color(theme::grid::GLYPH_COLOR),
+                ))
+                .gap(2.px())
+            ).height(28.px()),
         ))
     )
     .width(160.px())
