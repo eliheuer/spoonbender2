@@ -93,7 +93,7 @@ const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14);
 const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90);     // Keep light green
 
 // Glyph rendering in grid
-const GRID_GLYPH_COLOR: Color = Color::from_rgb8(0x00, 0x00, 0x00);  // Pure black
+const GRID_GLYPH_COLOR: Color = BASE_J;           // 0xa0 - Light gray for glyph preview
 const GRID_CELL_TEXT: Color = BASE_L;             // 0xc0 - Near white
 
 // ============================================================================

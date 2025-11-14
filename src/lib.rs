@@ -12,7 +12,7 @@ use std::sync::Arc;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, FlexExt, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -246,36 +246,41 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     // Pre-compute glyph data to avoid capturing state reference
     let glyph_data: Vec<_> = if let Some(workspace) = &state.workspace {
         glyph_names.iter().map(|name| {
-            let path = workspace.get_glyph(name)
-                .map(|g| glyph_renderer::glyph_to_bezpath(&g));
-            (name.clone(), path)
+            let glyph = workspace.get_glyph(name);
+            let path = glyph.map(|g| glyph_renderer::glyph_to_bezpath(&g));
+            let codepoints = glyph.map(|g| g.codepoints.clone()).unwrap_or_default();
+            (name.clone(), path, codepoints)
         }).collect()
     } else {
-        glyph_names.iter().map(|name| (name.clone(), None)).collect()
+        glyph_names.iter().map(|name| (name.clone(), None, Vec::new())).collect()
     };
 
     // Create rows of glyphs using flex layout (grid doesn't work well with expand)
-    let columns = 9;
+    // Reduced from 9 to 6 columns to fit better in window
+    let columns = 6;
     let mut rows_of_cells = Vec::new();
     let selected_glyph = state.selected_glyph.clone();
 
     for chunk in glyph_data.chunks(columns) {
         let row_items: Vec<_> = chunk.iter()
-            .map(|(name, path_opt)| {
+            .map(|(name, path_opt, codepoints)| {
                 let is_selected = selected_glyph.as_ref() == Some(name);
-                glyph_cell(name.clone(), path_opt.clone(), is_selected, upm)
+                glyph_cell(name.clone(), path_opt.clone(), codepoints.clone(), is_selected, upm)
             })
             .collect();
-        rows_of_cells.push(flex_row(row_items));
+        // Add gap between cells in each row
+        rows_of_cells.push(flex_row(row_items).gap(6.px()));
     }
 
     // Wrap in portal for scrolling - now works because data is thread-safe!
-    // Add padding around the grid to match spacing between grid items
-    // Double the item spacing since internal gaps are two margins end-to-end
-    portal(
-        flex_col(rows_of_cells)
-            .padding(12.0)
-    )
+    // Add gap between rows with consistent padding using flex_col wrapper
+    flex_col((
+        sized_box(label("")).height(6.px()),
+        portal(
+            flex_col(rows_of_cells)
+                .gap(6.px())
+        ),
+    ))
 }
 
 /// Glyph preview pane showing the rendered glyph
@@ -314,7 +319,7 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 
 
 /// Individual glyph cell in the grid
-fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected: bool, upm: f64) -> impl WidgetView<AppState> + use<> {
+fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, codepoints: Vec<char>, is_selected: bool, upm: f64) -> impl WidgetView<AppState> + use<> {
     let name_clone = glyph_name.clone();
     let display_name = if glyph_name.len() > 12 {
         format!("{}...", &glyph_name[..9])
@@ -322,18 +327,37 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, is_selected:
         glyph_name.clone()
     };
 
-    // Create glyph view widget from pre-computed path
-    let glyph_view_widget = if let Some(path) = path_opt {
-        Either::A(glyph_view(path, 100.0, 100.0, upm))
+    // Format Unicode codepoint (use first codepoint if available)
+    let unicode_display = if let Some(first_char) = codepoints.first() {
+        format!("U+{:04X}", *first_char as u32)
     } else {
-        Either::B(label("?").text_size(60.0))
+        String::new()
     };
 
-    // Create label (selection styling will be on the cell background)
-    let name_label = label(display_name).text_size(16.0);
+    // Create glyph view widget from pre-computed path
+    // Smaller glyph preview (75x75) constrained to fit better
+    let glyph_view_widget = if let Some(path) = path_opt {
+        Either::A(sized_box(glyph_view(path, 75.0, 75.0, upm)).height(80.px()))
+    } else {
+        Either::B(sized_box(label("?").text_size(40.0)).height(80.px()))
+    };
 
-    // Wrap label with bottom spacing
-    let label_with_spacing = sized_box(name_label).height(32.px());
+    // Create label with glyph name and unicode
+    // Use same light gray as glyph color for consistency
+    // Smaller text size and minimal gap between lines
+    let name_label = label(display_name)
+        .text_size(11.0)
+        .color(theme::grid::GLYPH_COLOR);
+
+    let unicode_label = label(unicode_display)
+        .text_size(11.0)
+        .color(theme::grid::GLYPH_COLOR);
+
+    // Wrap labels in a centered column with minimal gap, constrained height
+    let label_with_spacing = sized_box(
+        flex_col((name_label, unicode_label))
+            .gap(2.px())
+    ).height(28.px());
 
     // Choose colors based on selection state
     let (bg_color, border_color) = if is_selected {
