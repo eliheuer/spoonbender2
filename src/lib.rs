@@ -9,10 +9,11 @@
 use masonry::properties::types::{AsUnit, UnitPoint};
 use masonry::vello::peniko::Color;
 use std::sync::Arc;
+use winit::dpi::LogicalSize;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, FlexExt, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, FlexExt, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -75,11 +76,19 @@ fn app_logic(state: &mut AppState) -> impl Iterator<Item = WindowView<AppState>>
         Either::B(welcome_view(state))
     };
 
+    // Set initial window size to accommodate 8 columns of glyph cells
+    // 8 cells * 120px + 7 gaps * 6px + 6px left + 6px right + ~16px scrollbar = 1030px width
+    // Height: comfortable for scrolling glyph grid
+    let window_size = LogicalSize::new(1030.0, 800.0);
+
     std::iter::once(
         window(xilem::WindowId::next(), "Runebender Xilem", content)
-            .with_options(|o| o.on_close(|state: &mut AppState| {
-                state.running = false;
-            }))
+            .with_options(|o| {
+                o.with_initial_inner_size(window_size)
+                    .on_close(|state: &mut AppState| {
+                        state.running = false;
+                    })
+            })
     )
 }
 
@@ -256,8 +265,10 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     };
 
     // Create rows of glyphs using flex layout (grid doesn't work well with expand)
-    // Reduced from 9 to 6 columns to fit better in window
-    let columns = 6;
+    // TODO: Make this truly responsive - Xilem 0.4 doesn't have window resize events
+    // For now, use a column count that works well with typical window sizes
+    let columns = 8; // Works well for 1100-1200px wide windows
+
     let mut rows_of_cells = Vec::new();
     let selected_glyph = state.selected_glyph.clone();
 
@@ -273,13 +284,17 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     }
 
     // Wrap in portal for scrolling - now works because data is thread-safe!
-    // Add gap between rows with consistent padding using flex_col wrapper
+    // Add margins matching the 6px gap between grid items
     flex_col((
-        sized_box(label("")).height(6.px()),
-        portal(
-            flex_col(rows_of_cells)
-                .gap(6.px())
-        ),
+        sized_box(label("")).height(6.px()), // Top margin - matches grid gaps
+        flex_row((
+            sized_box(label("")).width(6.px()), // Left margin
+            portal(
+                flex_col(rows_of_cells)
+                    .gap(6.px())
+            ),
+            sized_box(label("")).width(6.px()), // Right margin
+        )),
     ))
 }
 
