@@ -385,6 +385,12 @@ impl Widget for EditorWidget {
                             self.session.current_tool = ToolBox::for_id(crate::tools::ToolId::Preview);
 
                             println!("Spacebar down: switched to Preview, will return to {:?}", current_tool);
+
+                            // Emit SessionUpdate so the toolbar reflects the change
+                            ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                                session: self.session.clone(),
+                            });
+
                             ctx.request_render();
                             ctx.set_handled();
                         }
@@ -397,6 +403,12 @@ impl Widget for EditorWidget {
 
                             self.session.current_tool = crate::tools::ToolBox::for_id(previous);
                             println!("Spacebar up: returned to {:?}", previous);
+
+                            // Emit SessionUpdate so the toolbar reflects the change
+                            ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                                session: self.session.clone(),
+                            });
+
                             ctx.request_render();
                             ctx.set_handled();
                         }

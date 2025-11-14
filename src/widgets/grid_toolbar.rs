@@ -198,6 +198,8 @@ impl Widget for GridToolbarWidget {
                     ctx.submit_action::<GridToolbarAction>(GridToolbarAction(button));
                     ctx.request_render();
                 }
+                // Always consume the event to prevent it from reaching the editor
+                ctx.set_handled();
             }
             PointerEvent::Move(pointer_move) => {
                 let local_pos = ctx.local_position(pointer_move.current.position);

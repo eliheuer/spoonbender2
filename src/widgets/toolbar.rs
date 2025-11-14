@@ -33,14 +33,11 @@ const COLOR_PANEL_BORDER: Color = crate::theme::panel::OUTLINE;       // Panel c
 const COLOR_BUTTON_BORDER: Color = crate::theme::panel::BUTTON_OUTLINE; // Toolbar button borders
 
 /// Available tools in display order
+/// Currently only showing implemented tools: Select, Pen, Preview
 const TOOLBAR_TOOLS: &[ToolId] = &[
     ToolId::Select,
     ToolId::Pen,
     ToolId::Preview,
-    ToolId::Knife,
-    ToolId::Rectangle,
-    ToolId::Ellipse,
-    ToolId::Measure,
 ];
 
 /// Toolbar widget
@@ -60,10 +57,10 @@ impl ToolbarWidget {
             ToolId::Select => select_icon(),
             ToolId::Pen => pen_icon(),
             ToolId::Preview => preview_icon(),
-            ToolId::Knife => knife_icon(),
-            ToolId::Rectangle => rect_icon(),
-            ToolId::Ellipse => ellipse_icon(),
-            ToolId::Measure => measure_icon(),
+            _ => {
+                // For any unimplemented tools, return empty path
+                BezPath::new()
+            }
         }
     }
 
@@ -193,6 +190,11 @@ impl Widget for ToolbarWidget {
                         ctx.submit_action::<ToolSelected>(ToolSelected(tool));
                         ctx.request_render();
                     }
+                    // Mark event as handled to prevent it from reaching widgets below in zstack
+                    ctx.set_handled();
+                } else {
+                    // Even if we didn't hit a tool, consume the event so it doesn't go to the editor
+                    ctx.set_handled();
                 }
             }
             _ => {}
@@ -408,7 +410,9 @@ impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx> for
         _app_state: &mut State,
     ) -> (Self::Element, Self::ViewState) {
         let widget = ToolbarWidget::new(self.selected_tool);
-        (ctx.with_action_widget(|ctx| ctx.create_pod(widget)), ())
+        let pod = ctx.create_pod(widget);
+        ctx.record_action(pod.new_widget.id());
+        (pod, ())
     }
 
     fn rebuild(
@@ -448,9 +452,9 @@ impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx> for
             Some(action) => {
                 println!("[ToolbarView::message] Tool selected: {:?}", action.0);
                 (self.callback)(app_state, action.0);
-                // Use RequestRebuild instead of Action to avoid destroying the window
-                // We're a single-window app with tabs, not multi-window
-                MessageResult::RequestRebuild
+                // Return Action to trigger full app rebuild so the toolbar gets the updated tool
+                // This causes app_logic() to be called, which reads the fresh tool from the session
+                MessageResult::Action(Action::default())
             }
             None => MessageResult::Stale,
         }
