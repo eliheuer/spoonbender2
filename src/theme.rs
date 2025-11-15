@@ -230,11 +230,11 @@ pub mod coord_pane {
     pub const GRID_LINE: Color = super::COORD_PANE_GRID_LINE;
     pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
-    // Dot colors - selected (same as editor points)
-    pub const DOT_SELECTED_INNER: Color = super::SELECTED_POINT_INNER;
-    pub const DOT_SELECTED_OUTER: Color = super::SELECTED_POINT_OUTER;
+    // Dot colors - selected (matches glyph preview color)
+    pub const DOT_SELECTED_INNER: Color = super::GLYPH_PREVIEW_COLOR;  // 0xa0 - Light gray (same as glyph preview)
+    pub const DOT_SELECTED_OUTER: Color = super::BASE_B;  // 0x20 - Same as unselected outline
 
-    // Dot colors - unselected (gray)
+    // Dot colors - unselected (darker gray)
     pub const DOT_UNSELECTED_INNER: Color = super::BASE_F;  // 0x60 - Medium gray (was 0x5a)
     pub const DOT_UNSELECTED_OUTER: Color = super::BASE_B;  // 0x20 - Very dark gray (was 0x28)
 

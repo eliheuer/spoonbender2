@@ -872,10 +872,10 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
             Some(update) => {
                 println!("[EditorView::message] Handling SessionUpdate, calling callback, selection.len()={}", update.session.selection.len());
                 (self.on_session_update)(app_state, update.session);
-                println!("[EditorView::message] Callback complete, returning RequestRebuild");
-                // Use RequestRebuild instead of Action to avoid destroying the window
-                // We're a single-window app with tabs, not multi-window
-                MessageResult::RequestRebuild
+                println!("[EditorView::message] Callback complete, returning Action(())");
+                // Return Action(()) to propagate to root and trigger full app rebuild
+                // This ensures all UI elements (including coordinate pane) see the updated state
+                MessageResult::Action(())
             }
             None => MessageResult::Stale,
         }
