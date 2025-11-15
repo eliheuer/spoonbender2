@@ -219,12 +219,9 @@ pub mod panel {
 /// Colors for toolbar buttons
 pub mod toolbar {
     use super::Color;
-    // Button background colors
-    pub const BUTTON_UNSELECTED: Color = super::BASE_F;  // 0x60 - Medium gray
-    pub const BUTTON_SELECTED: Color = super::BASE_I;     // 0x90 - Light gray (brightest)
-
-    // Icon color
-    pub const ICON: Color = super::BASE_D;  // 0x40 - Medium-dark gray
+    pub const BUTTON_UNSELECTED: Color = super::BASE_H;
+    pub const BUTTON_SELECTED: Color = super::BASE_I;
+    pub const ICON: Color = super::BASE_D;
 }
 
 /// Colors and sizes for coordinate pane

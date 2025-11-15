@@ -44,11 +44,16 @@ const TOOLBAR_TOOLS: &[ToolId] = &[
 pub struct ToolbarWidget {
     /// Currently selected tool
     selected_tool: ToolId,
+    /// Currently hovered tool (if any)
+    hover_tool: Option<ToolId>,
 }
 
 impl ToolbarWidget {
     pub fn new(selected_tool: ToolId) -> Self {
-        Self { selected_tool }
+        Self {
+            selected_tool,
+            hover_tool: None,
+        }
     }
 
     /// Get the icon path for a tool
@@ -150,8 +155,14 @@ impl Widget for ToolbarWidget {
             let icon_path = Self::icon_for_tool(tool);
             let constrained_path = constrain_icon(icon_path, button_rect, tool);
 
-            // Fill icon with dark gray color (no stroke)
-            fill_color(scene, &constrained_path, COLOR_ICON);
+            // Determine icon color based on state
+            let is_hovered = self.hover_tool == Some(tool);
+            let icon_color = if is_selected || is_hovered {
+                crate::theme::base::C  // Darker icon for selected or hovered button
+            } else {
+                COLOR_ICON  // Normal icon color for unselected, unhovered buttons
+            };
+            fill_color(scene, &constrained_path, icon_color);
         }
     }
 
@@ -195,6 +206,20 @@ impl Widget for ToolbarWidget {
                 } else {
                     // Even if we didn't hit a tool, consume the event so it doesn't go to the editor
                     ctx.set_handled();
+                }
+            }
+            PointerEvent::Move(pointer_move) => {
+                let local_pos = ctx.local_position(pointer_move.current.position);
+                let new_hover = self.tool_at_point(local_pos);
+                if new_hover != self.hover_tool {
+                    self.hover_tool = new_hover;
+                    ctx.request_render();
+                }
+            }
+            PointerEvent::Leave(_) => {
+                if self.hover_tool.is_some() {
+                    self.hover_tool = None;
+                    ctx.request_render();
                 }
             }
             _ => {}
