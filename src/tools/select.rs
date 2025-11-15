@@ -6,18 +6,43 @@
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
 use crate::mouse::{Drag, MouseDelegate, MouseEvent};
+use crate::selection::Selection;
 use crate::tools::{Tool, ToolId};
 use kurbo::Affine;
 use masonry::vello::Scene;
 
+/// Internal state for the select tool
+#[derive(Debug, Clone)]
+enum State {
+    /// Ready to start an interaction
+    Ready,
+    /// Dragging selected points
+    DraggingPoints {
+        /// Last mouse position in design space
+        last_pos: kurbo::Point,
+    },
+    /// Marquee selection (dragging out a rectangle)
+    MarqueeSelect {
+        /// Selection before this marquee started (for shift+toggle mode)
+        previous_selection: Selection,
+        /// The selection rectangle in screen space
+        rect: kurbo::Rect,
+        /// Whether shift is held (toggle mode)
+        toggle: bool,
+    },
+}
+
+impl Default for State {
+    fn default() -> Self {
+        State::Ready
+    }
+}
+
 /// The select tool - used for selecting and moving points
 #[derive(Debug, Clone, Default)]
 pub struct SelectTool {
-    /// Whether we're currently dragging points
-    dragging_points: bool,
-
-    /// The last mouse position during drag (in design space)
-    last_drag_pos: Option<kurbo::Point>,
+    /// Current tool state
+    state: State,
 }
 
 impl Tool for SelectTool {
@@ -25,15 +50,28 @@ impl Tool for SelectTool {
         ToolId::Select
     }
 
-    fn paint(&mut self, _scene: &mut Scene, _session: &EditSession, _transform: &Affine) {
-        // TODO: Draw selection rectangle if dragging
+    fn paint(&mut self, scene: &mut Scene, _session: &EditSession, _transform: &Affine) {
+        // Draw selection rectangle if in marquee mode
+        if let State::MarqueeSelect { rect, .. } = &self.state {
+            use masonry::util::fill_color;
+            use masonry::vello::peniko::Brush;
+
+            // Fill the selection rectangle with semi-transparent orange
+            fill_color(scene, rect, crate::theme::selection::RECT_FILL);
+
+            // Stroke the selection rectangle with dashed bright orange
+            // Create a dashed stroke pattern: 4px dash, 4px gap
+            let stroke = kurbo::Stroke::new(1.5)
+                .with_dashes(0.0, [4.0, 4.0]);
+            let brush = Brush::Solid(crate::theme::selection::RECT_STROKE);
+            scene.stroke(&stroke, Affine::IDENTITY, &brush, None, rect);
+        }
     }
 
     fn edit_type(&self) -> Option<EditType> {
-        if self.dragging_points {
-            Some(EditType::Drag)
-        } else {
-            None
+        match &self.state {
+            State::DraggingPoints { .. } => Some(EditType::Drag),
+            _ => None,
         }
     }
 }
@@ -90,7 +128,7 @@ impl MouseDelegate for SelectTool {
         // But we don't need to do anything here since selection already happened
     }
 
-    fn left_drag_began(&mut self, event: MouseEvent, _drag: Drag, data: &mut EditSession) {
+    fn left_drag_began(&mut self, event: MouseEvent, drag: Drag, data: &mut EditSession) {
         // Check if we have any selected points
         // (They were already selected in left_down)
         if !data.selection.is_empty() {
@@ -98,25 +136,33 @@ impl MouseDelegate for SelectTool {
             if let Some(hit) = data.hit_test_point(event.pos, None) {
                 if data.selection.contains(&hit.entity) {
                     // We're dragging a selected point
-                    self.dragging_points = true;
-                    // Store the starting position in design space
-                    self.last_drag_pos = Some(data.viewport.from_screen(event.pos));
+                    let design_pos = data.viewport.from_screen(event.pos);
+                    self.state = State::DraggingPoints { last_pos: design_pos };
                     println!("Select tool: started dragging {} selected point(s)", data.selection.len());
                     return;
                 }
             }
         }
 
-        // TODO: Start marquee selection rectangle
-        println!("Select tool: drag began (marquee not yet implemented)");
+        // Start marquee selection
+        // Store the previous selection for toggle mode
+        let previous_selection = data.selection.clone();
+        let rect = kurbo::Rect::from_points(drag.start, drag.current);
+
+        println!("Select tool: started marquee selection, toggle={}", event.mods.shift);
+        self.state = State::MarqueeSelect {
+            previous_selection,
+            rect,
+            toggle: event.mods.shift,
+        };
     }
 
-    fn left_drag_changed(&mut self, event: MouseEvent, _drag: Drag, data: &mut EditSession) {
-        if self.dragging_points {
-            // Convert current mouse position to design space
-            let current_pos = data.viewport.from_screen(event.pos);
+    fn left_drag_changed(&mut self, event: MouseEvent, drag: Drag, data: &mut EditSession) {
+        match &mut self.state {
+            State::DraggingPoints { last_pos } => {
+                // Convert current mouse position to design space
+                let current_pos = data.viewport.from_screen(event.pos);
 
-            if let Some(last_pos) = self.last_drag_pos {
                 // Calculate delta in design space
                 let delta = kurbo::Vec2::new(
                     current_pos.x - last_pos.x,
@@ -127,25 +173,107 @@ impl MouseDelegate for SelectTool {
                 data.move_selection(delta);
 
                 // Update last position
-                self.last_drag_pos = Some(current_pos);
+                *last_pos = current_pos;
             }
-        } else {
-            // TODO: Update marquee selection rectangle
+            State::MarqueeSelect { previous_selection, rect, toggle } => {
+                // Update the selection rectangle
+                *rect = kurbo::Rect::from_points(drag.start, drag.current);
+
+                // Update selection based on points in rectangle
+                update_selection_for_marquee(
+                    data,
+                    previous_selection,
+                    *rect,
+                    *toggle,
+                );
+            }
+            State::Ready => {}
         }
     }
 
-    fn left_drag_ended(&mut self, _event: MouseEvent, _drag: Drag, _data: &mut EditSession) {
-        if self.dragging_points {
-            println!("Select tool: finished dragging points");
+    fn left_drag_ended(&mut self, _event: MouseEvent, _drag: Drag, data: &mut EditSession) {
+        match &self.state {
+            State::DraggingPoints { .. } => {
+                println!("Select tool: finished dragging points");
+            }
+            State::MarqueeSelect { .. } => {
+                println!("Select tool: finished marquee selection, selected {} points", data.selection.len());
+                // Update coordinate selection after marquee
+                data.update_coord_selection();
+            }
+            State::Ready => {}
         }
 
-        self.dragging_points = false;
-        self.last_drag_pos = None;
+        // Return to ready state
+        self.state = State::Ready;
     }
 
-    fn cancel(&mut self, _data: &mut EditSession) {
-        self.dragging_points = false;
-        self.last_drag_pos = None;
+    fn cancel(&mut self, data: &mut EditSession) {
+        // If we were in marquee mode, restore the previous selection
+        if let State::MarqueeSelect { previous_selection, .. } = &self.state {
+            data.selection = previous_selection.clone();
+            data.update_coord_selection();
+        }
+
+        self.state = State::Ready;
         println!("Select tool: cancelled");
+    }
+}
+
+/// Update selection based on points in the marquee rectangle
+///
+/// This filters all points to find those within the rectangle (in screen space),
+/// and applies toggle logic if shift is held.
+fn update_selection_for_marquee(
+    data: &mut EditSession,
+    previous_selection: &Selection,
+    rect: kurbo::Rect,
+    toggle: bool,
+) {
+    use crate::path::Path;
+
+    // Collect all points that are within the selection rectangle
+    let mut new_selection = Selection::new();
+
+    for path in data.paths.iter() {
+        match path {
+            Path::Cubic(cubic) => {
+                for pt in cubic.points.iter() {
+                    // Convert point to screen space for hit testing
+                    let screen_pos = data.viewport.to_screen(pt.point);
+
+                    // Check if point is inside the rectangle
+                    if rect.contains(screen_pos) {
+                        new_selection.insert(pt.id);
+                    }
+                }
+            }
+        }
+    }
+
+    // Apply toggle logic if shift is held
+    if toggle {
+        // Symmetric difference: (previous ∪ new) - (previous ∩ new)
+        // This toggles: adds new points, removes previously selected points that are also in new
+        let mut result = Selection::new();
+
+        // Add points that are in previous but not in new
+        for id in previous_selection.iter() {
+            if !new_selection.contains(id) {
+                result.insert(*id);
+            }
+        }
+
+        // Add points that are in new but not in previous
+        for id in new_selection.iter() {
+            if !previous_selection.contains(id) {
+                result.insert(*id);
+            }
+        }
+
+        data.selection = result;
+    } else {
+        // Normal mode: replace selection with points in rectangle
+        data.selection = new_selection;
     }
 }

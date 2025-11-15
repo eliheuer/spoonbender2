@@ -139,6 +139,12 @@ const SELECTED_POINT_INNER: Color = Color::from_rgb8(0xff, 0xee, 0x55);  // Yell
 const SELECTED_POINT_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33);  // Orange
 
 // ============================================================================
+// SELECTION RECTANGLE (Marquee)
+// ============================================================================
+const SELECTION_RECT_FILL: Color = Color::from_rgba8(0xff, 0xaa, 0x33, 0x20);  // Semi-transparent orange
+const SELECTION_RECT_STROKE: Color = Color::from_rgb8(0xff, 0xaa, 0x33);       // Bright orange (same as selected point outer)
+
+// ============================================================================
 // PUBLIC API - Don't edit below this line
 // ============================================================================
 
@@ -294,6 +300,13 @@ pub mod point {
     pub const OFFCURVE_OUTER: Color = super::OFFCURVE_POINT_OUTER;
     pub const SELECTED_INNER: Color = super::SELECTED_POINT_INNER;
     pub const SELECTED_OUTER: Color = super::SELECTED_POINT_OUTER;
+}
+
+/// Colors for selection rectangle (marquee)
+pub mod selection {
+    use super::Color;
+    pub const RECT_FILL: Color = super::SELECTION_RECT_FILL;
+    pub const RECT_STROKE: Color = super::SELECTION_RECT_STROKE;
 }
 
 /// Sizes for rendering

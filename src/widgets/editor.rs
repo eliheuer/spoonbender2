@@ -233,6 +233,15 @@ impl Widget for EditorWidget {
 
             // Draw control point lines and points
             draw_paths_with_points(scene, &self.session, &transform);
+
+            // Draw tool overlays (e.g., selection rectangle for marquee)
+            // Temporarily take ownership of the tool to call paint (requires &mut)
+            let mut tool = std::mem::replace(
+                &mut self.session.current_tool,
+                crate::tools::ToolBox::for_id(crate::tools::ToolId::Select)
+            );
+            tool.paint(scene, &self.session, &transform);
+            self.session.current_tool = tool;
         }
     }
 
