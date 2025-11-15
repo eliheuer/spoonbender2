@@ -514,7 +514,7 @@ pub fn calculate_coordinate_selection(session: &crate::edit_session::EditSession
 
 use masonry::properties::types::MainAxisAlignment;
 use xilem::style::Style;
-use xilem::view::{flex_col, flex_row, label, sized_box};
+use xilem::view::{flex_col, flex_row, label, sized_box, CrossAxisAlignment};
 use xilem::{WidgetView};
 use masonry::properties::types::AsUnit;
 
@@ -573,6 +573,7 @@ where
                 coord_label(format!("w: {:<6}", w_text)),
                 coord_label(format!("h: {:<6}", h_text)),
             ))
+            .cross_axis_alignment(CrossAxisAlignment::Start)
             .gap(0.px()),
         ))
         .main_axis_alignment(MainAxisAlignment::Start)
