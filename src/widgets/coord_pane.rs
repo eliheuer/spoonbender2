@@ -85,7 +85,7 @@ impl Default for CoordinateSelection {
 
 /// Coordinate pane widget
 pub struct CoordPaneWidget {
-    coord_sel: CoordinateSelection,
+    session: crate::edit_session::EditSession,
     /// Which quadrant dot is currently being hovered (if any)
     hover_quadrant: Option<Quadrant>,
     /// Current widget size (updated during layout)
@@ -93,9 +93,9 @@ pub struct CoordPaneWidget {
 }
 
 impl CoordPaneWidget {
-    pub fn new(coord_sel: CoordinateSelection) -> Self {
+    pub fn new(session: crate::edit_session::EditSession) -> Self {
         Self {
-            coord_sel,
+            session,
             hover_quadrant: None,
             widget_size: Size::ZERO,
         }
@@ -164,40 +164,36 @@ impl CoordPaneWidget {
     }
 
     /// Determine which quadrant (if any) a point is hovering over
+    ///
+    /// Uses grid-based hit detection (matching Runebender's approach):
+    /// Divides the widget into a 3x3 grid and returns which zone was clicked.
+    /// This eliminates overlapping hit areas and ensures every part of the widget is clickable.
     fn quadrant_at_point(&self, point: Point) -> Option<Quadrant> {
-        let bounds = self.quadrant_picker_bounds();
+        // Use the FULL widget bounds for hit detection, not just the visual picker bounds
+        // The padding is just for visual spacing, not for limiting clickability
+        let hit_bounds = Rect::from_origin_size(
+            kurbo::Point::ZERO,
+            self.widget_size,
+        );
 
-        if !bounds.contains(point) {
+        if !hit_bounds.contains(point) {
             return None;
         }
 
-        let dot_radius = self.dot_radius(bounds);
-
-        // Check all 9 quadrant dots
-        for quadrant in &[
-            Quadrant::TopLeft,
-            Quadrant::Top,
-            Quadrant::TopRight,
-            Quadrant::Left,
-            Quadrant::Center,
-            Quadrant::Right,
-            Quadrant::BottomLeft,
-            Quadrant::Bottom,
-            Quadrant::BottomRight,
-        ] {
-            let center = self.quadrant_dot_center(*quadrant, bounds);
-            let circle = Circle::new(center, dot_radius * 2.0); // Larger hit area
-            if circle.contains(point) {
-                return Some(*quadrant);
-            }
-        }
-
-        None
+        // Use grid-based hit detection instead of circle-based
+        // This matches Runebender's approach and eliminates overlapping hit areas
+        Some(Quadrant::for_point_in_bounds(point, hit_bounds))
     }
 }
 
+/// Action emitted by the coord pane widget when the quadrant is changed
+#[derive(Debug, Clone)]
+pub struct SessionUpdate {
+    pub session: crate::edit_session::EditSession,
+}
+
 impl Widget for CoordPaneWidget {
-    type Action = Option<Quadrant>;
+    type Action = SessionUpdate;
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {
         // Leaf widget - no children
@@ -232,8 +228,24 @@ impl Widget for CoordPaneWidget {
         match event {
             PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
                 let local_pos = ctx.local_position(state.position);
+                println!("[CoordPaneWidget::on_pointer_event] Pointer down at local_pos: {:?}", local_pos);
                 if let Some(quadrant) = self.quadrant_at_point(local_pos) {
-                    ctx.submit_action::<Option<Quadrant>>(Some(quadrant));
+                    println!("[CoordPaneWidget::on_pointer_event] Clicked on quadrant: {:?}", quadrant);
+                    println!("[CoordPaneWidget::on_pointer_event] Old quadrant: {:?}", self.session.coord_selection.quadrant);
+
+                    // Update the session's quadrant selection
+                    self.session.coord_selection.quadrant = quadrant;
+                    println!("[CoordPaneWidget::on_pointer_event] New quadrant: {:?}", self.session.coord_selection.quadrant);
+
+                    // Emit SessionUpdate action
+                    ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                        session: self.session.clone(),
+                    });
+
+                    // Request a repaint to show the new selected quadrant
+                    ctx.request_render();
+                } else {
+                    println!("[CoordPaneWidget::on_pointer_event] Click was not on any quadrant dot");
                 }
             }
             _ => {}
@@ -329,7 +341,7 @@ impl CoordPaneWidget {
             Quadrant::BottomRight,
         ] {
             let center = self.quadrant_dot_center(*quadrant, bounds);
-            let is_selected = *quadrant == self.coord_sel.quadrant;
+            let is_selected = *quadrant == self.session.coord_selection.quadrant;
 
             let (inner_color, outer_color) = if is_selected {
                 (DOT_SELECTED_INNER, DOT_SELECTED_OUTER)
@@ -353,30 +365,36 @@ impl CoordPaneWidget {
 // --- MARK: XILEM VIEW WRAPPER ---
 
 use std::marker::PhantomData;
+use std::sync::Arc;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
-/// Create a coordinate pane view from a CoordinateSelection
-pub fn coord_pane_view<State>(
-    coord_sel: CoordinateSelection,
-) -> CoordPaneView<State> {
+/// Create a coordinate pane view from an EditSession
+pub fn coord_pane_view<State, F>(
+    session: Arc<crate::edit_session::EditSession>,
+    on_session_update: F,
+) -> CoordPaneView<State, F>
+where
+    F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static,
+{
     CoordPaneView {
-        coord_sel,
+        session,
+        on_session_update,
         phantom: PhantomData,
     }
 }
 
 /// The Xilem View for CoordPaneWidget
 #[must_use = "View values do nothing unless provided to Xilem."]
-pub struct CoordPaneView<State> {
-    coord_sel: CoordinateSelection,
+pub struct CoordPaneView<State, F> {
+    session: Arc<crate::edit_session::EditSession>,
+    on_session_update: F,
     phantom: PhantomData<fn() -> State>,
 }
 
-impl<State> ViewMarker for CoordPaneView<State> {}
+impl<State, F> ViewMarker for CoordPaneView<State, F> {}
 
-impl<State: 'static> View<State, (), ViewCtx> for CoordPaneView<State>
-{
+impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static> View<State, (), ViewCtx> for CoordPaneView<State, F> {
     type Element = Pod<CoordPaneWidget>;
     type ViewState = ();
 
@@ -385,8 +403,10 @@ impl<State: 'static> View<State, (), ViewCtx> for CoordPaneView<State>
         ctx: &mut ViewCtx,
         _app_state: &mut State,
     ) -> (Self::Element, Self::ViewState) {
-        let widget = CoordPaneWidget::new(self.coord_sel);
-        (ctx.create_pod(widget), ())
+        let widget = CoordPaneWidget::new((*self.session).clone());
+        let pod = ctx.create_pod(widget);
+        ctx.record_action(pod.new_widget.id());
+        (pod, ())
     }
 
     fn rebuild(
@@ -394,14 +414,21 @@ impl<State: 'static> View<State, (), ViewCtx> for CoordPaneView<State>
         prev: &Self,
         _view_state: &mut Self::ViewState,
         _ctx: &mut ViewCtx,
-        _element: Mut<'_, Self::Element>,
+        mut element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // Log rebuilds for debugging
-        if self.coord_sel != prev.coord_sel {
-            println!("CoordPane rebuild: coord_sel changed from count={} to count={}", prev.coord_sel.count, self.coord_sel.count);
+        // Update the widget's session if it changed
+        // We compare Arc pointers - if they're different, the session was updated
+        if !Arc::ptr_eq(&self.session, &prev.session) {
+            println!("[CoordPaneView::rebuild] Session Arc changed, updating widget");
+            println!("[CoordPaneView::rebuild] Old quadrant: {:?}, New quadrant: {:?}",
+                     prev.session.coord_selection.quadrant, self.session.coord_selection.quadrant);
+
+            // Get mutable access to the widget and update the session
+            let mut widget = element.downcast::<CoordPaneWidget>();
+            widget.widget.session = (*self.session).clone();
+            widget.ctx.request_render();
         }
-        // Xilem will handle widget updates automatically
     }
 
     fn teardown(
@@ -416,13 +443,21 @@ impl<State: 'static> View<State, (), ViewCtx> for CoordPaneView<State>
     fn message(
         &self,
         _view_state: &mut Self::ViewState,
-        _message: &mut MessageContext,
+        message: &mut MessageContext,
         _element: Mut<'_, Self::Element>,
-        _app_state: &mut State,
+        app_state: &mut State,
     ) -> MessageResult<()> {
-        // For now, don't handle quadrant changes
-        // TODO: Implement quadrant change handling
-        MessageResult::Stale
+        // Handle SessionUpdate messages from the widget
+        match message.take_message::<SessionUpdate>() {
+            Some(update) => {
+                println!("[CoordPaneView::message] Handling SessionUpdate, quadrant={:?}", update.session.coord_selection.quadrant);
+                (self.on_session_update)(app_state, update.session);
+                println!("[CoordPaneView::message] Callback complete, returning RequestRebuild");
+                // Use RequestRebuild instead of Action to avoid destroying the window
+                MessageResult::RequestRebuild
+            }
+            None => MessageResult::Stale,
+        }
     }
 }
 
@@ -487,9 +522,15 @@ use masonry::properties::types::AsUnit;
 ///
 /// This is the main entry point for displaying the coordinate pane in the editor window.
 /// It combines the quadrant picker widget with coordinate text labels.
-pub fn coordinate_info_pane<State: 'static>(
-    coord_sel: CoordinateSelection,
-) -> impl WidgetView<State> {
+pub fn coordinate_info_pane<State: 'static, F>(
+    session: Arc<crate::edit_session::EditSession>,
+    on_session_update: F,
+) -> impl WidgetView<State>
+where
+    F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static,
+{
+    let coord_sel = session.coord_selection;
+
     // Calculate coordinate values based on the selection
     let (x_text, y_text, w_text, h_text) = if coord_sel.count == 0 {
         ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
@@ -524,7 +565,7 @@ pub fn coordinate_info_pane<State: 'static>(
     sized_box(
         flex_row((
             // Quadrant selector on the left
-            sized_box(coord_pane_view(coord_sel)).width(80.px()),
+            sized_box(coord_pane_view(session, on_session_update)).width(80.px()),
             // Coordinate values with fixed-width formatting
             flex_col((
                 coord_label(format!("x: {:<6}", x_text)),

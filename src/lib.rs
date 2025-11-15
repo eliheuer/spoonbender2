@@ -161,7 +161,7 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
             // Bottom-right: coordinate info pane with fixed margin
             transformed(
-                coordinate_info_pane_from_session(session)
+                coordinate_info_pane_from_session(&session_arc)
             )
             .translate((-MARGIN, -MARGIN))
             .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
@@ -185,9 +185,13 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
 
 /// Helper to create coordinate info pane from session data
-fn coordinate_info_pane_from_session(session: &crate::edit_session::EditSession) -> impl WidgetView<AppState> + use<> {
-    let coord_selection = calculate_coordinate_selection(session);
-    coordinate_info_pane(coord_selection)
+fn coordinate_info_pane_from_session(session: &Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
+    println!("[coordinate_info_pane_from_session] Building view with quadrant={:?}", session.coord_selection.quadrant);
+    coordinate_info_pane(Arc::clone(session), |state: &mut AppState, updated_session| {
+        // Replace the editor session with the updated one
+        println!("[coordinate_info_pane callback] Session updated, new quadrant={:?}", updated_session.coord_selection.quadrant);
+        state.editor_session = Some(updated_session);
+    })
 }
 
 /// Header bar with font name and action buttons
