@@ -29,6 +29,7 @@ mod path;
 mod point;
 mod point_list;
 mod quadrant;
+mod segment;
 mod selection;
 mod theme;
 mod toolbar;

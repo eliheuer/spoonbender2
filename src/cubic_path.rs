@@ -251,4 +251,103 @@ impl CubicPath {
 
         Contour { points }
     }
+
+    /// Iterate over the segments in this path
+    ///
+    /// Returns an iterator that yields SegmentInfo for each segment (line or curve)
+    pub fn iter_segments(&self) -> impl Iterator<Item = crate::segment::SegmentInfo> + '_ {
+        SegmentIterator::new(&self.points, self.closed)
+    }
+}
+
+/// Iterator over path segments
+struct SegmentIterator {
+    points: Vec<PathPoint>,
+    closed: bool,
+    index: usize,
+    prev_on_curve: kurbo::Point,
+    prev_on_curve_idx: usize,
+}
+
+impl SegmentIterator {
+    fn new(points: &crate::point_list::PathPoints, closed: bool) -> Self {
+        let points_vec: Vec<PathPoint> = points.iter().cloned().collect();
+
+        // Find first on-curve point
+        let (start_idx, start_pt) = points_vec.iter()
+            .enumerate()
+            .find(|(_, p)| p.is_on_curve())
+            .map(|(i, p)| (i, p.point))
+            .unwrap_or((0, kurbo::Point::ZERO));
+
+        let index = if closed { 0 } else { start_idx + 1 };
+
+        Self {
+            points: points_vec,
+            closed,
+            index,
+            prev_on_curve: start_pt,
+            prev_on_curve_idx: start_idx,
+        }
+    }
+}
+
+impl Iterator for SegmentIterator {
+    type Item = crate::segment::SegmentInfo;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.points.len() {
+            return None;
+        }
+
+        let pt = &self.points[self.index];
+
+        if pt.is_on_curve() {
+            // Line segment from prev to current
+            let start_idx = self.prev_on_curve_idx;
+            let end_idx = self.index;
+            let segment = crate::segment::Segment::Line(kurbo::Line::new(
+                self.prev_on_curve,
+                pt.point,
+            ));
+
+            self.prev_on_curve = pt.point;
+            self.prev_on_curve_idx = self.index;
+            self.index += 1;
+
+            Some(crate::segment::SegmentInfo {
+                segment,
+                start_idx,
+                end_idx,
+            })
+        } else {
+            // Cubic curve: need 2 off-curve + 1 on-curve
+            if self.index + 2 < self.points.len() {
+                let cp1 = pt.point;
+                let cp2 = self.points[self.index + 1].point;
+                let end = self.points[self.index + 2].point;
+
+                let start_idx = self.prev_on_curve_idx;
+                let end_idx = self.index + 2;
+                let segment = crate::segment::Segment::Cubic(kurbo::CubicBez::new(
+                    self.prev_on_curve,
+                    cp1,
+                    cp2,
+                    end,
+                ));
+
+                self.prev_on_curve = end;
+                self.prev_on_curve_idx = self.index + 2;
+                self.index += 3;
+
+                Some(crate::segment::SegmentInfo {
+                    segment,
+                    start_idx,
+                    end_idx,
+                })
+            } else {
+                None
+            }
+        }
+    }
 }

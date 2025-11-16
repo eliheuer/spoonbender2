@@ -20,8 +20,11 @@ use std::sync::Arc;
 /// Distance threshold for closing a path (in design units)
 const CLOSE_PATH_DISTANCE: f64 = 20.0;
 
+/// Distance threshold for snapping to curves (in screen pixels)
+const CURVE_SNAP_DISTANCE: f64 = 10.0;
+
 /// The pen tool - used for drawing new paths
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PenTool {
     /// Points being added to the current path
     current_path_points: Vec<PathPoint>,
@@ -31,6 +34,21 @@ pub struct PenTool {
 
     /// Current mouse position (for hover detection)
     mouse_pos: Option<kurbo::Point>,
+
+    /// Snapped segment information (segment + parameter t on segment)
+    /// When Some, the preview dot should snap to this curve position
+    snapped_segment: Option<(crate::segment::SegmentInfo, f64)>,
+}
+
+impl Default for PenTool {
+    fn default() -> Self {
+        Self {
+            current_path_points: Vec::new(),
+            drawing: false,
+            mouse_pos: None,
+            snapped_segment: None,
+        }
+    }
 }
 
 impl Tool for PenTool {
@@ -60,13 +78,9 @@ impl Tool for PenTool {
             false
         };
 
-        // Only draw preview while actively drawing
-        if !self.drawing || self.current_path_points.is_empty() {
-            return;
-        }
-
-        // Draw the preview path (orange lines between points)
-        if self.current_path_points.len() >= 1 {
+        // Draw the preview path (orange lines between points) - only while actively drawing
+        // Note: We don't return early here anymore because we want to show the preview dot even when not drawing
+        if self.drawing && self.current_path_points.len() >= 1 {
             let mut bez_path = BezPath::new();
             for (i, pt) in self.current_path_points.iter().enumerate() {
                 let design_pt = Point::new(pt.point.x, pt.point.y);
@@ -100,8 +114,9 @@ impl Tool for PenTool {
             scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &bez_path);
         }
 
-        // Draw circles at each point
-        for (i, pt) in self.current_path_points.iter().enumerate() {
+        // Draw circles at each point (only when drawing)
+        if self.drawing {
+            for (i, pt) in self.current_path_points.iter().enumerate() {
             let design_pt = Point::new(pt.point.x, pt.point.y);
             let screen_pt = session.viewport.to_screen(design_pt);
 
@@ -122,11 +137,24 @@ impl Tool for PenTool {
                 None,
                 &circle,
             );
+            }
         }
 
         // Draw preview circle at current mouse position (showing where next point will be)
-        if let Some(mouse_screen) = self.mouse_pos {
-            let preview_circle = kurbo::Circle::new(mouse_screen, 4.0);
+        // If snapped to a curve, show the preview dot on the curve instead of at mouse position
+        let preview_pos = if let Some((segment_info, t)) = &self.snapped_segment {
+            // Evaluate the segment at parameter t to get the snapped position in design space
+            let snapped_design_pos = segment_info.segment.eval(*t);
+            // Convert to screen space
+            Some(session.viewport.to_screen(snapped_design_pos))
+        } else {
+            // Not snapped - use raw mouse position
+            self.mouse_pos
+        };
+
+        if let Some(preview_screen_pos) = preview_pos {
+            // Draw the orange preview dot
+            let preview_circle = kurbo::Circle::new(preview_screen_pos, 4.0);
             scene.fill(
                 peniko::Fill::NonZero,
                 Affine::IDENTITY,
@@ -134,6 +162,19 @@ impl Tool for PenTool {
                 None,
                 &preview_circle,
             );
+
+            // If snapped to a curve, draw a larger circle indicator around it
+            if self.snapped_segment.is_some() {
+                let indicator_circle = kurbo::Circle::new(preview_screen_pos, 8.0);
+                let stroke = kurbo::Stroke::new(1.5);
+                scene.stroke(
+                    &stroke,
+                    Affine::IDENTITY,
+                    &brush,
+                    None,
+                    &indicator_circle,
+                );
+            }
         }
     }
 
@@ -150,6 +191,16 @@ impl MouseDelegate for PenTool {
     type Data = EditSession;
 
     fn left_click(&mut self, event: MouseEvent, data: &mut EditSession) {
+        // Check if we're snapped to a curve segment
+        // If so, insert a point on the segment instead of starting a new path
+        if let Some((segment_info, t)) = &self.snapped_segment {
+            println!("Pen tool: inserting point on curve at t={}", t);
+            data.insert_point_on_segment(segment_info, *t);
+            // Clear snapping after insertion
+            self.snapped_segment = None;
+            return;
+        }
+
         // Convert screen position to design space
         let design_pos = data.viewport.from_screen(event.pos);
 
@@ -179,9 +230,25 @@ impl MouseDelegate for PenTool {
         println!("Pen tool: added point at {:?}, total points: {}", design_pos, self.current_path_points.len());
     }
 
-    fn mouse_moved(&mut self, event: MouseEvent, _data: &mut EditSession) {
+    fn mouse_moved(&mut self, event: MouseEvent, data: &mut EditSession) {
         // Track mouse position for hover feedback
         self.mouse_pos = Some(event.pos);
+
+        // Check for curve snapping (only when not actively drawing a path)
+        // This prevents snapping while building a new path
+        if !self.drawing {
+            // Hit test segments at cursor position
+            if let Some((segment_info, t)) = data.hit_test_segments(event.pos, CURVE_SNAP_DISTANCE) {
+                // Store the snapped segment for rendering and click handling
+                self.snapped_segment = Some((segment_info, t));
+            } else {
+                // Clear snapping if cursor moved away
+                self.snapped_segment = None;
+            }
+        } else {
+            // Clear snapping while drawing
+            self.snapped_segment = None;
+        }
     }
 
     fn cancel(&mut self, data: &mut EditSession) {

@@ -257,6 +257,57 @@ impl EditSession {
         hit_test::find_closest(screen_pos, candidates, max_dist)
     }
 
+    /// Hit test for path segments at screen coordinates
+    ///
+    /// Returns the closest segment within max_dist screen pixels, along with
+    /// the parametric position (t) on that segment where the nearest point lies.
+    ///
+    /// The parameter t ranges from 0.0 (start of segment) to 1.0 (end of segment).
+    pub fn hit_test_segments(&self, screen_pos: Point, max_dist: f64) -> Option<(crate::segment::SegmentInfo, f64)> {
+        // Convert screen position to design space
+        let design_pos = self.viewport.from_screen(screen_pos);
+
+        let mut closest_segment: Option<(crate::segment::SegmentInfo, f64, f64)> = None;
+
+        // Iterate through all paths
+        for path in self.paths.iter() {
+            match path {
+                Path::Cubic(cubic) => {
+                    // Iterate through all segments in this path
+                    for segment_info in cubic.iter_segments() {
+                        // Find nearest point on this segment
+                        let (t, dist_sq) = segment_info.segment.nearest(design_pos);
+
+                        // Check if this is closer than our current closest
+                        match &closest_segment {
+                            None => {
+                                closest_segment = Some((segment_info, t, dist_sq));
+                            }
+                            Some((_, _, best_dist_sq)) => {
+                                if dist_sq < *best_dist_sq {
+                                    closest_segment = Some((segment_info, t, dist_sq));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if the closest segment is within max_dist
+        closest_segment.and_then(|(segment_info, t, dist_sq)| {
+            // Convert max_dist from screen pixels to design units
+            let max_dist_design = max_dist / self.viewport.zoom;
+            let max_dist_sq = max_dist_design * max_dist_design;
+
+            if dist_sq <= max_dist_sq {
+                Some((segment_info, t))
+            } else {
+                None
+            }
+        })
+    }
+
     /// Move selected points by a delta in design space
     ///
     /// This mutates the paths using Arc::make_mut, which will clone
@@ -418,6 +469,61 @@ impl EditSession {
                 }
             }
         }
+    }
+
+    /// Insert a point on a segment at position t
+    ///
+    /// This adds a new on-curve point to the path containing the given segment,
+    /// at the parametric position t along that segment.
+    ///
+    /// Returns true if the point was successfully inserted.
+    pub fn insert_point_on_segment(&mut self, segment_info: &crate::segment::SegmentInfo, t: f64) -> bool {
+        use crate::point::{PathPoint, PointType};
+        use crate::entity_id::EntityId;
+
+        // Calculate the position on the segment
+        let point_pos = segment_info.segment.eval(t);
+
+        // Create a new on-curve point at this position
+        let new_point = PathPoint {
+            id: EntityId::next(),
+            point: point_pos,
+            typ: PointType::OnCurve { smooth: false },
+        };
+
+        // Find the path containing this segment and insert the point
+        let paths_vec = Arc::make_mut(&mut self.paths);
+
+        for path in paths_vec.iter_mut() {
+            match path {
+                Path::Cubic(cubic) => {
+                    // Check if this segment belongs to this path by iterating its segments
+                    // and comparing start/end indices
+                    let mut found = false;
+                    for seg in cubic.iter_segments() {
+                        if seg.start_idx == segment_info.start_idx && seg.end_idx == segment_info.end_idx {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if found {
+                        // Insert the point after the segment's end index
+                        // For a line segment from idx A to idx B, we want to insert between them
+                        let points = cubic.points.make_mut();
+
+                        // Insert after end_idx (which becomes the position before the next point)
+                        let insert_idx = segment_info.end_idx;
+                        points.insert(insert_idx, new_point);
+
+                        println!("Pen tool: inserted point on segment at index {}", insert_idx);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
     }
 
     /// Convert the current editing state back to a Glyph
