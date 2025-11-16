@@ -80,6 +80,7 @@ fn create_demo_session() -> EditSession {
 
     let mut session = EditSession::new(
         "R".to_string(),
+        std::path::PathBuf::from("demo.ufo"), // Dummy path for demo
         glyph,
         1024.0,     // UPM (units per em) - from VirtuaGrotesk
         832.0,      // ascender - from VirtuaGrotesk

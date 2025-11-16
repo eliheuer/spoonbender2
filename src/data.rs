@@ -150,6 +150,7 @@ impl AppState {
 
         Some(EditSession::new(
             glyph_name.to_string(),
+            workspace.path.clone(),
             glyph.clone(),
             workspace.units_per_em.unwrap_or(1000.0),
             workspace.ascender.unwrap_or(800.0),

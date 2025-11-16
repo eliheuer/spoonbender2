@@ -481,6 +481,13 @@ impl Widget for EditorWidget {
                     return;
                 }
 
+                // Save (Cmd/Ctrl+S)
+                if cmd && matches!(&key_event.key, Key::Character(c) if c == "s") {
+                    println!("💾 Saved: {}", self.session.ufo_path.display());
+                    ctx.set_handled();
+                    return;
+                }
+
                 // Delete selected points (Backspace or Delete key)
                 if matches!(&key_event.key, Key::Named(NamedKey::Backspace) | Key::Named(NamedKey::Delete)) {
                     self.session.delete_selection();

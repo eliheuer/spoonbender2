@@ -99,6 +99,9 @@ pub struct EditSession {
     /// Name of the glyph being edited
     pub glyph_name: String,
 
+    /// Path to the UFO file
+    pub ufo_path: std::path::PathBuf,
+
     /// The original glyph data (for metadata, unicode, etc.)
     pub glyph: Arc<Glyph>,
 
@@ -132,6 +135,7 @@ impl EditSession {
     /// Create a new editing session for a glyph
     pub fn new(
         glyph_name: String,
+        ufo_path: std::path::PathBuf,
         glyph: Glyph,
         units_per_em: f64,
         ascender: f64,
@@ -149,6 +153,7 @@ impl EditSession {
         Self {
             id: SessionId::next(),
             glyph_name,
+            ufo_path,
             glyph: Arc::new(glyph),
             paths: Arc::new(paths),
             selection: Selection::new(),
