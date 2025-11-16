@@ -66,7 +66,7 @@ impl Tool for PenTool {
         }
 
         // Draw the preview path (orange lines between points)
-        if self.current_path_points.len() >= 2 {
+        if self.current_path_points.len() >= 1 {
             let mut bez_path = BezPath::new();
             for (i, pt) in self.current_path_points.iter().enumerate() {
                 let design_pt = Point::new(pt.point.x, pt.point.y);
@@ -79,12 +79,18 @@ impl Tool for PenTool {
                 }
             }
 
-            // If hovering near first point, also draw closing line
-            if hovering_close {
-                if let Some(first_pt) = self.current_path_points.first() {
-                    let design_pt = Point::new(first_pt.point.x, first_pt.point.y);
-                    let screen_pt = session.viewport.to_screen(design_pt);
-                    bez_path.line_to(screen_pt);
+            // Draw preview line to current mouse position (or closing line if hovering near first point)
+            if let Some(mouse_screen) = self.mouse_pos {
+                if hovering_close {
+                    // Show closing line to first point
+                    if let Some(first_pt) = self.current_path_points.first() {
+                        let design_pt = Point::new(first_pt.point.x, first_pt.point.y);
+                        let screen_pt = session.viewport.to_screen(design_pt);
+                        bez_path.line_to(screen_pt);
+                    }
+                } else {
+                    // Show preview line to current mouse position
+                    bez_path.line_to(mouse_screen);
                 }
             }
 
@@ -113,6 +119,18 @@ impl Tool for PenTool {
                 &brush,
                 None,
                 &circle,
+            );
+        }
+
+        // Draw preview circle at current mouse position (showing where next point will be)
+        if let Some(mouse_screen) = self.mouse_pos {
+            let preview_circle = kurbo::Circle::new(mouse_screen, 4.0);
+            scene.fill(
+                peniko::Fill::NonZero,
+                Affine::IDENTITY,
+                &brush,
+                None,
+                &preview_circle,
             );
         }
     }
