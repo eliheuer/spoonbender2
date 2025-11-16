@@ -419,4 +419,27 @@ impl EditSession {
             }
         }
     }
+
+    /// Convert the current editing state back to a Glyph
+    ///
+    /// This creates a new Glyph with the edited paths converted back to contours,
+    /// preserving all other metadata from the original glyph.
+    pub fn to_glyph(&self) -> Glyph {
+        use crate::workspace::Glyph;
+
+        // Convert paths back to contours
+        let contours: Vec<crate::workspace::Contour> = self.paths
+            .iter()
+            .map(|path| path.to_contour())
+            .collect();
+
+        // Create updated glyph with new contours but preserve other metadata
+        Glyph {
+            name: self.glyph.name.clone(),
+            width: self.glyph.width,
+            height: self.glyph.height,
+            codepoints: self.glyph.codepoints.clone(),
+            contours,
+        }
+    }
 }

@@ -51,6 +51,31 @@ impl GlyphWidget {
         self.baseline_offset = offset;
         self
     }
+
+    /// Update the glyph path (for use in View::rebuild)
+    pub fn set_path(&mut self, path: BezPath) {
+        self.path = path;
+    }
+
+    /// Update the glyph color (for use in View::rebuild)
+    pub fn set_color(&mut self, color: Color) {
+        self.color = color;
+    }
+
+    /// Update the UPM value (for use in View::rebuild)
+    pub fn set_upm(&mut self, upm: f64) {
+        self.upm = upm;
+    }
+
+    /// Update the baseline offset (for use in View::rebuild)
+    pub fn set_baseline_offset(&mut self, offset: f64) {
+        self.baseline_offset = offset;
+    }
+
+    /// Update the widget size (for use in View::rebuild)
+    pub fn set_size(&mut self, size: Size) {
+        self.size = size;
+    }
 }
 
 impl Widget for GlyphWidget {
@@ -208,15 +233,46 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
 
     fn rebuild(
         &self,
-        _prev: &Self,
+        prev: &Self,
         _view_state: &mut Self::ViewState,
         _ctx: &mut ViewCtx,
-        _element: Mut<'_, Self::Element>,
+        mut element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // GlyphWidget doesn't support incremental updates yet.
-        // If properties change significantly, the parent should recreate the view.
-        // For simple property changes, the widget will repaint on next frame.
+        // Get mutable access to the widget
+        let mut widget = element.downcast::<GlyphWidget>();
+
+        // Update the widget's path if it has changed
+        // This is crucial for the glyph grid to show updated previews after editing
+        if self.path != prev.path {
+            widget.widget.set_path(self.path.clone());
+            widget.ctx.request_render();
+        }
+
+        // Update other properties if they changed
+        if self.color != prev.color {
+            if let Some(color) = self.color {
+                widget.widget.set_color(color);
+                widget.ctx.request_render();
+            }
+        }
+
+        if self.upm != prev.upm {
+            widget.widget.set_upm(self.upm);
+            widget.ctx.request_render();
+        }
+
+        if self.baseline_offset != prev.baseline_offset {
+            if let Some(offset) = self.baseline_offset {
+                widget.widget.set_baseline_offset(offset);
+                widget.ctx.request_render();
+            }
+        }
+
+        if self.size != prev.size {
+            widget.widget.set_size(self.size);
+            widget.ctx.request_render();
+        }
     }
 
     fn teardown(

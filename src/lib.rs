@@ -259,15 +259,23 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         .unwrap_or(1000.0);
 
     // Pre-compute glyph data to avoid capturing state reference
-    let glyph_data: Vec<_> = if let Some(workspace) = &state.workspace {
+    // Pass the actual Glyph instead of pre-computed BezPath so it can be rendered fresh each time
+    let glyph_data: Vec<(String, Option<Arc<workspace::Glyph>>, Vec<char>, usize)> = if let Some(workspace) = &state.workspace {
         glyph_names.iter().map(|name| {
-            let glyph = workspace.get_glyph(name);
-            let path = glyph.map(|g| glyph_renderer::glyph_to_bezpath(&g));
-            let codepoints = glyph.map(|g| g.codepoints.clone()).unwrap_or_default();
-            (name.clone(), path, codepoints)
+            if let Some(glyph) = workspace.get_glyph(name) {
+                let count = glyph.contours.len();
+                // Debug logging only for glyph "a"
+                if name == "a" {
+                    println!("[glyph_grid_view] Glyph 'a' has {} contours", count);
+                }
+                let codepoints = glyph.codepoints.clone();
+                (name.clone(), Some(Arc::new(glyph.clone())), codepoints, count)
+            } else {
+                (name.clone(), None, Vec::new(), 0)
+            }
         }).collect()
     } else {
-        glyph_names.iter().map(|name| (name.clone(), None, Vec::new())).collect()
+        glyph_names.iter().map(|name| (name.clone(), None, Vec::new(), 0)).collect()
     };
 
     // Create rows of glyphs using flex layout (grid doesn't work well with expand)
@@ -280,9 +288,9 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 
     for chunk in glyph_data.chunks(columns) {
         let row_items: Vec<_> = chunk.iter()
-            .map(|(name, path_opt, codepoints)| {
+            .map(|(name, glyph_opt, codepoints, contour_count)| {
                 let is_selected = selected_glyph.as_ref() == Some(name);
-                glyph_cell(name.clone(), path_opt.clone(), codepoints.clone(), is_selected, upm)
+                glyph_cell(name.clone(), glyph_opt.clone(), codepoints.clone(), is_selected, upm, *contour_count)
             })
             .collect();
         // Add gap between cells in each row
@@ -360,7 +368,9 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
 
 
 /// Individual glyph cell in the grid
-fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, codepoints: Vec<char>, is_selected: bool, upm: f64) -> impl WidgetView<AppState> + use<> {
+///
+/// The contour_count parameter is used as a version marker to force widget updates when glyph data changes
+fn glyph_cell(glyph_name: String, glyph_opt: Option<Arc<workspace::Glyph>>, codepoints: Vec<char>, is_selected: bool, upm: f64, _contour_count: usize) -> impl WidgetView<AppState> + use<> {
     let name_clone = glyph_name.clone();
     let display_name = if glyph_name.len() > 12 {
         format!("{}...", &glyph_name[..9])
@@ -369,15 +379,18 @@ fn glyph_cell(glyph_name: String, path_opt: Option<kurbo::BezPath>, codepoints: 
     };
 
     // Format Unicode codepoint (use first codepoint if available)
+    // TEMP: Also show contour count for debugging
     let unicode_display = if let Some(first_char) = codepoints.first() {
-        format!("U+{:04X}", *first_char as u32)
+        format!("U+{:04X} [{}]", *first_char as u32, _contour_count)
     } else {
-        String::new()
+        format!("[{}]", _contour_count)
     };
 
-    // Create glyph view widget from pre-computed path
+    // Convert glyph to BezPath fresh each time the view is built
+    // This ensures the preview always shows the latest glyph data
     // Smaller glyph preview (60x60) - 20% smaller than before
-    let glyph_view_widget = if let Some(path) = path_opt {
+    let glyph_view_widget = if let Some(glyph) = glyph_opt {
+        let path = glyph_renderer::glyph_to_bezpath(&glyph);
         Either::A(sized_box(
             flex_col((
                 sized_box(label("")).height(4.px()), // Add 4px spacer above glyph

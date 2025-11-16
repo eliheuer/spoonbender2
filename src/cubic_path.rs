@@ -218,4 +218,37 @@ impl CubicPath {
 
         Self::new(PathPoints::from_vec(path_points), closed)
     }
+
+    /// Convert this cubic path to a workspace contour (for saving)
+    pub fn to_contour(&self) -> workspace::Contour {
+        use crate::workspace::{Contour, ContourPoint, PointType as WsPointType};
+        use crate::point::PointType;
+
+        let mut contour_points: Vec<PathPoint> = self.points.to_vec();
+
+        // If closed, rotate right by 1 to reverse what from_contour() did
+        if self.closed && !contour_points.is_empty() {
+            contour_points.rotate_right(1);
+        }
+
+        // Convert points back to workspace format
+        let points: Vec<ContourPoint> = contour_points
+            .iter()
+            .map(|pt| {
+                let point_type = match pt.typ {
+                    PointType::OnCurve { smooth: true } => WsPointType::Curve,
+                    PointType::OnCurve { smooth: false } => WsPointType::Line,
+                    PointType::OffCurve { .. } => WsPointType::OffCurve,
+                };
+
+                ContourPoint {
+                    x: pt.point.x,
+                    y: pt.point.y,
+                    point_type,
+                }
+            })
+            .collect();
+
+        Contour { points }
+    }
 }

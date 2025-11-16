@@ -187,6 +187,11 @@ impl Workspace {
         self.glyphs.get(name)
     }
 
+    /// Update a glyph in the workspace
+    pub fn update_glyph(&mut self, glyph_name: &str, glyph: Glyph) {
+        self.glyphs.insert(glyph_name.to_string(), glyph);
+    }
+
     /// Save the UFO back to disk
     /// TODO: This needs to convert our internal data back to norad format
     pub fn save(&self) -> Result<()> {

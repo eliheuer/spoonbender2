@@ -169,7 +169,22 @@ impl AppState {
     }
 
     /// Close the editor and return to glyph grid
+    ///
+    /// This syncs any final changes to the workspace before closing.
     pub fn close_editor(&mut self) {
+        // Sync final changes to workspace before closing
+        if let Some(session) = &self.editor_session {
+            if let Some(workspace) = &mut self.workspace {
+                let updated_glyph = session.to_glyph();
+                workspace.update_glyph(&session.glyph_name, updated_glyph.clone());
+
+                // Debug logging only for glyph "a"
+                if session.glyph_name == "a" {
+                    println!("[close_editor] Synced glyph 'a' with {} contours to workspace", updated_glyph.contours.len());
+                }
+            }
+        }
+
         self.editor_session = None;
         self.active_tab = Tab::GlyphGrid;
     }
@@ -184,8 +199,29 @@ impl AppState {
     }
 
     /// Update the current editor session with new state
+    ///
+    /// This also syncs the edited glyph back to the workspace so changes
+    /// persist when switching views.
     pub fn update_editor_session(&mut self, session: EditSession) {
-        println!("Updated session: selection count = {}", session.selection.len());
+        // Sync edited glyph back to workspace
+        if let Some(workspace) = &mut self.workspace {
+            let updated_glyph = session.to_glyph();
+
+            // Debug logging only for glyph "a"
+            if session.glyph_name == "a" {
+                println!("[update_editor_session] Syncing glyph 'a' with {} contours back to workspace", updated_glyph.contours.len());
+            }
+
+            workspace.update_glyph(&session.glyph_name, updated_glyph.clone());
+
+            // Verify the update worked (only for "a")
+            if session.glyph_name == "a" {
+                if let Some(glyph_from_workspace) = workspace.get_glyph(&session.glyph_name) {
+                    println!("[update_editor_session] Verified: workspace now has glyph 'a' with {} contours", glyph_from_workspace.contours.len());
+                }
+            }
+        }
+
         self.editor_session = Some(session);
     }
 }

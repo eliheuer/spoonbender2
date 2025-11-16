@@ -67,4 +67,11 @@ impl Path {
         // HyperPath support can be added later
         Path::Cubic(CubicPath::from_contour(contour))
     }
+
+    /// Convert this path to a workspace contour (for saving)
+    pub fn to_contour(&self) -> workspace::Contour {
+        match self {
+            Path::Cubic(cubic) => cubic.to_contour(),
+        }
+    }
 }
