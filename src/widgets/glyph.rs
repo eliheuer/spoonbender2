@@ -26,6 +26,9 @@ pub struct GlyphWidget {
     upm: f64,
     /// Baseline offset as a fraction of height (0.0 = bottom, 1.0 = top)
     baseline_offset: f64,
+    /// Optional advance width for stable horizontal centering
+    /// When provided, centers based on this width instead of bounding box
+    advance_width: Option<f64>,
 }
 
 impl GlyphWidget {
@@ -37,6 +40,7 @@ impl GlyphWidget {
             size,
             upm,
             baseline_offset: 0.12, // Default baseline offset - higher = more space at bottom
+            advance_width: None,
         }
     }
 
@@ -49,6 +53,12 @@ impl GlyphWidget {
     /// Set the baseline offset (0.0 = bottom, 1.0 = top)
     pub fn with_baseline_offset(mut self, offset: f64) -> Self {
         self.baseline_offset = offset;
+        self
+    }
+
+    /// Set the advance width for stable horizontal centering
+    pub fn with_advance_width(mut self, width: f64) -> Self {
+        self.advance_width = Some(width);
         self
     }
 
@@ -75,6 +85,11 @@ impl GlyphWidget {
     /// Update the widget size (for use in View::rebuild)
     pub fn set_size(&mut self, size: Size) {
         self.size = size;
+    }
+
+    /// Update the advance width (for use in View::rebuild)
+    pub fn set_advance_width(&mut self, width: Option<f64>) {
+        self.advance_width = width;
     }
 }
 
@@ -118,9 +133,18 @@ impl Widget for GlyphWidget {
         let scale = widget_size.height / self.upm;
         let scale = scale * 0.8; // 20% smaller glyphs (0.8 = 80% of original size)
 
-        // Center the glyph horizontally based on its bounding box
-        let scaled_width = bounds.width() * scale;
-        let l_pad = (widget_size.width - scaled_width) / 2.0;
+        // Center the glyph horizontally
+        // If advance_width is provided, use it for stable centering (prevents shifting during edits)
+        // Otherwise, fall back to bounding box centering
+        let l_pad = if let Some(advance_width) = self.advance_width {
+            // Center based on advance width - this stays constant while editing
+            let scaled_advance = advance_width * scale;
+            (widget_size.width - scaled_advance) / 2.0
+        } else {
+            // Fall back to bounding box centering
+            let scaled_width = bounds.width() * scale;
+            (widget_size.width - scaled_width) / 2.0 - bounds.x0 * scale
+        };
 
         // Position baseline to center glyphs vertically (adjusted for better visual balance)
         // Higher percentage = baseline higher in cell = more space at bottom, less at top
@@ -181,6 +205,7 @@ pub fn glyph_view<State, Action>(
         color: None,
         upm,
         baseline_offset: None,
+        advance_width: None,
         phantom: PhantomData,
     }
 }
@@ -193,6 +218,7 @@ pub struct GlyphView<State, Action = ()> {
     color: Option<Color>,
     upm: f64,
     baseline_offset: Option<f64>,
+    advance_width: Option<f64>,
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 
@@ -206,6 +232,12 @@ impl<State, Action> GlyphView<State, Action> {
     /// Set the baseline offset (0.0 = bottom, 1.0 = top)
     pub fn baseline_offset(mut self, offset: f64) -> Self {
         self.baseline_offset = Some(offset);
+        self
+    }
+
+    /// Set the advance width for stable horizontal centering
+    pub fn advance_width(mut self, width: f64) -> Self {
+        self.advance_width = Some(width);
         self
     }
 }
@@ -227,6 +259,9 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
         }
         if let Some(offset) = self.baseline_offset {
             widget = widget.with_baseline_offset(offset);
+        }
+        if let Some(width) = self.advance_width {
+            widget = widget.with_advance_width(width);
         }
         (ctx.create_pod(widget), ())
     }
@@ -271,6 +306,11 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
 
         if self.size != prev.size {
             widget.widget.set_size(self.size);
+            widget.ctx.request_render();
+        }
+
+        if self.advance_width != prev.advance_width {
+            widget.widget.set_advance_width(self.advance_width);
             widget.ctx.request_render();
         }
     }

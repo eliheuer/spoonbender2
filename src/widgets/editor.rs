@@ -47,6 +47,16 @@ pub struct EditorWidget {
 
     /// Tool to return to when spacebar is released (for temporary preview mode)
     previous_tool: Option<crate::tools::ToolId>,
+
+    /// Frame counter for throttling preview updates during drag
+    ///
+    /// PERFORMANCE OPTIMIZATION: Emitting SessionUpdate on every mouse move during drag
+    /// causes significant lag because each update triggers a full Xilem view rebuild,
+    /// which includes cloning the entire EditSession, running app_logic(), and rebuilding
+    /// the preview pane's BezPath. By throttling to every Nth frame (currently every 3rd),
+    /// we achieve a 67% reduction in rebuilds while maintaining smooth visual feedback.
+    /// The main canvas still redraws every frame - only the expensive Xilem rebuild is throttled.
+    drag_update_counter: u32,
 }
 
 impl EditorWidget {
@@ -61,6 +71,7 @@ impl EditorWidget {
             undo: UndoState::new(),
             last_edit_type: None,
             previous_tool: None,
+            drag_update_counter: 0,
         }
     }
 
@@ -305,6 +316,22 @@ impl Widget for EditorWidget {
                 if needs_render {
                     ctx.request_render();
                 }
+
+                // PERFORMANCE: Emit SessionUpdate during active drag so preview pane updates in real-time
+                // BUT throttle to every 3rd frame to avoid excessive Xilem view rebuilds.
+                // This provides smooth preview updates without killing performance.
+                // Adjust the modulo value (currently 3) to tune responsiveness vs performance.
+                if ctx.is_active() {
+                    self.drag_update_counter += 1;
+                    if self.drag_update_counter % 3 == 0 {
+                        // Update coordinate selection before emitting update
+                        self.session.update_coord_selection();
+
+                        ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                            session: self.session.clone(),
+                        });
+                    }
+                }
             }
 
             PointerEvent::Up(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
@@ -335,6 +362,9 @@ impl Widget for EditorWidget {
 
                 // Update coordinate selection after tool operation
                 self.session.update_coord_selection();
+
+                // Reset drag update counter for next drag operation
+                self.drag_update_counter = 0;
 
                 // Emit action to notify view of session changes
                 ctx.submit_action::<SessionUpdate>(SessionUpdate {
