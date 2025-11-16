@@ -381,11 +381,11 @@ fn glyph_cell(glyph_name: String, glyph_opt: Option<Arc<workspace::Glyph>>, code
     };
 
     // Format Unicode codepoint (use first codepoint if available)
-    // TEMP: Also show contour count for debugging
+    // Also show contour count (just the number, no label)
     let unicode_display = if let Some(first_char) = codepoints.first() {
-        format!("U+{:04X} [{}]", *first_char as u32, _contour_count)
+        format!("U+{:04X} {}", *first_char as u32, _contour_count)
     } else {
-        format!("[{}]", _contour_count)
+        format!("{}", _contour_count)
     };
 
     // Convert glyph to BezPath fresh each time the view is built
@@ -396,7 +396,8 @@ fn glyph_cell(glyph_name: String, glyph_opt: Option<Arc<workspace::Glyph>>, code
         Either::A(sized_box(
             flex_col((
                 sized_box(label("")).height(4.px()), // Add 4px spacer above glyph
-                glyph_view(path, 60.0, 60.0, upm),
+                glyph_view(path, 60.0, 60.0, upm)
+                    .baseline_offset(0.06), // Move glyph down slightly in grid cell
             ))
         ).height(84.px()))
     } else {
