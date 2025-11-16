@@ -300,8 +300,9 @@ impl Widget for EditorWidget {
                 self.mouse.mouse_moved(mouse_event, &mut tool, &mut self.session);
                 self.session.current_tool = tool;
 
-                // During active drag, just render - don't emit actions (to avoid breaking mouse state)
-                if ctx.is_active() {
+                // Request render during drag OR when pen tool needs hover feedback
+                let needs_render = ctx.is_active() || self.session.current_tool.id() == ToolId::Pen;
+                if needs_render {
                     ctx.request_render();
                 }
             }

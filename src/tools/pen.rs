@@ -39,11 +39,6 @@ impl Tool for PenTool {
     }
 
     fn paint(&mut self, scene: &mut Scene, session: &EditSession, _transform: &Affine) {
-        // Only draw preview while actively drawing (before finishing/closing)
-        if !self.drawing || self.current_path_points.is_empty() {
-            return;
-        }
-
         use masonry::vello::peniko::Brush;
         use kurbo::{BezPath, Point};
 
@@ -51,7 +46,7 @@ impl Tool for PenTool {
         let brush = Brush::Solid(orange_color);
 
         // Check if mouse is hovering near first point (for close feedback)
-        let hovering_close = if self.current_path_points.len() >= 3 {
+        let hovering_close = if self.drawing && self.current_path_points.len() >= 3 {
             if let Some(mouse_screen) = self.mouse_pos {
                 let mouse_design = session.viewport.from_screen(mouse_screen);
                 let first_point = self.current_path_points[0].point;
@@ -64,6 +59,11 @@ impl Tool for PenTool {
         } else {
             false
         };
+
+        // Only draw preview while actively drawing
+        if !self.drawing || self.current_path_points.is_empty() {
+            return;
+        }
 
         // Draw the preview path (orange lines between points)
         if self.current_path_points.len() >= 2 {
