@@ -399,14 +399,14 @@ fn glyph_cell(glyph_name: String, glyph_opt: Option<Arc<workspace::Glyph>>, code
                 glyph_view(path, 60.0, 60.0, upm)
                     .baseline_offset(0.06), // Move glyph down slightly in grid cell
             ))
-        ).height(84.px()))
+        ).height(78.px())) // Reduced height to bring labels closer to glyph
     } else {
         Either::B(sized_box(
             flex_col((
                 sized_box(label("")).height(4.px()), // Add 4px spacer above glyph
                 label("?").text_size(40.0),
             ))
-        ).height(84.px()))
+        ).height(78.px())) // Reduced height to bring labels closer to glyph
     };
 
     // Create label with glyph name and unicode
