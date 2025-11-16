@@ -61,31 +61,86 @@ impl Segment {
     /// the original curve.
     ///
     /// Uses the de Casteljau algorithm for numerically stable subdivision.
+    ///
+    /// # The de Casteljau Algorithm
+    ///
+    /// This algorithm subdivides a bezier curve by repeatedly interpolating between
+    /// control points. It's both geometrically intuitive and numerically stable.
+    ///
+    /// ## How it works:
+    ///
+    /// Given a cubic bezier with control points P0, P1, P2, P3, we want to split it
+    /// at parameter t (where 0 ≤ t ≤ 1) into two curves that together form the original.
+    ///
+    /// The algorithm works by building a "pyramid" of linear interpolations:
+    ///
+    /// ```text
+    /// Level 0 (original):          P0      P1      P2      P3
+    ///                                \    /  \    /  \    /
+    /// Level 1 (lerp at t):            Q0      Q1      Q2
+    ///                                   \    /  \    /
+    /// Level 2 (lerp at t):                 R0      R1
+    ///                                        \    /
+    /// Level 3 (lerp at t):                  split_point
+    /// ```
+    ///
+    /// Each level interpolates between adjacent points from the previous level using
+    /// the same parameter t. The split point is where the curve is at parameter t.
+    ///
+    /// ## The magic:
+    ///
+    /// The points computed along the left edge (P0, Q0, R0, split_point) form the
+    /// control points for the left subcurve (from t=0 to t=split).
+    ///
+    /// The points along the right edge (split_point, R1, Q2, P3) form the control
+    /// points for the right subcurve (from t=split to t=1).
+    ///
+    /// Together, these two curves are mathematically identical to the original curve,
+    /// so there's zero distortion when subdividing.
+    ///
+    /// ## Why this matters for font editing:
+    ///
+    /// When a user clicks on a curve to add a point, we need to insert that point
+    /// without changing the curve's shape. The de Casteljau algorithm gives us the
+    /// exact control points needed to maintain the curve perfectly.
     pub fn subdivide_cubic(cubic: CubicBez, t: f64) -> (CubicBez, CubicBez) {
-        // de Casteljau subdivision algorithm
-        // Given control points P0, P1, P2, P3 and parameter t:
-
+        // Extract the original curve's control points
+        // P0 is the start point, P3 is the end point
+        // P1 and P2 are the off-curve control points (bezier handles)
         let p0 = cubic.p0;
         let p1 = cubic.p1;
         let p2 = cubic.p2;
         let p3 = cubic.p3;
 
-        // First level of interpolation
+        // Level 1: Linearly interpolate between adjacent control points
+        // This creates three new points at parameter t along the three line segments:
+        // - Q0 is at position t along the line from P0 to P1
+        // - Q1 is at position t along the line from P1 to P2
+        // - Q2 is at position t along the line from P2 to P3
         let q0 = p0 + (p1 - p0) * t;
         let q1 = p1 + (p2 - p1) * t;
         let q2 = p2 + (p3 - p2) * t;
 
-        // Second level
+        // Level 2: Interpolate between the Level 1 points
+        // This creates two new points:
+        // - R0 is at position t along the line from Q0 to Q1
+        // - R1 is at position t along the line from Q1 to Q2
         let r0 = q0 + (q1 - q0) * t;
         let r1 = q1 + (q2 - q1) * t;
 
-        // Third level - the split point
+        // Level 3: Final interpolation to find the split point
+        // The split point is at position t along the line from R0 to R1
+        // This is the actual point on the curve at parameter t
         let split_point = r0 + (r1 - r0) * t;
 
-        // Left curve: P0, Q0, R0, split_point
+        // Construct the left subcurve from the left edge of the pyramid
+        // This curve goes from the original start (P0) to the split point
+        // with control points Q0 and R0
         let left = CubicBez::new(p0, q0, r0, split_point);
 
-        // Right curve: split_point, R1, Q2, P3
+        // Construct the right subcurve from the right edge of the pyramid
+        // This curve goes from the split point to the original end (P3)
+        // with control points R1 and Q2
         let right = CubicBez::new(split_point, r1, q2, p3);
 
         (left, right)
