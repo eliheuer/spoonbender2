@@ -94,7 +94,9 @@ impl Tool for PenTool {
                 }
             }
 
-            let stroke = kurbo::Stroke::new(2.0);
+            // Use dashed stroke for preview (like selection marquee)
+            let stroke = kurbo::Stroke::new(2.0)
+                .with_dashes(0.0, [4.0, 4.0]);
             scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &bez_path);
         }
 
