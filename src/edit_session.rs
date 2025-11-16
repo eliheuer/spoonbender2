@@ -476,29 +476,22 @@ impl EditSession {
     /// This adds a new on-curve point to the path containing the given segment,
     /// at the parametric position t along that segment.
     ///
+    /// For line segments: inserts one on-curve point
+    /// For cubic curves: subdivides the curve, inserting 1 on-curve and 2 off-curve points
+    ///
     /// Returns true if the point was successfully inserted.
     pub fn insert_point_on_segment(&mut self, segment_info: &crate::segment::SegmentInfo, t: f64) -> bool {
         use crate::point::{PathPoint, PointType};
         use crate::entity_id::EntityId;
+        use crate::segment::Segment;
 
-        // Calculate the position on the segment
-        let point_pos = segment_info.segment.eval(t);
-
-        // Create a new on-curve point at this position
-        let new_point = PathPoint {
-            id: EntityId::next(),
-            point: point_pos,
-            typ: PointType::OnCurve { smooth: false },
-        };
-
-        // Find the path containing this segment and insert the point
+        // Find the path containing this segment
         let paths_vec = Arc::make_mut(&mut self.paths);
 
         for path in paths_vec.iter_mut() {
             match path {
                 Path::Cubic(cubic) => {
-                    // Check if this segment belongs to this path by iterating its segments
-                    // and comparing start/end indices
+                    // Check if this segment belongs to this path
                     let mut found = false;
                     for seg in cubic.iter_segments() {
                         if seg.start_idx == segment_info.start_idx && seg.end_idx == segment_info.end_idx {
@@ -507,17 +500,106 @@ impl EditSession {
                         }
                     }
 
-                    if found {
-                        // Insert the point after the segment's end index
-                        // For a line segment from idx A to idx B, we want to insert between them
-                        let points = cubic.points.make_mut();
+                    if !found {
+                        continue;
+                    }
 
-                        // Insert after end_idx (which becomes the position before the next point)
-                        let insert_idx = segment_info.end_idx;
-                        points.insert(insert_idx, new_point);
+                    // Get mutable access to the points
+                    let points = cubic.points.make_mut();
 
-                        println!("Pen tool: inserted point on segment at index {}", insert_idx);
-                        return true;
+                    match segment_info.segment {
+                        Segment::Line(_line) => {
+                            // For a line segment, just insert one on-curve point
+                            let point_pos = segment_info.segment.eval(t);
+                            let new_point = PathPoint {
+                                id: EntityId::next(),
+                                point: point_pos,
+                                typ: PointType::OnCurve { smooth: false },
+                            };
+
+                            // Insert between start and end
+                            let insert_idx = segment_info.end_idx;
+                            points.insert(insert_idx, new_point);
+
+                            println!("Pen tool: inserted point on line segment at index {}", insert_idx);
+                            return true;
+                        }
+                        Segment::Cubic(cubic_bez) => {
+                            // For a cubic curve, subdivide it using de Casteljau algorithm
+                            let (left, right) = Segment::subdivide_cubic(cubic_bez, t);
+
+                            // The subdivision gives us two curves:
+                            // Left:  P0 -> Q0 -> R0 -> split_point
+                            // Right: split_point -> R1 -> Q2 -> P3
+                            //
+                            // In our point list, we need to replace the segment which consists of:
+                            // start_idx (on-curve) -> cp1 (off-curve) -> cp2 (off-curve) -> end_idx (on-curve)
+                            //
+                            // With:
+                            // start_idx (on-curve) -> Q0 (off-curve) -> R0 (off-curve) -> split_point (on-curve) -> R1 (off-curve) -> Q2 (off-curve) -> end_idx (on-curve)
+
+                            // Create the new points
+                            let cp1_left = PathPoint {
+                                id: EntityId::next(),
+                                point: left.p1,
+                                typ: PointType::OffCurve { auto: false },
+                            };
+                            let cp2_left = PathPoint {
+                                id: EntityId::next(),
+                                point: left.p2,
+                                typ: PointType::OffCurve { auto: false },
+                            };
+                            let split_point = PathPoint {
+                                id: EntityId::next(),
+                                point: left.p3, // Same as right.p0
+                                typ: PointType::OnCurve { smooth: false },
+                            };
+                            let cp1_right = PathPoint {
+                                id: EntityId::next(),
+                                point: right.p1,
+                                typ: PointType::OffCurve { auto: false },
+                            };
+                            let cp2_right = PathPoint {
+                                id: EntityId::next(),
+                                point: right.p2,
+                                typ: PointType::OffCurve { auto: false },
+                            };
+
+                            // The segment spans from start_idx to end_idx
+                            // Between them are the old control points (if any)
+                            // For a cubic, start_idx+1 and start_idx+2 should be the control points
+
+                            // Remove old control points between start and end (if they exist)
+                            // Calculate how many points are between start and end
+                            let points_between = if segment_info.end_idx > segment_info.start_idx {
+                                segment_info.end_idx - segment_info.start_idx - 1
+                            } else {
+                                // Handle wrap-around for closed paths
+                                points.len() - segment_info.start_idx - 1 + segment_info.end_idx
+                            };
+
+                            // Remove the old control points
+                            if points_between > 0 {
+                                for _ in 0..points_between {
+                                    points.remove(segment_info.start_idx + 1);
+                                }
+                            }
+
+                            // Now insert the new points after start_idx
+                            let mut insert_idx = segment_info.start_idx + 1;
+                            points.insert(insert_idx, cp1_left);
+                            insert_idx += 1;
+                            points.insert(insert_idx, cp2_left);
+                            insert_idx += 1;
+                            points.insert(insert_idx, split_point);
+                            insert_idx += 1;
+                            points.insert(insert_idx, cp1_right);
+                            insert_idx += 1;
+                            points.insert(insert_idx, cp2_right);
+
+                            println!("Pen tool: subdivided cubic curve, inserted 5 points starting at index {}", segment_info.start_idx + 1);
+                            return true;
+                        }
                     }
                 }
             }

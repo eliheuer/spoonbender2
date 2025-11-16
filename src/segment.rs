@@ -53,6 +53,43 @@ impl Segment {
             Segment::Cubic(cubic) => cubic.eval(t),
         }
     }
+
+    /// Subdivide a cubic bezier curve at parameter t
+    ///
+    /// Returns (left_curve, right_curve) where left_curve goes from t=0 to t=t_split
+    /// and right_curve goes from t=t_split to t=1. The curves together exactly match
+    /// the original curve.
+    ///
+    /// Uses the de Casteljau algorithm for numerically stable subdivision.
+    pub fn subdivide_cubic(cubic: CubicBez, t: f64) -> (CubicBez, CubicBez) {
+        // de Casteljau subdivision algorithm
+        // Given control points P0, P1, P2, P3 and parameter t:
+
+        let p0 = cubic.p0;
+        let p1 = cubic.p1;
+        let p2 = cubic.p2;
+        let p3 = cubic.p3;
+
+        // First level of interpolation
+        let q0 = p0 + (p1 - p0) * t;
+        let q1 = p1 + (p2 - p1) * t;
+        let q2 = p2 + (p3 - p2) * t;
+
+        // Second level
+        let r0 = q0 + (q1 - q0) * t;
+        let r1 = q1 + (q2 - q1) * t;
+
+        // Third level - the split point
+        let split_point = r0 + (r1 - r0) * t;
+
+        // Left curve: P0, Q0, R0, split_point
+        let left = CubicBez::new(p0, q0, r0, split_point);
+
+        // Right curve: split_point, R1, Q2, P3
+        let right = CubicBez::new(split_point, r1, q2, p3);
+
+        (left, right)
+    }
 }
 
 /// Find the parameter t on a line segment nearest to a point
