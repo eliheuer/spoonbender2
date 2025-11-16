@@ -136,28 +136,29 @@ impl Widget for GlyphWidget {
         // Center the glyph horizontally
         // If advance_width is provided, use it for stable centering (prevents shifting during edits)
         // Otherwise, fall back to bounding box centering
-        let l_pad = if let Some(advance_width) = self.advance_width {
+        let x_translation = if let Some(advance_width) = self.advance_width {
             // Center based on advance width - this stays constant while editing
+            // Calculate where to position x=0 in font space so the advance width is centered
             let scaled_advance = advance_width * scale;
             (widget_size.width - scaled_advance) / 2.0
         } else {
             // Fall back to bounding box centering
+            // Center the visual bounding box of the glyph
             let scaled_width = bounds.width() * scale;
-            (widget_size.width - scaled_width) / 2.0 - bounds.x0 * scale
+            let l_pad = (widget_size.width - scaled_width) / 2.0;
+            l_pad - bounds.x0 * scale
         };
 
         // Position baseline to center glyphs vertically (adjusted for better visual balance)
         // Higher percentage = baseline higher in cell = more space at bottom, less at top
         let baseline = widget_size.height * self.baseline_offset;
 
-        // UFO coordinates have Y increasing upward, but screen coords have Y increasing downward
-        // Create affine transformation: scale (with Y-flip) and translate
         let transform = Affine::new([
             scale,                          // x scale
             0.0,                            // x skew
             0.0,                            // y skew
             -scale,                         // y scale (negative to flip Y axis)
-            l_pad - bounds.x0 * scale,      // x translation (centering)
+            x_translation,                  // x translation (centering)
             widget_size.height - baseline,  // y translation (baseline positioning)
         ]);
 

@@ -336,12 +336,11 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
             // Add 4px spacer above glyph preview
             sized_box(label("")).height(4.px()),
             // Glyph preview - use theme color with custom baseline offset
-            // Use advance_width for stable centering (prevents shifting when drawing new shapes)
+            // Use bounding box centering for visual centering (not advance width)
             if !glyph_path.is_empty() {
                 Either::A(glyph_view(glyph_path.clone(), preview_size, preview_size, upm)
                     .color(theme::panel::GLYPH_PREVIEW)
-                    .baseline_offset(0.15)
-                    .advance_width(session.glyph.width))
+                    .baseline_offset(0.15))
             } else {
                 Either::B(label(""))
             },
