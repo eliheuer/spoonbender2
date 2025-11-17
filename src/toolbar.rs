@@ -1,4 +1,4 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Toolbar for selecting editing tools
@@ -38,10 +38,6 @@ pub const TOOLBAR_TOOLS: &[ToolId] = &[
     ToolId::Select,
     ToolId::Pen,
     ToolId::Preview,
-    ToolId::Knife,
-    ToolId::Rectangle,
-    ToolId::Ellipse,
-    ToolId::Measure,
 ];
 
 /// Get the display label for a tool
@@ -51,9 +47,5 @@ pub fn tool_label(tool: ToolId) -> &'static str {
         ToolId::Select => "Select (V)",
         ToolId::Pen => "Pen (P)",
         ToolId::Preview => "Preview (H)",
-        ToolId::Knife => "Knife (E)",
-        ToolId::Rectangle => "Rect (U)",
-        ToolId::Ellipse => "Ellipse",
-        ToolId::Measure => "Measure (M)",
     }
 }

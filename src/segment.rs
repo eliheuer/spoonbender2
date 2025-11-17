@@ -1,4 +1,4 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Path segment representation for hit-testing and curve operations

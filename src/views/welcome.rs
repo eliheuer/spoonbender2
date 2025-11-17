@@ -1,4 +1,4 @@
-// Copyright 2025 the Runebender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Welcome screen view for Runebender Xilem

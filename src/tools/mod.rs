@@ -1,4 +1,4 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Tool system for glyph editing
@@ -9,6 +9,8 @@ use crate::mouse::{Drag, MouseDelegate, MouseEvent};
 use kurbo::Affine;
 use masonry::vello::Scene;
 
+// ===== Tool Identifier =====
+
 /// Tool identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ToolId {
@@ -18,44 +20,9 @@ pub enum ToolId {
     Pen,
     /// Preview mode (view only)
     Preview,
-    /// Knife tool (cut paths)
-    Knife,
-    /// Rectangle tool
-    Rectangle,
-    /// Ellipse tool
-    Ellipse,
-    /// Measure tool
-    Measure,
 }
 
-#[allow(dead_code)]
-impl ToolId {
-    /// Get the keyboard shortcut for this tool
-    pub fn keyboard_shortcut(&self) -> Option<char> {
-        match self {
-            ToolId::Select => Some('v'),
-            ToolId::Pen => Some('p'),
-            ToolId::Preview => Some('h'),
-            ToolId::Knife => Some('e'),
-            ToolId::Rectangle => Some('u'),
-            ToolId::Ellipse => None, // Shift+U in practice
-            ToolId::Measure => Some('m'),
-        }
-    }
-
-    /// Get the tool name
-    pub fn name(&self) -> &'static str {
-        match self {
-            ToolId::Select => "Select",
-            ToolId::Pen => "Pen",
-            ToolId::Preview => "Preview",
-            ToolId::Knife => "Knife",
-            ToolId::Rectangle => "Rectangle",
-            ToolId::Ellipse => "Ellipse",
-            ToolId::Measure => "Measure",
-        }
-    }
-}
+// ===== Tool Trait =====
 
 /// A tool for editing glyphs
 pub trait Tool: MouseDelegate<Data = EditSession> {
@@ -63,26 +30,21 @@ pub trait Tool: MouseDelegate<Data = EditSession> {
     fn id(&self) -> ToolId;
 
     /// Paint tool-specific overlays
-    fn paint(&mut self, _scene: &mut Scene, _session: &EditSession, _transform: &Affine) {}
+    fn paint(
+        &mut self,
+        _scene: &mut Scene,
+        _session: &EditSession,
+        _transform: &Affine,
+    ) {
+    }
 
     /// Get the edit type for the current operation (for undo grouping)
     fn edit_type(&self) -> Option<EditType> {
         None
     }
-
-    /// Handle keyboard down event
-    /// Returns edit type if the key press modified the session
-    #[allow(dead_code)]
-    fn key_down(&mut self, _key: &str, _session: &mut EditSession) -> Option<EditType> {
-        None
-    }
-
-    /// Handle keyboard up event
-    #[allow(dead_code)]
-    fn key_up(&mut self, _key: &str, _session: &mut EditSession) -> Option<EditType> {
-        None
-    }
 }
+
+// ===== ToolBox Enum =====
 
 /// Enum wrapping all tool types
 #[derive(Debug, Clone)]
@@ -90,21 +52,20 @@ pub enum ToolBox {
     Select(select::SelectTool),
     Pen(pen::PenTool),
     Preview(preview::PreviewTool),
-    // etc.
 }
 
-#[allow(dead_code)]
+// ===== ToolBox Implementation =====
+
 impl ToolBox {
     /// Create a tool by ID
     pub fn for_id(id: ToolId) -> Self {
         match id {
-            ToolId::Select => ToolBox::Select(select::SelectTool::default()),
-            ToolId::Pen => ToolBox::Pen(pen::PenTool::default()),
-            ToolId::Preview => ToolBox::Preview(preview::PreviewTool::default()),
-            _ => {
-                // For now, default to Select for unimplemented tools
-                eprintln!("Tool {:?} not yet implemented, using Select", id);
+            ToolId::Select => {
                 ToolBox::Select(select::SelectTool::default())
+            }
+            ToolId::Pen => ToolBox::Pen(pen::PenTool::default()),
+            ToolId::Preview => {
+                ToolBox::Preview(preview::PreviewTool::default())
             }
         }
     }
@@ -119,11 +80,22 @@ impl ToolBox {
     }
 
     /// Paint tool overlays
-    pub fn paint(&mut self, scene: &mut Scene, session: &EditSession, transform: &Affine) {
+    pub fn paint(
+        &mut self,
+        scene: &mut Scene,
+        session: &EditSession,
+        transform: &Affine,
+    ) {
         match self {
-            ToolBox::Select(tool) => tool.paint(scene, session, transform),
-            ToolBox::Pen(tool) => tool.paint(scene, session, transform),
-            ToolBox::Preview(_) => {} // Preview tool has no overlays
+            ToolBox::Select(tool) => {
+                tool.paint(scene, session, transform);
+            }
+            ToolBox::Pen(tool) => {
+                tool.paint(scene, session, transform);
+            }
+            ToolBox::Preview(_) => {
+                // Preview tool has no overlays
+            }
         }
     }
 
@@ -137,7 +109,11 @@ impl ToolBox {
     }
 
     /// Handle mouse down
-    pub fn mouse_down(&mut self, event: MouseEvent, session: &mut EditSession) {
+    pub fn mouse_down(
+        &mut self,
+        event: MouseEvent,
+        session: &mut EditSession,
+    ) {
         match self {
             ToolBox::Select(tool) => tool.left_down(event, session),
             ToolBox::Pen(tool) => tool.left_down(event, session),
@@ -146,7 +122,11 @@ impl ToolBox {
     }
 
     /// Handle mouse up
-    pub fn mouse_up(&mut self, event: MouseEvent, session: &mut EditSession) {
+    pub fn mouse_up(
+        &mut self,
+        event: MouseEvent,
+        session: &mut EditSession,
+    ) {
         match self {
             ToolBox::Select(tool) => tool.left_up(event, session),
             ToolBox::Pen(tool) => tool.left_up(event, session),
@@ -155,7 +135,14 @@ impl ToolBox {
     }
 
     /// Handle mouse moved
-    pub fn mouse_moved(&mut self, event: MouseEvent, session: &mut EditSession) {
+    ///
+    /// Called indirectly through MouseDelegate trait implementation
+    #[allow(dead_code)]
+    pub fn mouse_moved(
+        &mut self,
+        event: MouseEvent,
+        session: &mut EditSession,
+    ) {
         match self {
             ToolBox::Select(tool) => tool.mouse_moved(event, session),
             ToolBox::Pen(tool) => tool.mouse_moved(event, session),
@@ -164,33 +151,69 @@ impl ToolBox {
     }
 
     /// Handle drag began
-    pub fn drag_began(&mut self, event: MouseEvent, drag: Drag, session: &mut EditSession) {
+    pub fn drag_began(
+        &mut self,
+        event: MouseEvent,
+        drag: Drag,
+        session: &mut EditSession,
+    ) {
         match self {
-            ToolBox::Select(tool) => tool.left_drag_began(event, drag, session),
-            ToolBox::Pen(tool) => tool.left_drag_began(event, drag, session),
-            ToolBox::Preview(tool) => tool.left_drag_began(event, drag, session),
+            ToolBox::Select(tool) => {
+                tool.left_drag_began(event, drag, session);
+            }
+            ToolBox::Pen(tool) => {
+                tool.left_drag_began(event, drag, session);
+            }
+            ToolBox::Preview(tool) => {
+                tool.left_drag_began(event, drag, session);
+            }
         }
     }
 
     /// Handle drag changed
-    pub fn drag_changed(&mut self, event: MouseEvent, drag: Drag, session: &mut EditSession) {
+    pub fn drag_changed(
+        &mut self,
+        event: MouseEvent,
+        drag: Drag,
+        session: &mut EditSession,
+    ) {
         match self {
-            ToolBox::Select(tool) => tool.left_drag_changed(event, drag, session),
-            ToolBox::Pen(tool) => tool.left_drag_changed(event, drag, session),
-            ToolBox::Preview(tool) => tool.left_drag_changed(event, drag, session),
+            ToolBox::Select(tool) => {
+                tool.left_drag_changed(event, drag, session);
+            }
+            ToolBox::Pen(tool) => {
+                tool.left_drag_changed(event, drag, session);
+            }
+            ToolBox::Preview(tool) => {
+                tool.left_drag_changed(event, drag, session);
+            }
         }
     }
 
     /// Handle drag ended
-    pub fn drag_ended(&mut self, event: MouseEvent, drag: Drag, session: &mut EditSession) {
+    pub fn drag_ended(
+        &mut self,
+        event: MouseEvent,
+        drag: Drag,
+        session: &mut EditSession,
+    ) {
         match self {
-            ToolBox::Select(tool) => tool.left_drag_ended(event, drag, session),
-            ToolBox::Pen(tool) => tool.left_drag_ended(event, drag, session),
-            ToolBox::Preview(tool) => tool.left_drag_ended(event, drag, session),
+            ToolBox::Select(tool) => {
+                tool.left_drag_ended(event, drag, session);
+            }
+            ToolBox::Pen(tool) => {
+                tool.left_drag_ended(event, drag, session);
+            }
+            ToolBox::Preview(tool) => {
+                tool.left_drag_ended(event, drag, session);
+            }
         }
     }
 
     /// Cancel current operation
+    ///
+    /// Called indirectly through MouseDelegate trait implementation
+    #[allow(dead_code)]
     pub fn cancel(&mut self, session: &mut EditSession) {
         match self {
             ToolBox::Select(tool) => tool.cancel(session),
@@ -200,20 +223,38 @@ impl ToolBox {
     }
 }
 
-// Implement MouseDelegate for ToolBox so it can be used with the Mouse state machine
+// ===== MouseDelegate Implementation =====
+
+/// Implement MouseDelegate for ToolBox so it can be used with the Mouse
+/// state machine
+///
+/// These methods are required by the trait contract even if not directly
+/// called - they're invoked through the Mouse state machine.
 #[allow(dead_code)]
 impl MouseDelegate for ToolBox {
     type Data = EditSession;
 
-    fn left_down(&mut self, event: MouseEvent, data: &mut EditSession) {
+    fn left_down(
+        &mut self,
+        event: MouseEvent,
+        data: &mut EditSession,
+    ) {
         self.mouse_down(event, data);
     }
 
-    fn left_up(&mut self, event: MouseEvent, data: &mut EditSession) {
+    fn left_up(
+        &mut self,
+        event: MouseEvent,
+        data: &mut EditSession,
+    ) {
         self.mouse_up(event, data);
     }
 
-    fn left_click(&mut self, event: MouseEvent, data: &mut EditSession) {
+    fn left_click(
+        &mut self,
+        event: MouseEvent,
+        data: &mut EditSession,
+    ) {
         match self {
             ToolBox::Select(tool) => tool.left_click(event, data),
             ToolBox::Pen(tool) => tool.left_click(event, data),
@@ -221,7 +262,11 @@ impl MouseDelegate for ToolBox {
         }
     }
 
-    fn mouse_moved(&mut self, event: MouseEvent, data: &mut EditSession) {
+    fn mouse_moved(
+        &mut self,
+        event: MouseEvent,
+        data: &mut EditSession,
+    ) {
         match self {
             ToolBox::Select(tool) => tool.mouse_moved(event, data),
             ToolBox::Pen(tool) => tool.mouse_moved(event, data),
@@ -229,15 +274,30 @@ impl MouseDelegate for ToolBox {
         }
     }
 
-    fn left_drag_began(&mut self, event: MouseEvent, drag: Drag, data: &mut EditSession) {
+    fn left_drag_began(
+        &mut self,
+        event: MouseEvent,
+        drag: Drag,
+        data: &mut EditSession,
+    ) {
         self.drag_began(event, drag, data);
     }
 
-    fn left_drag_changed(&mut self, event: MouseEvent, drag: Drag, data: &mut EditSession) {
+    fn left_drag_changed(
+        &mut self,
+        event: MouseEvent,
+        drag: Drag,
+        data: &mut EditSession,
+    ) {
         self.drag_changed(event, drag, data);
     }
 
-    fn left_drag_ended(&mut self, event: MouseEvent, drag: Drag, data: &mut EditSession) {
+    fn left_drag_ended(
+        &mut self,
+        event: MouseEvent,
+        drag: Drag,
+        data: &mut EditSession,
+    ) {
         self.drag_ended(event, drag, data);
     }
 
@@ -250,7 +310,8 @@ impl MouseDelegate for ToolBox {
     }
 }
 
-// Tool modules
+// ===== Tool Modules =====
+
 pub mod pen;
 pub mod preview;
 pub mod select;
