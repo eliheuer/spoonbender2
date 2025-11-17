@@ -248,9 +248,9 @@ impl Widget for CoordinatePanelWidget {
                     tracing::debug!("Click was not on any quadrant dot");
                     ctx.request_render();
                 }
-            }
-            _ => {}
-        }
+            } // PointerEvent::Down
+            _ => {} // Ignore all other pointer events
+        } // match event
     }
 
     fn paint(
@@ -535,7 +535,6 @@ where
         } else {
             "—".to_string()
         };
-
         (x, y, w, h)
     };
 
@@ -549,7 +548,7 @@ where
 
     let quadrant_selector = sized_box(
         coordinate_panel_view(session, on_session_update)
-    ).width(104.px()); // 72px selector + 16px padding on each side
+    ).width(104.px());
 
     let coord_values = flex_col((
         coord_label(format!("x: {:<6}", x_text)),
@@ -565,9 +564,9 @@ where
             .main_axis_alignment(MainAxisAlignment::Start)
             .gap(0.px()),
     )
-    .width(166.px()) // 150px content + 16px padding (8px each side)
-    .height(116.px()) // 100px content + 16px padding (8px each side)
-    .padding(8.0) // Add padding inside the panel
+    .width(166.px())
+    .height(116.px())
+    .padding(8.0)
     .background_color(crate::theme::panel::BACKGROUND)
     .border_color(crate::theme::panel::OUTLINE)
     .border_width(1.5)

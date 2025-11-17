@@ -14,12 +14,17 @@ use crate::theme;
 use crate::workspace;
 
 /// Tab 0: Glyph grid view with header
-pub fn glyph_grid_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
-    flex_col((glyph_grid_view(state),)).background_color(theme::app::BACKGROUND)
+pub fn glyph_grid_tab(
+    state: &mut AppState,
+) -> impl WidgetView<AppState> + use<> {
+    flex_col((glyph_grid_view(state),))
+        .background_color(theme::app::BACKGROUND)
 }
 
 /// Glyph grid showing all glyphs
-fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
+fn glyph_grid_view(
+    state: &mut AppState,
+) -> impl WidgetView<AppState> + use<> {
     let glyph_names = state.glyph_names();
 
     // Get UPM from workspace for uniform scaling
@@ -29,37 +34,37 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         .and_then(|w| w.units_per_em)
         .unwrap_or(1000.0);
 
-    // Pre-compute glyph data
-    let glyph_data: Vec<(String, Option<Arc<workspace::Glyph>>, Vec<char>, usize)> =
-        if let Some(workspace) = &state.workspace {
-            glyph_names
-                .iter()
-                .map(|name| {
-                    if let Some(glyph) = workspace.get_glyph(name) {
-                        let count = glyph.contours.len();
-                        let codepoints = glyph.codepoints.clone();
-                        (
-                            name.clone(),
-                            Some(Arc::new(glyph.clone())),
-                            codepoints,
-                            count,
-                        )
-                    } else {
-                        (name.clone(), None, Vec::new(), 0)
-                    }
-                })
-                .collect()
-        } else {
-            glyph_names
-                .iter()
-                .map(|name| (name.clone(), None, Vec::new(), 0))
-                .collect()
-        };
+    // Pre-compute glyph data: (name, glyph_opt, codepoints, contour_count)
+    type GlyphData = (String, Option<Arc<workspace::Glyph>>, Vec<char>, usize);
+    let glyph_data: Vec<GlyphData> = if let Some(workspace) = &state.workspace {
+        glyph_names
+            .iter()
+            .map(|name| {
+                if let Some(glyph) = workspace.get_glyph(name) {
+                    let count = glyph.contours.len();
+                    let codepoints = glyph.codepoints.clone();
+                    (
+                        name.clone(),
+                        Some(Arc::new(glyph.clone())),
+                        codepoints,
+                        count,
+                    )
+                } else {
+                    (name.clone(), None, Vec::new(), 0)
+                }
+            })
+            .collect()
+    } else {
+        glyph_names
+            .iter()
+            .map(|name| (name.clone(), None, Vec::new(), 0))
+            .collect()
+    };
 
     let columns = 8;
     let selected_glyph = state.selected_glyph.clone();
 
-    let rows_of_cells = glyph_data
+    let rows_of_cells: Vec<_> = glyph_data
         .chunks(columns)
         .map(|chunk| {
             let row_items: Vec<_> = chunk
@@ -78,7 +83,7 @@ fn glyph_grid_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                 .collect();
             flex_row(row_items).gap(6.px())
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     flex_col((
         sized_box(label("")).height(6.px()),
@@ -107,7 +112,11 @@ fn glyph_cell(
     };
 
     let unicode_display = if let Some(first_char) = codepoints.first() {
-        format!("U+{:04X} {}", *first_char as u32, contour_count)
+        format!(
+            "U+{:04X} {}",
+            *first_char as u32,
+            contour_count
+        )
     } else {
         format!("{}", contour_count)
     };
@@ -115,39 +124,47 @@ fn glyph_cell(
     let glyph_view_widget = if let Some(glyph) = glyph_opt {
         let path = glyph_renderer::glyph_to_bezpath(&glyph);
         Either::A(
-            sized_box(flex_col((
-                sized_box(label("")).height(4.px()),
-                glyph_view(path, 60.0, 60.0, upm).baseline_offset(0.06),
-            )))
+            sized_box(
+                flex_col((
+                    sized_box(label("")).height(4.px()),
+                    glyph_view(path, 60.0, 60.0, upm)
+                        .baseline_offset(0.06),
+                )),
+            )
             .height(78.px()),
         )
     } else {
         Either::B(
-            sized_box(flex_col((
-                sized_box(label("")).height(4.px()),
-                label("?").text_size(40.0),
-            )))
+            sized_box(
+                flex_col((
+                    sized_box(label("")).height(4.px()),
+                    label("?").text_size(40.0),
+                )),
+            )
             .height(78.px()),
         )
     };
 
+    // Glyph name label (truncated if too long)
     let name_label = label(display_name)
-        .text_size(11.0)
+        .text_size(14.0)
         .color(theme::text::PRIMARY);
 
+    // Unicode codepoint and contour count label
     let unicode_label = label(unicode_display)
-        .text_size(11.0)
+        .text_size(14.0)
         .color(theme::text::PRIMARY);
 
+    // Container for both labels with vertical spacing
     let label_with_spacing = sized_box(
         flex_col((
             name_label,
             unicode_label,
-            sized_box(label("")).height(4.px()),
+            sized_box(label("")).height(12.px()), // Bottom margin
         ))
         .gap(2.px()),
     )
-    .height(32.px());
+    .height(36.px()); // Increased to accommodate larger bottom margin
 
     let (bg_color, border_color) = if is_selected {
         (
