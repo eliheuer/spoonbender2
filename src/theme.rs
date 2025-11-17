@@ -45,7 +45,7 @@ const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;
 const GLYPH_PREVIEW_COLOR: Color = BASE_J;
 
 // Coordinate Panel specific
-const COORD_PANE_GRID_LINE: Color = BASE_A;
+const COORDINATE_PANEL_GRID_LINE: Color = BASE_A;
 
 // ============================================================================
 // GLYPH GRID VIEW
@@ -187,9 +187,9 @@ pub mod toolbar {
 }
 
 /// Colors and sizes for coordinate panel
-pub mod coord_pane {
+pub mod coordinate_panel {
     use super::Color;
-    pub const GRID_LINE: Color = super::COORD_PANE_GRID_LINE;
+    pub const GRID_LINE: Color = super::COORDINATE_PANEL_GRID_LINE;
     pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
     // Dot colors - selected (matches glyph preview color)

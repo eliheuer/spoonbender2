@@ -32,6 +32,9 @@ pub struct AppState {
     /// Current editor session (when Editor tab is active)
     pub editor_session: Option<EditSession>,
 
+    /// Demo welcome session (used when no workspace is loaded)
+    pub welcome_session: Option<EditSession>,
+
     /// Which tab is currently active
     pub active_tab: Tab,
 
@@ -47,6 +50,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             workspace: None,
+            welcome_session: None,
             error_message: None,
             selected_glyph: None,
             editor_session: None,

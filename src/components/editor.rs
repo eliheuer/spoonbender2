@@ -100,7 +100,7 @@ impl EditorWidget {
     fn undo(&mut self) {
         if let Some(previous) = self.undo.undo(self.session.clone()) {
             self.session = previous;
-            println!("Undo: restored previous state");
+            tracing::debug!("Undo: restored previous state");
         }
     }
 
@@ -108,7 +108,7 @@ impl EditorWidget {
     fn redo(&mut self) {
         if let Some(next) = self.undo.redo(self.session.clone()) {
             self.session = next;
-            println!("Redo: restored next state");
+            tracing::debug!("Redo: restored next state");
         }
     }
 

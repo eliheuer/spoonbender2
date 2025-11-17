@@ -27,7 +27,7 @@ const LABEL_WIDTH: f64 = 12.0;
 const VALUE_WIDTH: f64 = 50.0;
 
 // Import from theme (includes all sizing and color constants)
-use crate::theme::coord_pane::*;
+use crate::theme::coordinate_panel::*;
 
 // --- MARK: DATA MODEL ---
 
@@ -84,7 +84,7 @@ impl Default for CoordinateSelection {
 // --- MARK: WIDGET ---
 
 /// Coordinate pane widget
-pub struct CoordPaneWidget {
+pub struct CoordinatePanelWidget {
     session: crate::edit_session::EditSession,
     /// Which quadrant dot is currently being hovered (if any)
     hover_quadrant: Option<Quadrant>,
@@ -92,7 +92,7 @@ pub struct CoordPaneWidget {
     widget_size: Size,
 }
 
-impl CoordPaneWidget {
+impl CoordinatePanelWidget {
     pub fn new(session: crate::edit_session::EditSession) -> Self {
         Self {
             session,
@@ -192,7 +192,7 @@ pub struct SessionUpdate {
     pub session: crate::edit_session::EditSession,
 }
 
-impl Widget for CoordPaneWidget {
+impl Widget for CoordinatePanelWidget {
     type Action = SessionUpdate;
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {
@@ -228,14 +228,14 @@ impl Widget for CoordPaneWidget {
         match event {
             PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
                 let local_pos = ctx.local_position(state.position);
-                println!("[CoordPaneWidget::on_pointer_event] Pointer down at local_pos: {:?}", local_pos);
+                println!("[CoordinatePanelWidget::on_pointer_event] Pointer down at local_pos: {:?}", local_pos);
                 if let Some(quadrant) = self.quadrant_at_point(local_pos) {
-                    println!("[CoordPaneWidget::on_pointer_event] Clicked on quadrant: {:?}", quadrant);
-                    println!("[CoordPaneWidget::on_pointer_event] Old quadrant: {:?}", self.session.coord_selection.quadrant);
+                    println!("[CoordinatePanelWidget::on_pointer_event] Clicked on quadrant: {:?}", quadrant);
+                    println!("[CoordinatePanelWidget::on_pointer_event] Old quadrant: {:?}", self.session.coord_selection.quadrant);
 
                     // Update the session's quadrant selection
                     self.session.coord_selection.quadrant = quadrant;
-                    println!("[CoordPaneWidget::on_pointer_event] New quadrant: {:?}", self.session.coord_selection.quadrant);
+                    println!("[CoordinatePanelWidget::on_pointer_event] New quadrant: {:?}", self.session.coord_selection.quadrant);
 
                     // Emit SessionUpdate action
                     ctx.submit_action::<SessionUpdate>(SessionUpdate {
@@ -245,7 +245,7 @@ impl Widget for CoordPaneWidget {
                     // Request a repaint to show the new selected quadrant
                     ctx.request_render();
                 } else {
-                    println!("[CoordPaneWidget::on_pointer_event] Click was not on any quadrant dot");
+                    println!("[CoordinatePanelWidget::on_pointer_event] Click was not on any quadrant dot");
                 }
             }
             _ => {}
@@ -279,7 +279,7 @@ impl Widget for CoordPaneWidget {
     }
 }
 
-impl CoordPaneWidget {
+impl CoordinatePanelWidget {
     /// Paint the quadrant picker (3x3 grid of dots)
     fn paint_quadrant_picker(&self, scene: &mut Scene) {
         let bounds = self.quadrant_picker_bounds();
@@ -370,32 +370,32 @@ use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
 /// Create a coordinate pane view from an EditSession
-pub fn coord_pane_view<State, F>(
+pub fn coordinate_panel_view<State, F>(
     session: Arc<crate::edit_session::EditSession>,
     on_session_update: F,
-) -> CoordPaneView<State, F>
+) -> CoordinatePanelView<State, F>
 where
     F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static,
 {
-    CoordPaneView {
+    CoordinatePanelView {
         session,
         on_session_update,
         phantom: PhantomData,
     }
 }
 
-/// The Xilem View for CoordPaneWidget
+/// The Xilem View for CoordinatePanelWidget
 #[must_use = "View values do nothing unless provided to Xilem."]
-pub struct CoordPaneView<State, F> {
+pub struct CoordinatePanelView<State, F> {
     session: Arc<crate::edit_session::EditSession>,
     on_session_update: F,
     phantom: PhantomData<fn() -> State>,
 }
 
-impl<State, F> ViewMarker for CoordPaneView<State, F> {}
+impl<State, F> ViewMarker for CoordinatePanelView<State, F> {}
 
-impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static> View<State, (), ViewCtx> for CoordPaneView<State, F> {
-    type Element = Pod<CoordPaneWidget>;
+impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static> View<State, (), ViewCtx> for CoordinatePanelView<State, F> {
+    type Element = Pod<CoordinatePanelWidget>;
     type ViewState = ();
 
     fn build(
@@ -403,7 +403,7 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         ctx: &mut ViewCtx,
         _app_state: &mut State,
     ) -> (Self::Element, Self::ViewState) {
-        let widget = CoordPaneWidget::new((*self.session).clone());
+        let widget = CoordinatePanelWidget::new((*self.session).clone());
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());
         (pod, ())
@@ -420,12 +420,12 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         // Update the widget's session if it changed
         // We compare Arc pointers - if they're different, the session was updated
         if !Arc::ptr_eq(&self.session, &prev.session) {
-            println!("[CoordPaneView::rebuild] Session Arc changed, updating widget");
-            println!("[CoordPaneView::rebuild] Old quadrant: {:?}, New quadrant: {:?}",
+            println!("[CoordinatePanelView::rebuild] Session Arc changed, updating widget");
+            println!("[CoordinatePanelView::rebuild] Old quadrant: {:?}, New quadrant: {:?}",
                      prev.session.coord_selection.quadrant, self.session.coord_selection.quadrant);
 
             // Get mutable access to the widget and update the session
-            let mut widget = element.downcast::<CoordPaneWidget>();
+            let mut widget = element.downcast::<CoordinatePanelWidget>();
             widget.widget.session = (*self.session).clone();
             widget.ctx.request_render();
         }
@@ -450,9 +450,9 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         // Handle SessionUpdate messages from the widget
         match message.take_message::<SessionUpdate>() {
             Some(update) => {
-                println!("[CoordPaneView::message] Handling SessionUpdate, quadrant={:?}", update.session.coord_selection.quadrant);
+                println!("[CoordinatePanelView::message] Handling SessionUpdate, quadrant={:?}", update.session.coord_selection.quadrant);
                 (self.on_session_update)(app_state, update.session);
-                println!("[CoordPaneView::message] Callback complete, returning RequestRebuild");
+                println!("[CoordinatePanelView::message] Callback complete, returning RequestRebuild");
                 // Use RequestRebuild instead of Action to avoid destroying the window
                 MessageResult::RequestRebuild
             }
@@ -522,7 +522,7 @@ use masonry::properties::types::AsUnit;
 ///
 /// This is the main entry point for displaying the coordinate pane in the editor window.
 /// It combines the quadrant picker widget with coordinate text labels.
-pub fn coordinate_info_pane<State: 'static, F>(
+pub fn coordinate_panel<State: 'static, F>(
     session: Arc<crate::edit_session::EditSession>,
     on_session_update: F,
 ) -> impl WidgetView<State>
@@ -565,7 +565,7 @@ where
     sized_box(
         flex_row((
             // Quadrant selector on the left
-            sized_box(coord_pane_view(session, on_session_update)).width(80.px()),
+            sized_box(coordinate_panel_view(session, on_session_update)).width(80.px()),
             // Coordinate values with fixed-width formatting
             flex_col((
                 coord_label(format!("x: {:<6}", x_text)),

@@ -1,10 +1,7 @@
-// Copyright 2025 the Runebender Authors
+// Copyright 2025 the Runebender  Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Runebender Xilem: A font editor built with Xilem
-//!
-//! This is a port of Runebender from Druid to Xilem, using modern
-//! Linebender crates for rendering and UI.
 
 use masonry::properties::types::{AsUnit, UnitPoint};
 use masonry::vello::peniko::Color;
@@ -37,15 +34,20 @@ mod toolbar;
 mod tools;
 mod undo;
 mod welcome;
-mod widgets;
+mod components;
 mod workspace;
 
 use data::{AppState, Tab};
 use welcome::welcome_view;
-use widgets::{coordinate_info_pane, calculate_coordinate_selection, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
+use components::{coordinate_panel, calculate_coordinate_selection, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
 
 /// Entry point for the Runebender Xilem application
 pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
+    // Initialize tracing subscriber (can be controlled via RUST_LOG env var)
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+
     let mut initial_state = AppState::new();
 
     // Check for command-line argument (UFO path)
@@ -55,11 +57,11 @@ pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {
 
         // Validate that the path exists
         if ufo_path.exists() {
-            println!("Loading UFO from: {}", ufo_path.display());
+            tracing::info!("Loading UFO from: {}", ufo_path.display());
             initial_state.load_ufo(ufo_path);
         } else {
-            eprintln!("Error: Path does not exist: {}", ufo_path.display());
-            eprintln!("Usage: spoonbender [path/to/font.ufo]");
+            tracing::error!("Path does not exist: {}", ufo_path.display());
+            tracing::error!("Usage: spoonbender [path/to/font.ufo]");
         }
     }
 
@@ -163,14 +165,14 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_LEFT)),
             // Bottom-right: coordinate info pane with fixed margin
             transformed(
-                coordinate_info_pane_from_session(&session_arc)
+                coordinate_panel_from_session(&session_arc)
             )
             .translate((-MARGIN, -MARGIN))
             .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
             // Top-right: Grid toolbar for navigation
             transformed(
                 grid_toolbar_view(|state: &mut AppState, button| {
-                    use widgets::grid_toolbar::GridToolbarButton;
+                    use components::grid_toolbar::GridToolbarButton;
                     match button {
                         GridToolbarButton::Grid => state.close_editor(),
                     }
@@ -186,12 +188,12 @@ fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
 }
 
 
-/// Helper to create coordinate info pane from session data
-fn coordinate_info_pane_from_session(session: &Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
-    println!("[coordinate_info_pane_from_session] Building view with quadrant={:?}", session.coord_selection.quadrant);
-    coordinate_info_pane(Arc::clone(session), |state: &mut AppState, updated_session| {
+/// Helper to create coordinate panel from session data
+fn coordinate_panel_from_session(session: &Arc<crate::edit_session::EditSession>) -> impl WidgetView<AppState> + use<> {
+    println!("[coordinate_panel_from_session] Building view with quadrant={:?}", session.coord_selection.quadrant);
+    coordinate_panel(Arc::clone(session), |state: &mut AppState, updated_session| {
         // Replace the editor session with the updated one
-        println!("[coordinate_info_pane callback] Session updated, new quadrant={:?}", updated_session.coord_selection.quadrant);
+        println!("[coordinate_panel callback] Session updated, new quadrant={:?}", updated_session.coord_selection.quadrant);
         state.editor_session = Some(updated_session);
     })
 }

@@ -9,7 +9,7 @@ use crate::path::Path;
 use crate::quadrant::Quadrant;
 use crate::selection::Selection;
 use crate::tools::{ToolBox, ToolId};
-use crate::widgets::CoordinateSelection;
+use crate::components::CoordinateSelection;
 use crate::workspace::Glyph;
 use kurbo::{Point, Rect};
 use std::sync::Arc;
@@ -85,7 +85,7 @@ impl Default for ViewPort {
     }
 }
 
-// CoordinateSelection has been moved to widgets::coord_pane module
+// CoordinateSelection has been moved to components::coordinate_panel module
 
 /// Editing session for a single glyph
 ///

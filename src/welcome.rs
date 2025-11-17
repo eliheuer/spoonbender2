@@ -6,10 +6,9 @@
 use crate::data::AppState;
 use crate::edit_session::EditSession;
 use crate::workspace::Glyph;
-use kurbo::Vec2;
 use masonry::properties::types::AsUnit;
-use std::sync::Arc;
 use masonry::properties::types::UnitPoint;
+use std::sync::Arc;
 use xilem::style::Style;
 use xilem::view::{button, flex_col, label, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, MainAxisAlignment, ZStackExt};
 use xilem::WidgetView;
@@ -101,6 +100,7 @@ fn create_demo_session() -> EditSession {
 }
 
 /// Welcome screen shown when no font is loaded
+/// Interactive editor with the demo R glyph, with title and buttons overlaid
 pub fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
     let error_text = state
         .error_message
@@ -108,41 +108,49 @@ pub fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         .map(|msg| format!("Error: {}", msg))
         .unwrap_or_default();
 
-    // Create a demo edit session with the hardcoded R glyph for the background
-    let demo_session = create_demo_session();
-    let session_arc = Arc::new(demo_session);
+    // Create or reuse the demo edit session with the hardcoded R glyph
+    if state.welcome_session.is_none() {
+        state.welcome_session = Some(create_demo_session());
+    }
 
-    const MARGIN: f64 = 16.0; // Match toolbar margins
+    let session = state.welcome_session.as_ref().unwrap();
+    let session_arc = Arc::new(session.clone());
 
-    // Use zstack to layer the welcome UI over the interactive editor background
+    const MARGIN: f64 = 16.0;
+
+    // Layer welcome UI over interactive editor
     zstack((
-        // Background: Interactive editor canvas with the R glyph
-        crate::widgets::editor_view(
-            session_arc.clone(),
-            |_state: &mut AppState, _updated_session| {
-                // No-op: we don't need to update state from the background editor
+        // Background: Interactive editor with demo R glyph
+        crate::components::editor_view(
+            session_arc,
+            |state: &mut AppState, updated_session| {
+                // Save changes back to the welcome session so they persist
+                state.welcome_session = Some(updated_session);
             }
         ),
-        // Foreground: Welcome screen UI - Swiss modernist style, positioned in upper left
+        // Foreground: Welcome UI in upper left (constrained size so it doesn't block editor)
         transformed(
-            flex_col((
-                label("Runebender Xilem").text_size(48.0).color(crate::theme::text::PRIMARY),
-                label(error_text).text_size(12.0).color(crate::theme::text::PRIMARY),
-                // Smaller spacer between text and buttons
-                sized_box(label("")).height(8.px()),
-                sized_box(
-                    button(label("Open UFO...").color(crate::theme::text::PRIMARY), |state: &mut AppState| {
-                        state.open_font_dialog();
-                    })
-                ).width(200.px()),
-                sized_box(
-                    button(label("New Font").color(crate::theme::text::PRIMARY), |state: &mut AppState| {
-                        state.create_new_font();
-                    })
-                ).width(200.px()),
-            ))
-            .main_axis_alignment(MainAxisAlignment::Start)
-            .cross_axis_alignment(CrossAxisAlignment::Start)
+            sized_box(
+                flex_col((
+                    label("Runebender Xilem").text_size(48.0).color(crate::theme::text::PRIMARY),
+                    label(error_text).text_size(12.0).color(crate::theme::text::PRIMARY),
+                    sized_box(label("")).height(8.px()),
+                    sized_box(
+                        button(label("Open UFO...").color(crate::theme::text::PRIMARY), |state: &mut AppState| {
+                            state.open_font_dialog();
+                        })
+                    ).width(200.px()),
+                    sized_box(
+                        button(label("New Font").color(crate::theme::text::PRIMARY), |state: &mut AppState| {
+                            state.create_new_font();
+                        })
+                    ).width(200.px()),
+                ))
+                .main_axis_alignment(MainAxisAlignment::Start)
+                .cross_axis_alignment(CrossAxisAlignment::Start)
+            )
+            .width(220.px())  // Constrained width
+            .height(200.px()) // Constrained height
         )
         .translate((MARGIN, MARGIN))
         .alignment(ChildAlignment::SelfAligned(UnitPoint::TOP_LEFT)),
