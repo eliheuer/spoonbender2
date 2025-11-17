@@ -6,33 +6,29 @@
 //! This module provides a unified glyph rendering component that is used
 //! throughout the application wherever glyph previews are needed:
 //!
-//! - **Glyph Grid**: Displays each glyph in the grid cells (60x60px previews)
-//! - **Editor Preview Pane**: Shows a larger preview (150x150px) of the glyph
-//!   being edited in the bottom-left corner of the editor
+//! - **Glyph Grid**: Displays each glyph in the grid cells
+//! - **Editor Preview Pane**: Shows a larger preview of the glyph
 //!
 //! The component handles all the complexity of glyph rendering:
 //!
-//! - **GPU-accelerated rendering** via Vello for smooth performance
-//! - **Uniform scaling** based on units-per-em (UPM) to ensure consistent
-//!   visual size across different fonts
+//! - **GPU-accelerated rendering** via Vello
+//! - **Uniform scaling** based on units-per-em (UPM)
 //! - **Baseline positioning** for proper vertical alignment
-//! - **Horizontal centering** with optional advance-width support for stable
-//!   positioning during editing
-//! - **Y-axis flipping** to convert from font coordinate space (Y-up) to
-//!   screen coordinate space (Y-down)
+//! - **Horizontal centering** with optional advance-width centering
+//! - **Y-axis flipping** to convert from font coordinate space (Y-up)
+//! to screen coordinate space (Y-down)
 //!
 //! The component consists of two layers:
 //!
-//! - **`GlyphWidget`**: Low-level Masonry widget that performs the actual
-//!   rendering
-//! - **`GlyphView`**: Xilem View wrapper that integrates with the reactive UI
-//!   system and handles efficient updates when glyph paths change
+//! - **`GlyphWidget`**: Low-level Masonry widget for rendering
+//! - **`GlyphView`**: Xilem View wrapper that integrates with the
+//!   reactive UI
 
 use kurbo::{Affine, BezPath, Shape};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, LayoutCtx, NoAction, PaintCtx, PropertiesMut,
-    PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+    AccessCtx, BoxConstraints, ChildrenIds, LayoutCtx, NoAction, PaintCtx,
+    PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
 use masonry::util::fill_color;
@@ -61,10 +57,10 @@ impl GlyphWidget {
     pub fn new(path: BezPath, size: Size, upm: f64) -> Self {
         Self {
             path,
-            color: crate::theme::grid::GLYPH_COLOR, // Default glyph color from theme
+            color: crate::theme::grid::GLYPH_COLOR,
             size,
             upm,
-            baseline_offset: 0.12, // Default baseline offset - higher = more space at bottom
+            baseline_offset: 0.16, // Higher = more space at bottom
             advance_width: None,
         }
     }
@@ -144,7 +140,12 @@ impl Widget for GlyphWidget {
         bc.constrain(self.size)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
+    fn paint(
+        &mut self,
+        ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        scene: &mut Scene,
+    ) {
         if self.path.is_empty() {
             return;
         }
@@ -156,14 +157,16 @@ impl Widget for GlyphWidget {
         // Calculate uniform scale based on UPM (units per em)
         // This ensures all glyphs are rendered at the same scale
         let scale = widget_size.height / self.upm;
-        let scale = scale * 0.8; // 20% smaller glyphs (0.8 = 80% of original size)
+        let scale = scale * 0.8; // 20% smaller (0.8 = 80% of original)
 
         // Center the glyph horizontally
-        // If advance_width is provided, use it for stable centering (prevents shifting during edits)
+        // If advance_width is provided, use it for stable centering
+        // (prevents shifting during edits)
         // Otherwise, fall back to bounding box centering
         let x_translation = if let Some(advance_width) = self.advance_width {
-            // Center based on advance width - this stays constant while editing
-            // Calculate where to position x=0 in font space so the advance width is centered
+            // Center based on advance width - stays constant while editing
+            // Calculate where to position x=0 in font space so the advance
+            // width is centered
             let scaled_advance = advance_width * scale;
             (widget_size.width - scaled_advance) / 2.0
         } else {
@@ -174,8 +177,10 @@ impl Widget for GlyphWidget {
             l_pad - bounds.x0 * scale
         };
 
-        // Position baseline to center glyphs vertically (adjusted for better visual balance)
-        // Higher percentage = baseline higher in cell = more space at bottom, less at top
+        // Position baseline to center glyphs vertically
+        // (adjusted for better visual balance)
+        // Higher percentage = baseline higher in cell = more space at bottom,
+        // less at top
         let baseline = widget_size.height * self.baseline_offset;
 
         let transform = Affine::new([
@@ -212,7 +217,7 @@ impl Widget for GlyphWidget {
     }
 }
 
-// --- MARK: XILEM VIEW WRAPPER ---
+// ===== Xilem View Wrapper =====
 
 use std::marker::PhantomData;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
@@ -248,6 +253,7 @@ pub struct GlyphView<State, Action = ()> {
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 
+// Builder methods for configuring the glyph view
 impl<State, Action> GlyphView<State, Action> {
     /// Set the glyph fill color
     pub fn color(mut self, color: Color) -> Self {
@@ -268,13 +274,21 @@ impl<State, Action> GlyphView<State, Action> {
     }
 }
 
+// Marker trait implementation (required for Xilem Views)
 impl<State, Action> ViewMarker for GlyphView<State, Action> {}
 
-impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView<State, Action> {
+// Xilem View trait implementation (build, rebuild, teardown, message)
+impl<State: 'static, Action: 'static> View<State, Action, ViewCtx>
+    for GlyphView<State, Action>
+{
     type Element = Pod<GlyphWidget>;
     type ViewState = ();
 
-    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
+    fn build(
+        &self,
+        ctx: &mut ViewCtx,
+        _app_state: &mut State,
+    ) -> (Self::Element, Self::ViewState) {
         let mut widget = GlyphWidget::new(self.path.clone(), self.size, self.upm);
         if let Some(color) = self.color {
             widget = widget.with_color(color);
@@ -300,7 +314,8 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
         let mut widget = element.downcast::<GlyphWidget>();
 
         // Update the widget's path if it has changed
-        // This is crucial for the glyph grid to show updated previews after editing
+        // This is crucial for the glyph grid to show updated previews
+        // after editing
         if self.path != prev.path {
             widget.widget.set_path(self.path.clone());
             widget.ctx.request_render();
