@@ -16,6 +16,3 @@ pub use glyph_preview_widget::glyph_view;
 pub use grid_toolbar::grid_toolbar_view;
 pub use toolbar::toolbar_view;
 
-// Future use
-#[allow(unused_imports)]
-pub use coordinate_panel::calculate_coordinate_selection;

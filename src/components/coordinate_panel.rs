@@ -1,34 +1,33 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Coordinate pane widget - displays and allows editing of point coordinates
+//! Coordinate panel widget - displays and allows editing of point coordinates
 //!
 //! This widget shows the x, y, width, and height of the current selection,
-//! and includes a quadrant picker to choose which corner/edge to use as
-//! the reference point for multi-point selections.
+//! and includes a quadrant picker to choose which corner/edge to use as the
+//! reference point for multi-point selections.
 
 use crate::quadrant::Quadrant;
 use crate::theme;
-use kurbo::{Circle, Point, Rect, Shape};
+use kurbo::{Circle, Point, Rect};
+use tracing;
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx, PointerButton,
-    PointerButtonEvent, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx,
-    Widget,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx,
+    PointerButton, PointerButtonEvent, PointerEvent, PropertiesMut, PropertiesRef,
+    RegisterCtx, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
 use masonry::vello::Scene;
 
-/// Size constants for the coordinate pane - using theme
-const PANE_WIDTH: f64 = 240.0;
-const PANE_HEIGHT: f64 = 80.0; // Matches container height
-const LABEL_WIDTH: f64 = 12.0;
-const VALUE_WIDTH: f64 = 50.0;
+/// Local constants for the coordinate panel, maybe move to settings?
+const PANEL_WIDTH: f64 = 240.0;
+const PANEL_HEIGHT: f64 = 80.0;
 
 // Import from theme (includes all sizing and color constants)
 use crate::theme::coordinate_panel::*;
 
-// --- MARK: DATA MODEL ---
+// ===== Data Model =====
 
 /// Coordinate selection information for displaying/editing point coordinates
 ///
@@ -80,9 +79,9 @@ impl Default for CoordinateSelection {
     }
 }
 
-// --- MARK: WIDGET ---
+// ===== Widget =====
 
-/// Coordinate pane widget
+/// Coordinate panel widget
 pub struct CoordinatePanelWidget {
     session: crate::edit_session::EditSession,
     /// Which quadrant dot is currently being hovered (if any)
@@ -161,23 +160,27 @@ impl CoordinatePanelWidget {
     ///
     /// Uses grid-based hit detection (matching Runebender's approach):
     /// Divides the widget into a 3x3 grid and returns which zone was clicked.
-    /// This eliminates overlapping hit areas and ensures every part of the widget is clickable.
+    /// This eliminates overlapping hit areas and ensures every part of the
+    /// widget is clickable.
     fn quadrant_at_point(&self, point: Point) -> Option<Quadrant> {
-        // Use the FULL widget bounds for hit detection, not just the visual picker bounds
-        // The padding is just for visual spacing, not for limiting clickability
-        let hit_bounds = Rect::from_origin_size(kurbo::Point::ZERO, self.widget_size);
+        // Use the FULL widget bounds for hit detection, not just the visual
+        // picker bounds. The padding is just for visual spacing, not for
+        // limiting clickability.
+        let hit_bounds =
+            Rect::from_origin_size(kurbo::Point::ZERO, self.widget_size);
 
         if !hit_bounds.contains(point) {
             return None;
         }
 
-        // Use grid-based hit detection instead of circle-based
-        // This matches Runebender's approach and eliminates overlapping hit areas
+        // Use grid-based hit detection instead of circle-based.
+        // This matches Runebender's approach and eliminates overlapping hit
+        // areas.
         Some(Quadrant::for_point_in_bounds(point, hit_bounds))
     }
 }
 
-/// Action emitted by the coord pane widget when the quadrant is changed
+/// Action emitted by the coord panel widget when the quadrant is changed
 #[derive(Debug, Clone)]
 pub struct SessionUpdate {
     pub session: crate::edit_session::EditSession,
@@ -206,7 +209,7 @@ impl Widget for CoordinatePanelWidget {
         bc: &BoxConstraints,
     ) -> Size {
         // Store the widget size so we can use it in paint
-        self.widget_size = bc.constrain(Size::new(PANE_WIDTH, PANE_HEIGHT));
+        self.widget_size = bc.constrain(Size::new(PANEL_WIDTH, PANEL_HEIGHT));
         self.widget_size
     }
 
@@ -223,26 +226,19 @@ impl Widget for CoordinatePanelWidget {
                 ..
             }) => {
                 let local_pos = ctx.local_position(state.position);
-                println!(
-                    "[CoordinatePanelWidget::on_pointer_event] Pointer down at local_pos: {:?}",
+                tracing::debug!(
+                    "Pointer down at local_pos: {:?}",
                     local_pos
                 );
                 if let Some(quadrant) = self.quadrant_at_point(local_pos) {
-                    println!(
-                        "[CoordinatePanelWidget::on_pointer_event] Clicked on quadrant: {:?}",
-                        quadrant
-                    );
-                    println!(
-                        "[CoordinatePanelWidget::on_pointer_event] Old quadrant: {:?}",
+                    tracing::debug!(
+                        "Clicked on quadrant: {:?}, old: {:?}",
+                        quadrant,
                         self.session.coord_selection.quadrant
                     );
 
                     // Update the session's quadrant selection
                     self.session.coord_selection.quadrant = quadrant;
-                    println!(
-                        "[CoordinatePanelWidget::on_pointer_event] New quadrant: {:?}",
-                        self.session.coord_selection.quadrant
-                    );
 
                     // Emit SessionUpdate action
                     ctx.submit_action::<SessionUpdate>(SessionUpdate {
@@ -252,21 +248,39 @@ impl Widget for CoordinatePanelWidget {
                     // Request a repaint to show the new selected quadrant
                     ctx.request_render();
                 } else {
-                    println!(
-                        "[CoordinatePanelWidget::on_pointer_event] Click was not on any quadrant dot"
-                    );
+                    tracing::debug!("Click was not on any quadrant dot");
+                }
+            }
+            PointerEvent::Move(pointer_move) => {
+                let local_pos = ctx.local_position(pointer_move.current.position);
+                let new_hover = self.quadrant_at_point(local_pos);
+                if new_hover != self.hover_quadrant {
+                    self.hover_quadrant = new_hover;
+                    ctx.request_render();
+                }
+            }
+            PointerEvent::Leave(_) => {
+                if self.hover_quadrant.is_some() {
+                    self.hover_quadrant = None;
+                    ctx.request_render();
                 }
             }
             _ => {}
         }
     }
 
-    fn paint(&mut self, _ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
-        // Background and border are now handled by the sized_box wrapper in lib.rs
-        // This widget only paints the quadrant picker
-        // Coordinate text values are handled by Xilem views in lib.rs
+    fn paint(
+        &mut self,
+        _ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        scene: &mut Scene,
+    ) {
+        // Background and border are now handled by the sized_box wrapper in
+        // lib.rs. This widget only paints the quadrant picker. Coordinate text
+        // values are handled by Xilem views in lib.rs.
 
-        // Always show quadrant picker (user can select quadrant even without points selected)
+        // Always show quadrant picker (user can select quadrant even without
+        // points selected)
         self.paint_quadrant_picker(scene);
     }
 
@@ -330,12 +344,13 @@ impl CoordinatePanelWidget {
         );
 
         // Draw all grid lines using theme stroke width
-        masonry::util::stroke(scene, &h_line_top, GRID_LINE, STROKE_WIDTH);
-        masonry::util::stroke(scene, &h_line_middle, GRID_LINE, STROKE_WIDTH);
-        masonry::util::stroke(scene, &h_line_bottom, GRID_LINE, STROKE_WIDTH);
-        masonry::util::stroke(scene, &v_line_left, GRID_LINE, STROKE_WIDTH);
-        masonry::util::stroke(scene, &v_line_middle, GRID_LINE, STROKE_WIDTH);
-        masonry::util::stroke(scene, &v_line_right, GRID_LINE, STROKE_WIDTH);
+        let grid_lines = [
+            &h_line_top, &h_line_middle, &h_line_bottom,
+            &v_line_left, &v_line_middle, &v_line_right,
+        ];
+        for line in grid_lines {
+            masonry::util::stroke(scene, line, GRID_LINE, STROKE_WIDTH);
+        }
 
         // Draw all 9 quadrant dots with two-tone style like editor points
         for quadrant in &[
@@ -351,11 +366,20 @@ impl CoordinatePanelWidget {
         ] {
             let center = self.quadrant_dot_center(*quadrant, bounds);
             let is_selected = *quadrant == self.session.coord_selection.quadrant;
+            let is_hovered = self.hover_quadrant == Some(*quadrant);
 
-            let (inner_color, outer_color) = if is_selected {
-                (DOT_SELECTED_INNER, DOT_SELECTED_OUTER)
-            } else {
-                (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER)
+            // Brighten colors by 2 BASE steps when hovered
+            let (inner_color, outer_color) = match (is_selected, is_hovered) {
+                (true, true) => {
+                    // Selected + hovered: BASE_F (0x60) -> BASE_H (0x80)
+                    (theme::base::H, DOT_SELECTED_OUTER)
+                }
+                (true, false) => (DOT_SELECTED_INNER, DOT_SELECTED_OUTER),
+                (false, true) => {
+                    // Unselected + hovered: BASE_D (0x40) -> BASE_F (0x60)
+                    (theme::base::F, DOT_UNSELECTED_OUTER)
+                }
+                (false, false) => (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER),
             };
 
             // Draw two-tone filled circles to simulate outlined circles
@@ -363,28 +387,32 @@ impl CoordinatePanelWidget {
             let outer_circle = Circle::new(center, dot_radius);
             masonry::util::fill_color(scene, &outer_circle, outer_color);
 
-            // Inner circle - make the "outline" match the container border width (1.5px)
-            // by subtracting 1.5 from the radius
-            let inner_circle = Circle::new(center, (dot_radius - 1.5).max(0.0));
+            // Inner circle - make the "outline" match the container border
+            // width (1.5px) by subtracting 1.5 from the radius
+            let inner_radius = (dot_radius - 1.5).max(0.0);
+            let inner_circle = Circle::new(center, inner_radius);
             masonry::util::fill_color(scene, &inner_circle, inner_color);
         }
     }
 }
 
-// --- MARK: XILEM VIEW WRAPPER ---
+// ===== Xilem View Wrapper =====
 
 use std::marker::PhantomData;
 use std::sync::Arc;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
-/// Create a coordinate pane view from an EditSession
+/// Create a coordinate panel view from an EditSession
 pub fn coordinate_panel_view<State, F>(
     session: Arc<crate::edit_session::EditSession>,
     on_session_update: F,
 ) -> CoordinatePanelView<State, F>
 where
-    F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static,
+    F: Fn(&mut State, crate::edit_session::EditSession)
+        + Send
+        + Sync
+        + 'static,
 {
     CoordinatePanelView {
         session,
@@ -403,13 +431,23 @@ pub struct CoordinatePanelView<State, F> {
 
 impl<State, F> ViewMarker for CoordinatePanelView<State, F> {}
 
-impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static>
-    View<State, (), ViewCtx> for CoordinatePanelView<State, F>
+// Xilem View trait implementation
+impl<
+        State: 'static,
+        F: Fn(&mut State, crate::edit_session::EditSession)
+            + Send
+            + Sync
+            + 'static,
+    > View<State, (), ViewCtx> for CoordinatePanelView<State, F>
 {
     type Element = Pod<CoordinatePanelWidget>;
     type ViewState = ();
 
-    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
+    fn build(
+        &self,
+        ctx: &mut ViewCtx,
+        _app_state: &mut State,
+    ) -> (Self::Element, Self::ViewState) {
         let widget = CoordinatePanelWidget::new((*self.session).clone());
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());
@@ -424,13 +462,14 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         mut element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // Update the widget's session if it changed
-        // We compare Arc pointers - if they're different, the session was updated
+        // Update the widget's session if it changed.
+        // We compare Arc pointers - if they're different, the session was
+        // updated.
         if !Arc::ptr_eq(&self.session, &prev.session) {
-            println!("[CoordinatePanelView::rebuild] Session Arc changed, updating widget");
-            println!(
-                "[CoordinatePanelView::rebuild] Old quadrant: {:?}, New quadrant: {:?}",
-                prev.session.coord_selection.quadrant, self.session.coord_selection.quadrant
+            tracing::debug!(
+                "Session Arc changed, old quadrant: {:?}, new: {:?}",
+                prev.session.coord_selection.quadrant,
+                self.session.coord_selection.quadrant
             );
 
             // Get mutable access to the widget and update the session
@@ -459,15 +498,13 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         // Handle SessionUpdate messages from the widget
         match message.take_message::<SessionUpdate>() {
             Some(update) => {
-                println!(
-                    "[CoordinatePanelView::message] Handling SessionUpdate, quadrant={:?}",
+                tracing::debug!(
+                    "Handling SessionUpdate, quadrant={:?}",
                     update.session.coord_selection.quadrant
                 );
                 (self.on_session_update)(app_state, update.session);
-                println!(
-                    "[CoordinatePanelView::message] Callback complete, returning RequestRebuild"
-                );
-                // Use RequestRebuild instead of Action to avoid destroying the window
+                // Use RequestRebuild instead of Action to avoid destroying the
+                // window
                 MessageResult::RequestRebuild
             }
             None => MessageResult::Stale,
@@ -475,88 +512,27 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
     }
 }
 
-// --- MARK: COORDINATE CALCULATION ---
+// ===== Complete Coordinate Panel View =====
 
-/// Calculate coordinate selection from edit session
-///
-/// Returns a CoordinateSelection with bounding box information for all selected points
-pub fn calculate_coordinate_selection(
-    session: &crate::edit_session::EditSession,
-) -> CoordinateSelection {
-    let selection = &session.selection;
-    let paths = &session.paths;
-
-    println!(
-        "[calculate_coordinate_selection] selection.len()={}, paths.len()={}",
-        selection.len(),
-        paths.len()
-    );
-
-    let mut min_x = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-    let mut count = 0;
-
-    for path in paths.iter() {
-        match path {
-            crate::path::Path::Cubic(cubic) => {
-                println!(
-                    "[calculate_coordinate_selection] Checking cubic path with {} points",
-                    cubic.points.len()
-                );
-                for pt in cubic.points.iter() {
-                    if selection.contains(&pt.id) {
-                        println!(
-                            "[calculate_coordinate_selection] Found selected point at ({}, {})",
-                            pt.point.x, pt.point.y
-                        );
-                        min_x = min_x.min(pt.point.x);
-                        max_x = max_x.max(pt.point.x);
-                        min_y = min_y.min(pt.point.y);
-                        max_y = max_y.max(pt.point.y);
-                        count += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    println!(
-        "[calculate_coordinate_selection] count={}, min_x={}, max_x={}, min_y={}, max_y={}",
-        count, min_x, max_x, min_y, max_y
-    );
-
-    if count > 0 && min_x.is_finite() {
-        let frame = Rect::new(min_x, min_y, max_x, max_y);
-        CoordinateSelection::new(
-            count,
-            frame,
-            session.coord_selection.quadrant, // Preserve the user's quadrant selection
-        )
-    } else {
-        CoordinateSelection::default()
-    }
-}
-
-// --- MARK: COMPLETE COORDINATE PANE VIEW ---
-
-use masonry::properties::types::AsUnit;
-use masonry::properties::types::MainAxisAlignment;
-use xilem::WidgetView;
+use masonry::properties::types::{AsUnit, MainAxisAlignment};
 use xilem::style::Style;
 use xilem::view::{CrossAxisAlignment, flex_col, flex_row, label, sized_box};
+use xilem::WidgetView;
 
-/// Complete coordinate info pane with quadrant picker and coordinate labels
+/// Complete coordinate info panel with quadrant picker and coordinate labels
 ///
-/// This is the main entry point for displaying the coordinate pane in the editor window.
-/// It combines the quadrant picker widget with coordinate text labels.
+/// This is the main entry point for displaying the coordinate panel in the
+/// editor window. It combines the quadrant picker widget with coordinate text
+/// labels.
 pub fn coordinate_panel<State: 'static, F>(
     session: Arc<crate::edit_session::EditSession>,
     on_session_update: F,
 ) -> impl WidgetView<State>
 where
-    F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static,
+    F: Fn(&mut State, crate::edit_session::EditSession)
+        + Send
+        + Sync
+        + 'static,
 {
     let coord_sel = session.coord_selection;
 
@@ -596,22 +572,23 @@ where
             .color(theme::text::PRIMARY)
     };
 
+    let quadrant_selector = sized_box(
+        coordinate_panel_view(session, on_session_update)
+    ).width(80.px());
+
+    let coord_values = flex_col((
+        coord_label(format!("x: {:<6}", x_text)),
+        coord_label(format!("y: {:<6}", y_text)),
+        coord_label(format!("w: {:<6}", w_text)),
+        coord_label(format!("h: {:<6}", h_text)),
+    ))
+    .cross_axis_alignment(CrossAxisAlignment::Start)
+    .gap(0.px());
+
     sized_box(
-        flex_row((
-            // Quadrant selector on the left
-            sized_box(coordinate_panel_view(session, on_session_update)).width(80.px()),
-            // Coordinate values with fixed-width formatting
-            flex_col((
-                coord_label(format!("x: {:<6}", x_text)),
-                coord_label(format!("y: {:<6}", y_text)),
-                coord_label(format!("w: {:<6}", w_text)),
-                coord_label(format!("h: {:<6}", h_text)),
-            ))
-            .cross_axis_alignment(CrossAxisAlignment::Start)
-            .gap(0.px()),
-        ))
-        .main_axis_alignment(MainAxisAlignment::Start)
-        .gap(8.px()),
+        flex_row((quadrant_selector, coord_values))
+            .main_axis_alignment(MainAxisAlignment::Start)
+            .gap(8.px()),
     )
     .width(150.px())
     .height(80.px())

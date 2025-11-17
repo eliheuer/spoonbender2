@@ -34,7 +34,7 @@ const APP_BACKGROUND: Color = BASE_B;
 // ============================================================================
 // UI TEXT AND LABELS
 // ============================================================================
-const PRIMARY_UI_TEXT: Color = BASE_G;
+const PRIMARY_UI_TEXT: Color = BASE_I; // Brighter for better visibility
 
 // ============================================================================
 // UI PANELS (Toolbar, Coordinate Panel, Glyph Preview)
@@ -45,13 +45,13 @@ const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;
 const GLYPH_PREVIEW_COLOR: Color = BASE_J;
 
 // Coordinate Panel specific
-const COORDINATE_PANEL_GRID_LINE: Color = BASE_A;
+const COORDINATE_PANEL_GRID_LINE: Color = BASE_I; // Light gray, matches text
 
 // ============================================================================
 // GLYPH GRID VIEW
 // ============================================================================
 // Grid cell backgrounds
-const GRID_CELL_BACKGROUND: Color = BASE_B; // 0x20 - Very dark gray (one shade darker)
+const GRID_CELL_BACKGROUND: Color = BASE_C; // 0x20 - Very dark gray (one shade darker)
 const GRID_CELL_OUTLINE: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
 const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14); // Keep green
 const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90); // Keep light green
@@ -192,13 +192,13 @@ pub mod coordinate_panel {
     pub const GRID_LINE: Color = super::COORDINATE_PANEL_GRID_LINE;
     pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
-    // Dot colors - selected (matches glyph preview color)
-    pub const DOT_SELECTED_INNER: Color = super::GLYPH_PREVIEW_COLOR; // 0xa0 - Light gray (same as glyph preview)
-    pub const DOT_SELECTED_OUTER: Color = super::BASE_B; // 0x20 - Same as unselected outline
+    // Dot colors - selected (darker to contrast with bright outlines)
+    pub const DOT_SELECTED_INNER: Color = super::BASE_F; // 0x60 - Medium gray
+    pub const DOT_SELECTED_OUTER: Color = super::BASE_I; // 0x90 - Light gray, matches text
 
     // Dot colors - unselected (darker gray)
-    pub const DOT_UNSELECTED_INNER: Color = super::BASE_F; // 0x60 - Medium gray (was 0x5a)
-    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_B; // 0x20 - Very dark gray (was 0x28)
+    pub const DOT_UNSELECTED_INNER: Color = super::BASE_D; // 0x40 - Medium-dark gray
+    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_I; // 0x90 - Light gray, matches text
 
     // Sizes (matching Runebender)
     pub const PADDING: f64 = 16.0; // Increased from 8px for more even margins
