@@ -84,8 +84,6 @@ impl Default for CoordinateSelection {
 /// Coordinate panel widget
 pub struct CoordinatePanelWidget {
     session: crate::edit_session::EditSession,
-    /// Which quadrant dot is currently being hovered (if any)
-    hover_quadrant: Option<Quadrant>,
     /// Current widget size (updated during layout)
     widget_size: Size,
 }
@@ -94,7 +92,6 @@ impl CoordinatePanelWidget {
     pub fn new(session: crate::edit_session::EditSession) -> Self {
         Self {
             session,
-            hover_quadrant: None,
             widget_size: Size::ZERO,
         }
     }
@@ -249,19 +246,8 @@ impl Widget for CoordinatePanelWidget {
                     ctx.request_render();
                 } else {
                     tracing::debug!("Click was not on any quadrant dot");
-                }
-            }
-            PointerEvent::Move(pointer_move) => {
-                let local_pos = ctx.local_position(pointer_move.current.position);
-                let new_hover = self.quadrant_at_point(local_pos);
-                if new_hover != self.hover_quadrant {
-                    self.hover_quadrant = new_hover;
                     ctx.request_render();
                 }
-            }
-            PointerEvent::Leave(_) => {
-                self.hover_quadrant = None;
-                ctx.request_render();
             }
             _ => {}
         }
@@ -364,20 +350,11 @@ impl CoordinatePanelWidget {
         ] {
             let center = self.quadrant_dot_center(*quadrant, bounds);
             let is_selected = *quadrant == self.session.coord_selection.quadrant;
-            let is_hovered = self.hover_quadrant == Some(*quadrant);
 
-            // Brighten colors by 2 BASE steps when hovered
-            let (inner_color, outer_color) = match (is_selected, is_hovered) {
-                (true, true) => {
-                    // Selected + hovered: BASE_H (0x80) -> BASE_J (0xa0)
-                    (theme::base::J, DOT_SELECTED_OUTER)
-                }
-                (true, false) => (DOT_SELECTED_INNER, DOT_SELECTED_OUTER),
-                (false, true) => {
-                    // Unselected + hovered: BASE_C (0x30) -> BASE_E (0x50)
-                    (theme::base::E, DOT_UNSELECTED_OUTER)
-                }
-                (false, false) => (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER),
+            let (inner_color, outer_color) = if is_selected {
+                (DOT_SELECTED_INNER, DOT_SELECTED_OUTER)
+            } else {
+                (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER)
             };
 
             // Draw two-tone filled circles to simulate outlined circles
