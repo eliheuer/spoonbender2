@@ -16,7 +16,7 @@
 //! - **Baseline positioning** for proper vertical alignment
 //! - **Horizontal centering** with optional advance-width centering
 //! - **Y-axis flipping** to convert from font coordinate space (Y-up)
-//! to screen coordinate space (Y-down)
+//!   to screen coordinate space (Y-down)
 //!
 //! The component consists of two layers:
 //!
@@ -268,6 +268,7 @@ impl<State, Action> GlyphView<State, Action> {
     }
 
     /// Set the advance width for stable horizontal centering
+    #[allow(dead_code)]
     pub fn advance_width(mut self, width: f64) -> Self {
         self.advance_width = Some(width);
         self
@@ -322,24 +323,22 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx>
         }
 
         // Update other properties if they changed
-        if self.color != prev.color {
-            if let Some(color) = self.color {
+        if self.color != prev.color
+            && let Some(color) = self.color {
                 widget.widget.set_color(color);
                 widget.ctx.request_render();
             }
-        }
 
         if self.upm != prev.upm {
             widget.widget.set_upm(self.upm);
             widget.ctx.request_render();
         }
 
-        if self.baseline_offset != prev.baseline_offset {
-            if let Some(offset) = self.baseline_offset {
+        if self.baseline_offset != prev.baseline_offset
+            && let Some(offset) = self.baseline_offset {
                 widget.widget.set_baseline_offset(offset);
                 widget.ctx.request_render();
             }
-        }
 
         if self.size != prev.size {
             widget.widget.set_size(self.size);

@@ -216,41 +216,39 @@ impl Widget for CoordinatePanelWidget {
         _props: &mut PropertiesMut<'_>,
         event: &PointerEvent,
     ) {
-        match event {
-            PointerEvent::Down(PointerButtonEvent {
-                button: Some(PointerButton::Primary),
-                state,
-                ..
-            }) => {
-                let local_pos = ctx.local_position(state.position);
+        if let PointerEvent::Down(PointerButtonEvent {
+            button: Some(PointerButton::Primary),
+            state,
+            ..
+        }) = event
+        {
+            let local_pos = ctx.local_position(state.position);
+            tracing::debug!(
+                "Pointer down at local_pos: {:?}",
+                local_pos
+            );
+            if let Some(quadrant) = self.quadrant_at_point(local_pos) {
                 tracing::debug!(
-                    "Pointer down at local_pos: {:?}",
-                    local_pos
+                    "Clicked on quadrant: {:?}, old: {:?}",
+                    quadrant,
+                    self.session.coord_selection.quadrant
                 );
-                if let Some(quadrant) = self.quadrant_at_point(local_pos) {
-                    tracing::debug!(
-                        "Clicked on quadrant: {:?}, old: {:?}",
-                        quadrant,
-                        self.session.coord_selection.quadrant
-                    );
 
-                    // Update the session's quadrant selection
-                    self.session.coord_selection.quadrant = quadrant;
+                // Update the session's quadrant selection
+                self.session.coord_selection.quadrant = quadrant;
 
-                    // Emit SessionUpdate action
-                    ctx.submit_action::<SessionUpdate>(SessionUpdate {
-                        session: self.session.clone(),
-                    });
+                // Emit SessionUpdate action
+                ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                    session: self.session.clone(),
+                });
 
-                    // Request a repaint to show the new selected quadrant
-                    ctx.request_render();
-                } else {
-                    tracing::debug!("Click was not on any quadrant dot");
-                    ctx.request_render();
-                }
-            } // PointerEvent::Down
-            _ => {} // Ignore all other pointer events
-        } // match event
+                // Request a repaint to show the new selected quadrant
+                ctx.request_render();
+            } else {
+                tracing::debug!("Click was not on any quadrant dot");
+                ctx.request_render();
+            }
+        }
     }
 
     fn paint(

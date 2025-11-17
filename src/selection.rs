@@ -15,6 +15,7 @@ pub struct Selection {
     inner: Arc<BTreeSet<EntityId>>,
 }
 
+#[allow(dead_code)]
 impl Selection {
     /// Create a new empty selection
     pub fn new() -> Self {

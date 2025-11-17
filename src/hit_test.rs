@@ -10,6 +10,7 @@ use kurbo::Point;
 pub const MIN_CLICK_DISTANCE: f64 = 10.0;
 
 /// Maximum distance for clicking on a segment (stricter)
+#[allow(dead_code)]
 pub const SEGMENT_CLICK_DISTANCE: f64 = 6.0;
 
 /// Penalty added to on-curve points to favor selecting off-curve points

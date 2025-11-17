@@ -22,6 +22,7 @@ pub struct UndoState<T> {
     redo_stack: VecDeque<T>,
 }
 
+#[allow(dead_code)]
 impl<T: Clone> UndoState<T> {
     /// Create a new empty undo state
     pub fn new() -> Self {

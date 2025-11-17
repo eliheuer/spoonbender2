@@ -6,6 +6,7 @@
 use crate::tools::ToolId;
 
 /// Toolbar state
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolbarState {
     /// Currently selected tool
@@ -19,6 +20,7 @@ impl ToolbarState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn select_tool(&mut self, tool: ToolId) {
         self.selected_tool = tool;
     }
@@ -31,6 +33,7 @@ impl Default for ToolbarState {
 }
 
 /// Available tools in order of display
+#[allow(dead_code)]
 pub const TOOLBAR_TOOLS: &[ToolId] = &[
     ToolId::Select,
     ToolId::Pen,
@@ -42,6 +45,7 @@ pub const TOOLBAR_TOOLS: &[ToolId] = &[
 ];
 
 /// Get the display label for a tool
+#[allow(dead_code)]
 pub fn tool_label(tool: ToolId) -> &'static str {
     match tool {
         ToolId::Select => "Select (V)",

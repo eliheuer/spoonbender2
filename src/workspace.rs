@@ -164,8 +164,8 @@ impl Workspace {
 
         glyph_list.sort_by(|(name_a, glyph_a), (name_b, glyph_b)| {
             // Get first codepoint if any
-            let cp_a = glyph_a.codepoints.iter().next();
-            let cp_b = glyph_b.codepoints.iter().next();
+            let cp_a = glyph_a.codepoints.first();
+            let cp_b = glyph_b.codepoints.first();
 
             match (cp_a, cp_b) {
                 // Both have codepoints: compare by codepoint value
@@ -197,6 +197,7 @@ impl Workspace {
 
     /// Save the UFO back to disk
     /// TODO: This needs to convert our internal data back to norad format
+    #[allow(dead_code)]
     pub fn save(&self) -> Result<()> {
         // For now, just a placeholder
         // We'd need to convert our data back to norad types and save

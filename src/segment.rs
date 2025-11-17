@@ -25,6 +25,7 @@ pub struct SegmentInfo {
     pub end_idx: usize,
 }
 
+#[allow(dead_code)]
 impl Segment {
     /// Find the nearest point on this segment to the given point
     ///

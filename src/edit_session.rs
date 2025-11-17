@@ -56,7 +56,7 @@ impl ViewPort {
     }
 
     /// Convert a point from screen space to design space
-    pub fn from_screen(&self, point: kurbo::Point) -> kurbo::Point {
+    pub fn screen_to_design(&self, point: kurbo::Point) -> kurbo::Point {
         kurbo::Point::new(
             (point.x - self.offset.x) / self.zoom,
             -(point.y - self.offset.y) / self.zoom,
@@ -90,6 +90,7 @@ impl Default for ViewPort {
 /// This holds all the state needed to edit a glyph, including the
 /// outline data, selection, viewport, and metadata.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct EditSession {
     /// Unique identifier for this session
     pub id: SessionId,
@@ -129,8 +130,10 @@ pub struct EditSession {
     pub cap_height: Option<f64>,
 }
 
+#[allow(dead_code)]
 impl EditSession {
     /// Create a new editing session for a glyph
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         glyph_name: String,
         ufo_path: std::path::PathBuf,
@@ -145,7 +148,7 @@ impl EditSession {
         let paths: Vec<Path> = glyph
             .contours
             .iter()
-            .map(|contour| Path::from_contour(contour))
+            .map(Path::from_contour)
             .collect();
 
         Self {
@@ -275,7 +278,7 @@ impl EditSession {
         max_dist: f64,
     ) -> Option<(crate::segment::SegmentInfo, f64)> {
         // Convert screen position to design space
-        let design_pos = self.viewport.from_screen(screen_pos);
+        let design_pos = self.viewport.screen_to_design(screen_pos);
 
         let mut closest_segment: Option<(crate::segment::SegmentInfo, f64, f64)> = None;
 

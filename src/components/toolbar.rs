@@ -20,6 +20,7 @@ const TOOLBAR_ITEM_SIZE: f64 = 48.0;
 const TOOLBAR_ITEM_SPACING: f64 = 6.0; // Space between buttons
 const TOOLBAR_PADDING: f64 = 8.0; // Padding around the entire toolbar (space between buttons and container)
 const ICON_PADDING: f64 = 8.0;
+#[allow(dead_code)]
 const ITEM_STROKE_WIDTH: f64 = 1.5;
 const BUTTON_RADIUS: f64 = 6.0; // Rounded corner radius
 const BORDER_WIDTH: f64 = 1.5; // Border thickness for buttons and panel
@@ -419,6 +420,7 @@ fn preview_icon() -> BezPath {
     bez
 }
 
+#[allow(dead_code)]
 fn knife_icon() -> BezPath {
     let mut bez = BezPath::new();
     bez.move_to((30.0, 500.0));
@@ -446,6 +448,7 @@ fn knife_icon() -> BezPath {
     bez
 }
 
+#[allow(dead_code)]
 fn rect_icon() -> BezPath {
     let mut bez = BezPath::new();
     bez.move_to((0.0, 500.0));
@@ -457,6 +460,7 @@ fn rect_icon() -> BezPath {
     bez
 }
 
+#[allow(dead_code)]
 fn ellipse_icon() -> BezPath {
     let mut bez = BezPath::new();
     bez.move_to((110.0, 0.0));
@@ -490,10 +494,13 @@ where
 }
 
 /// The Xilem View for ToolbarWidget
+/// Callback type for toolbar button clicks
+type ToolbarCallback<State> = Box<dyn Fn(&mut State, ToolId) + Send + Sync>;
+
 #[must_use = "View values do nothing unless provided to Xilem."]
 pub struct ToolbarView<State, Action = ()> {
     selected_tool: ToolId,
-    callback: Box<dyn Fn(&mut State, ToolId) + Send + Sync>,
+    callback: ToolbarCallback<State>,
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 
@@ -558,6 +565,7 @@ impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx>
     }
 }
 
+#[allow(dead_code)]
 fn measure_icon() -> BezPath {
     let mut bez = BezPath::new();
     bez.move_to((0.0, 500.0));

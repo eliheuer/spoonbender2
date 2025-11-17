@@ -25,6 +25,7 @@ const CURVE_SNAP_DISTANCE: f64 = 10.0;
 
 /// The pen tool - used for drawing new paths
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct PenTool {
     /// Points being added to the current path
     current_path_points: Vec<PathPoint>,
@@ -40,17 +41,8 @@ pub struct PenTool {
     snapped_segment: Option<(crate::segment::SegmentInfo, f64)>,
 }
 
-impl Default for PenTool {
-    fn default() -> Self {
-        Self {
-            current_path_points: Vec::new(),
-            drawing: false,
-            mouse_pos: None,
-            snapped_segment: None,
-        }
-    }
-}
 
+#[allow(dead_code)]
 impl Tool for PenTool {
     fn id(&self) -> ToolId {
         ToolId::Pen
@@ -66,7 +58,7 @@ impl Tool for PenTool {
         // Check if mouse is hovering near first point (for close feedback)
         let hovering_close = if self.drawing && self.current_path_points.len() >= 3 {
             if let Some(mouse_screen) = self.mouse_pos {
-                let mouse_design = session.viewport.from_screen(mouse_screen);
+                let mouse_design = session.viewport.screen_to_design(mouse_screen);
                 let first_point = self.current_path_points[0].point;
                 let distance = ((mouse_design.x - first_point.x).powi(2)
                     + (mouse_design.y - first_point.y).powi(2))
@@ -81,7 +73,7 @@ impl Tool for PenTool {
 
         // Draw the preview path (orange lines between points) - only while actively drawing
         // Note: We don't return early here anymore because we want to show the preview dot even when not drawing
-        if self.drawing && self.current_path_points.len() >= 1 {
+        if self.drawing && !self.current_path_points.is_empty() {
             let mut bez_path = BezPath::new();
             for (i, pt) in self.current_path_points.iter().enumerate() {
                 let design_pt = Point::new(pt.point.x, pt.point.y);
@@ -182,6 +174,7 @@ impl Tool for PenTool {
     }
 }
 
+#[allow(dead_code)]
 impl MouseDelegate for PenTool {
     type Data = EditSession;
 
@@ -197,7 +190,7 @@ impl MouseDelegate for PenTool {
         }
 
         // Convert screen position to design space
-        let design_pos = data.viewport.from_screen(event.pos);
+        let design_pos = data.viewport.screen_to_design(event.pos);
 
         // Check if we're clicking near the first point to close the path
         if self.current_path_points.len() >= 3 {
@@ -265,6 +258,7 @@ impl MouseDelegate for PenTool {
     }
 }
 
+#[allow(dead_code)]
 impl PenTool {
     /// Add the finished path to the session (open path)
     fn add_open_path(&mut self, data: &mut EditSession) {

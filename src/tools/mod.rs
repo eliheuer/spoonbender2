@@ -28,6 +28,7 @@ pub enum ToolId {
     Measure,
 }
 
+#[allow(dead_code)]
 impl ToolId {
     /// Get the keyboard shortcut for this tool
     pub fn keyboard_shortcut(&self) -> Option<char> {
@@ -71,11 +72,13 @@ pub trait Tool: MouseDelegate<Data = EditSession> {
 
     /// Handle keyboard down event
     /// Returns edit type if the key press modified the session
+    #[allow(dead_code)]
     fn key_down(&mut self, _key: &str, _session: &mut EditSession) -> Option<EditType> {
         None
     }
 
     /// Handle keyboard up event
+    #[allow(dead_code)]
     fn key_up(&mut self, _key: &str, _session: &mut EditSession) -> Option<EditType> {
         None
     }
@@ -90,6 +93,7 @@ pub enum ToolBox {
     // etc.
 }
 
+#[allow(dead_code)]
 impl ToolBox {
     /// Create a tool by ID
     pub fn for_id(id: ToolId) -> Self {
@@ -197,6 +201,7 @@ impl ToolBox {
 }
 
 // Implement MouseDelegate for ToolBox so it can be used with the Mouse state machine
+#[allow(dead_code)]
 impl MouseDelegate for ToolBox {
     type Data = EditSession;
 

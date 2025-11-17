@@ -19,6 +19,7 @@ const TOOLBAR_ITEM_SIZE: f64 = 48.0;
 const TOOLBAR_ITEM_SPACING: f64 = 6.0; // Space between buttons
 const TOOLBAR_PADDING: f64 = 8.0; // Padding around the entire toolbar
 const ICON_PADDING: f64 = 8.0;
+#[allow(dead_code)]
 const ITEM_STROKE_WIDTH: f64 = 1.5;
 const BUTTON_RADIUS: f64 = 6.0; // Rounded corner radius
 const BORDER_WIDTH: f64 = 1.5; // Border thickness for buttons and panel
@@ -259,9 +260,13 @@ use std::marker::PhantomData;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
+/// Callback type for grid toolbar button clicks
+type GridToolbarCallback<State> =
+    Box<dyn Fn(&mut State, GridToolbarButton) + Send + Sync>;
+
 /// Xilem view for the grid toolbar
 pub struct GridToolbarView<State, Action = ()> {
-    callback: Box<dyn Fn(&mut State, GridToolbarButton) + Send + Sync>,
+    callback: GridToolbarCallback<State>,
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 

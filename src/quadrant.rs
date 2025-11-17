@@ -14,6 +14,7 @@ use kurbo::{Point, Rect};
 /// Used to determine which point in a bounding box should be used as the
 /// reference for coordinate display and editing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub enum Quadrant {
     /// Top-left corner
     TopLeft,
@@ -24,6 +25,7 @@ pub enum Quadrant {
     /// Center left
     Left,
     /// Center
+    #[default]
     Center,
     /// Center right
     Right,
@@ -35,12 +37,8 @@ pub enum Quadrant {
     BottomRight,
 }
 
-impl Default for Quadrant {
-    fn default() -> Self {
-        Quadrant::Center
-    }
-}
 
+#[allow(dead_code)]
 impl Quadrant {
     /// Returns the point within a rectangle corresponding to this quadrant
     ///

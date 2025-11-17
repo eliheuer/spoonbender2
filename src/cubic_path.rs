@@ -15,6 +15,7 @@ use kurbo::{BezPath, Shape};
 /// with the convention that for closed paths, the first point (index 0)
 /// is conceptually the last point in the cyclic sequence.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CubicPath {
     /// The points in this path
     pub points: PathPoints,
@@ -26,6 +27,7 @@ pub struct CubicPath {
     pub id: EntityId,
 }
 
+#[allow(dead_code)]
 impl CubicPath {
     /// Create a new cubic path
     pub fn new(points: PathPoints, closed: bool) -> Self {
@@ -255,6 +257,7 @@ impl CubicPath {
 }
 
 /// Iterator over path segments
+#[allow(dead_code)]
 struct SegmentIterator {
     points: Vec<PathPoint>,
     closed: bool,

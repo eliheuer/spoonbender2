@@ -4,6 +4,7 @@
 //! Application actions that can be dispatched to modify state
 
 /// Actions that can be performed in the Spoonbender application
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) enum AppAction {
     /// Open a file dialog to select a UFO directory

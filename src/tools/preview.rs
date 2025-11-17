@@ -17,19 +17,17 @@ pub struct PreviewTool {
 
 /// Internal state for the preview tool
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 enum State {
     /// Ready to start dragging
+    #[default]
     Ready,
     /// Currently dragging/panning
     Dragging { start_offset: Vec2 },
 }
 
-impl Default for State {
-    fn default() -> Self {
-        State::Ready
-    }
-}
 
+#[allow(dead_code)]
 impl Tool for PreviewTool {
     fn id(&self) -> ToolId {
         ToolId::Preview
@@ -41,6 +39,7 @@ impl Tool for PreviewTool {
     }
 }
 
+#[allow(dead_code)]
 impl MouseDelegate for PreviewTool {
     type Data = EditSession;
 

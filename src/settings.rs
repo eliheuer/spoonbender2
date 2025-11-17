@@ -46,6 +46,7 @@ pub mod editor {
     pub const MAX_ZOOM: f64 = super::MAX_ZOOM;
 
     /// Zoom scale factor for scroll wheel sensitivity
+    #[allow(dead_code)]
     pub const ZOOM_SCALE: f64 = super::ZOOM_SCALE;
 }
 

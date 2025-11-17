@@ -111,6 +111,7 @@ const SELECTION_RECT_STROKE: Color = Color::from_rgb8(0xff, 0xaa, 0x33);
 
 /// Grayscale gradient - generic neutral colors for UI
 /// Use these base colors for consistent theming throughout the application
+#[allow(dead_code)]
 pub mod base {
     use super::Color;
     pub const A: Color = super::BASE_A;
@@ -169,6 +170,7 @@ pub mod toolbar {
 pub mod coordinate_panel {
     use super::Color;
     pub const GRID_LINE: Color = super::COORDINATE_PANEL_GRID_LINE;
+    #[allow(dead_code)]
     pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
     // Dot colors - selected (lighter for better visibility)
@@ -194,10 +196,12 @@ pub mod grid {
     pub const CELL_OUTLINE: Color = super::GRID_CELL_OUTLINE;
     pub const CELL_SELECTED_BACKGROUND: Color = super::GRID_CELL_SELECTED_BACKGROUND;
     pub const CELL_SELECTED_OUTLINE: Color = super::GRID_CELL_SELECTED_OUTLINE;
+    #[allow(dead_code)]
     pub const CELL_TEXT: Color = super::GRID_CELL_TEXT;
     pub const GLYPH_COLOR: Color = super::GRID_GLYPH_COLOR;
 
     /// Editor canvas grid lines
+    #[allow(dead_code)]
     pub const LINE: Color = super::GRID_LINE;
 }
 
@@ -205,6 +209,7 @@ pub mod grid {
 pub mod path {
     use super::Color;
     pub const STROKE: Color = super::PATH_STROKE;
+    #[allow(dead_code)]
     pub const FILL: Color = super::PATH_FILL;
     pub const PREVIEW_FILL: Color = super::PATH_PREVIEW_FILL;
 }

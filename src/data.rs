@@ -45,6 +45,7 @@ pub struct AppState {
     pub main_window_id: WindowId,
 }
 
+#[allow(dead_code)]
 impl AppState {
     /// Create a new empty application state
     pub fn new() -> Self {
@@ -136,9 +137,7 @@ impl AppState {
                 if g.codepoints.is_empty() {
                     None
                 } else {
-                    g.codepoints
-                        .iter()
-                        .next()
+                    g.codepoints.first()
                         .map(|c| format!("U+{:04X}", *c as u32))
                 }
             })
@@ -177,8 +176,8 @@ impl AppState {
     /// This syncs any final changes to the workspace before closing.
     pub fn close_editor(&mut self) {
         // Sync final changes to workspace before closing
-        if let Some(session) = &self.editor_session {
-            if let Some(workspace) = &mut self.workspace {
+        if let Some(session) = &self.editor_session
+            && let Some(workspace) = &mut self.workspace {
                 let updated_glyph = session.to_glyph();
                 workspace.update_glyph(&session.glyph_name, updated_glyph.clone());
 
@@ -190,7 +189,6 @@ impl AppState {
                     );
                 }
             }
-        }
 
         self.editor_session = None;
         self.active_tab = Tab::GlyphGrid;
@@ -228,14 +226,13 @@ impl AppState {
             workspace.update_glyph(&session.glyph_name, updated_glyph.clone());
 
             // Verify the update worked (only for "a")
-            if session.glyph_name == "a" {
-                if let Some(glyph_from_workspace) = workspace.get_glyph(&session.glyph_name) {
+            if session.glyph_name == "a"
+                && let Some(glyph_from_workspace) = workspace.get_glyph(&session.glyph_name) {
                     println!(
                         "[update_editor_session] Verified: workspace now has glyph 'a' with {} contours",
                         glyph_from_workspace.contours.len()
                     );
                 }
-            }
         }
 
         self.editor_session = Some(session);

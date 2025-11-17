@@ -18,6 +18,7 @@ impl EntityId {
     }
 
     /// Get the raw ID value (useful for debugging)
+    #[allow(dead_code)]
     pub fn raw(&self) -> u64 {
         self.0
     }

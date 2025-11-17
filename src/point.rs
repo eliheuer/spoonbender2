@@ -22,6 +22,7 @@ pub enum PointType {
     },
 }
 
+#[allow(dead_code)]
 impl PointType {
     /// Check if this is an on-curve point
     pub fn is_on_curve(&self) -> bool {
@@ -57,6 +58,7 @@ pub struct PathPoint {
     pub typ: PointType,
 }
 
+#[allow(dead_code)]
 impl PathPoint {
     /// Create a new path point
     pub fn new(point: Point, typ: PointType) -> Self {
@@ -100,6 +102,7 @@ impl PathPoint {
     }
 }
 
+#[allow(dead_code)]
 impl PointType {
     /// Convert from workspace point type (norad format)
     pub fn from_workspace_type(pt_type: workspace::PointType) -> Self {

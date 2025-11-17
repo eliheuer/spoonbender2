@@ -7,6 +7,7 @@
 ///
 /// Used to group consecutive edits of the same type into a single undo action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum EditType {
     /// Normal edit (creates new undo group)
     Normal,
@@ -30,6 +31,7 @@ pub enum EditType {
     NudgeRight,
 }
 
+#[allow(dead_code)]
 impl EditType {
     /// Check if this edit type should create a new undo group
     /// when following the given previous edit type

@@ -13,8 +13,10 @@ use masonry::vello::Scene;
 
 /// Internal state for the select tool
 #[derive(Debug, Clone)]
+#[derive(Default)]
 enum State {
     /// Ready to start an interaction
+    #[default]
     Ready,
     /// Dragging selected points
     DraggingPoints {
@@ -32,11 +34,6 @@ enum State {
     },
 }
 
-impl Default for State {
-    fn default() -> Self {
-        State::Ready
-    }
-}
 
 /// The select tool - used for selecting and moving points
 #[derive(Debug, Clone, Default)]
@@ -45,6 +42,7 @@ pub struct SelectTool {
     state: State,
 }
 
+#[allow(dead_code)]
 impl Tool for SelectTool {
     fn id(&self) -> ToolId {
         ToolId::Select
@@ -75,6 +73,7 @@ impl Tool for SelectTool {
     }
 }
 
+#[allow(dead_code)]
 impl MouseDelegate for SelectTool {
     type Data = EditSession;
 
@@ -110,13 +109,10 @@ impl MouseDelegate for SelectTool {
                     data.update_coord_selection();
                 }
             }
-        } else {
-            if !event.mods.shift {
-                // Clicked on empty space without shift - clear selection
-                data.selection = crate::selection::Selection::new();
-                data.update_coord_selection();
-            }
-            // Shift+click on empty space - keep selection (no action needed)
+        } else if !event.mods.shift {
+            // Clicked on empty space without shift - clear selection
+            data.selection = crate::selection::Selection::new();
+            data.update_coord_selection();
         }
     }
 
@@ -135,10 +131,10 @@ impl MouseDelegate for SelectTool {
         // (They were already selected in left_down)
         if !data.selection.is_empty() {
             // Check if we're starting the drag on a selected point
-            if let Some(hit) = data.hit_test_point(event.pos, None) {
-                if data.selection.contains(&hit.entity) {
+            if let Some(hit) = data.hit_test_point(event.pos, None)
+                && data.selection.contains(&hit.entity) {
                     // We're dragging a selected point
-                    let design_pos = data.viewport.from_screen(event.pos);
+                    let design_pos = data.viewport.screen_to_design(event.pos);
                     self.state = State::DraggingPoints {
                         last_pos: design_pos,
                     };
@@ -148,7 +144,6 @@ impl MouseDelegate for SelectTool {
                     );
                     return;
                 }
-            }
         }
 
         // Start marquee selection
@@ -171,7 +166,7 @@ impl MouseDelegate for SelectTool {
         match &mut self.state {
             State::DraggingPoints { last_pos } => {
                 // Convert current mouse position to design space
-                let current_pos = data.viewport.from_screen(event.pos);
+                let current_pos = data.viewport.screen_to_design(event.pos);
 
                 // Calculate delta in design space
                 let delta =

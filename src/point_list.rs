@@ -42,6 +42,7 @@ impl PathPoints {
     }
 
     /// Get a point by index
+    #[allow(dead_code)]
     pub fn get(&self, index: usize) -> Option<&PathPoint> {
         self.points.get(index)
     }
@@ -52,6 +53,7 @@ impl PathPoints {
     }
 
     /// Find a point by its entity ID
+    #[allow(dead_code)]
     pub fn find_by_id(&self, id: EntityId) -> Option<(usize, &PathPoint)> {
         self.points.iter().enumerate().find(|(_, pt)| pt.id == id)
     }

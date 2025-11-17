@@ -27,6 +27,7 @@ impl Path {
     }
 
     /// Get the unique identifier for this path
+    #[allow(dead_code)]
     pub fn id(&self) -> EntityId {
         match self {
             Path::Cubic(cubic) => cubic.id,
@@ -34,6 +35,7 @@ impl Path {
     }
 
     /// Get the number of points in this path
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         match self {
             Path::Cubic(cubic) => cubic.len(),
@@ -41,6 +43,7 @@ impl Path {
     }
 
     /// Check if this path is empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         match self {
             Path::Cubic(cubic) => cubic.is_empty(),
@@ -48,6 +51,7 @@ impl Path {
     }
 
     /// Check if this path is closed
+    #[allow(dead_code)]
     pub fn is_closed(&self) -> bool {
         match self {
             Path::Cubic(cubic) => cubic.closed,
@@ -55,6 +59,7 @@ impl Path {
     }
 
     /// Get the bounding box of this path
+    #[allow(dead_code)]
     pub fn bounding_box(&self) -> Option<kurbo::Rect> {
         match self {
             Path::Cubic(cubic) => cubic.bounding_box(),

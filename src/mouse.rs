@@ -13,6 +13,7 @@ const DRAG_THRESHOLD: f64 = 3.0;
 
 /// Mouse button states
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum MouseButton {
     Left,
     Right,
@@ -21,6 +22,7 @@ pub enum MouseButton {
 
 /// Modifier keys state
 #[derive(Debug, Clone, Copy, Default)]
+#[allow(dead_code)]
 pub struct Modifiers {
     pub shift: bool,
     pub ctrl: bool,
@@ -39,6 +41,7 @@ pub struct MouseEvent {
     pub mods: Modifiers,
 }
 
+#[allow(dead_code)]
 impl MouseEvent {
     /// Create a new mouse event
     pub fn new(pos: Point, button: Option<MouseButton>) -> Self {
@@ -57,6 +60,7 @@ impl MouseEvent {
 
 /// Information about a drag gesture
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct Drag {
     /// Where the drag started
     pub start: Point,
@@ -68,11 +72,13 @@ pub struct Drag {
 
 impl Drag {
     /// Get the delta from start to current
+    #[allow(dead_code)]
     pub fn delta_from_start(&self) -> (f64, f64) {
         (self.current.x - self.start.x, self.current.y - self.start.y)
     }
 
     /// Get the delta from previous to current
+    #[allow(dead_code)]
     pub fn delta_from_prev(&self) -> (f64, f64) {
         (self.current.x - self.prev.x, self.current.y - self.prev.y)
     }
@@ -270,6 +276,7 @@ impl Mouse {
     }
 
     /// Get the current mouse position
+    #[allow(dead_code)]
     pub fn pos(&self) -> Point {
         self.last_pos
     }

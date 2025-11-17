@@ -18,6 +18,7 @@ use xilem::view::{
 
 /// Create a hardcoded "R" glyph from VirtuaGrotesk-Regular
 /// This is used as the background for the welcome screen
+#[allow(clippy::vec_init_then_push)]
 fn create_r_glyph() -> Glyph {
     let mut contours = Vec::new();
 

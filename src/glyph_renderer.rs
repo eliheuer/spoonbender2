@@ -186,6 +186,7 @@ fn point_to_kurbo(pt: &ContourPoint) -> Point {
 }
 
 /// Get the bounding box of a glyph for scaling/centering
+#[allow(dead_code)]
 pub fn glyph_bounds(glyph: &Glyph) -> Option<kurbo::Rect> {
     let path = glyph_to_bezpath(glyph);
     if path.is_empty() {
