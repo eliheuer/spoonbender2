@@ -260,10 +260,8 @@ impl Widget for CoordinatePanelWidget {
                 }
             }
             PointerEvent::Leave(_) => {
-                if self.hover_quadrant.is_some() {
-                    self.hover_quadrant = None;
-                    ctx.request_render();
-                }
+                self.hover_quadrant = None;
+                ctx.request_render();
             }
             _ => {}
         }
@@ -371,13 +369,13 @@ impl CoordinatePanelWidget {
             // Brighten colors by 2 BASE steps when hovered
             let (inner_color, outer_color) = match (is_selected, is_hovered) {
                 (true, true) => {
-                    // Selected + hovered: BASE_F (0x60) -> BASE_H (0x80)
-                    (theme::base::H, DOT_SELECTED_OUTER)
+                    // Selected + hovered: BASE_H (0x80) -> BASE_J (0xa0)
+                    (theme::base::J, DOT_SELECTED_OUTER)
                 }
                 (true, false) => (DOT_SELECTED_INNER, DOT_SELECTED_OUTER),
                 (false, true) => {
-                    // Unselected + hovered: BASE_D (0x40) -> BASE_F (0x60)
-                    (theme::base::F, DOT_UNSELECTED_OUTER)
+                    // Unselected + hovered: BASE_C (0x30) -> BASE_E (0x50)
+                    (theme::base::E, DOT_UNSELECTED_OUTER)
                 }
                 (false, false) => (DOT_UNSELECTED_INNER, DOT_UNSELECTED_OUTER),
             };

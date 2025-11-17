@@ -34,7 +34,7 @@ const APP_BACKGROUND: Color = BASE_B;
 // ============================================================================
 // UI TEXT AND LABELS
 // ============================================================================
-const PRIMARY_UI_TEXT: Color = BASE_I; // Brighter for better visibility
+const PRIMARY_UI_TEXT: Color = BASE_I;
 
 // ============================================================================
 // UI PANELS (Toolbar, Coordinate Panel, Glyph Preview)
@@ -45,114 +45,94 @@ const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;
 const GLYPH_PREVIEW_COLOR: Color = BASE_J;
 
 // Coordinate Panel specific
-const COORDINATE_PANEL_GRID_LINE: Color = BASE_I; // Light gray, matches text
+const COORDINATE_PANEL_GRID_LINE: Color = BASE_I;
 
 // ============================================================================
 // GLYPH GRID VIEW
 // ============================================================================
 // Grid cell backgrounds
-const GRID_CELL_BACKGROUND: Color = BASE_C; // 0x20 - Very dark gray (one shade darker)
-const GRID_CELL_OUTLINE: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
-const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14); // Keep green
-const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90); // Keep light green
+const GRID_CELL_BACKGROUND: Color = BASE_C;
+const GRID_CELL_OUTLINE: Color = BASE_F;
+const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14);
+const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90);
 
 // Glyph rendering in grid
-const GRID_GLYPH_COLOR: Color = BASE_J; // 0xa0 - Light gray for glyph preview
-const GRID_CELL_TEXT: Color = BASE_L; // 0xc0 - Near white
+const GRID_GLYPH_COLOR: Color = BASE_J;
+const GRID_CELL_TEXT: Color = BASE_L;
 
 // ============================================================================
 // PATHS AND OUTLINES
 // ============================================================================
-const PATH_STROKE: Color = BASE_L; // 0xc0 - Near white (was 0xc8)
-const PATH_FILL: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
-const PATH_PREVIEW_FILL: Color = BASE_L; // 0xc0 - Near white (was 0xc8)
+const PATH_STROKE: Color = BASE_L;
+const PATH_FILL: Color = BASE_F;
+const PATH_PREVIEW_FILL: Color = BASE_L;
 
 // ============================================================================
 // METRICS GUIDES
 // ============================================================================
-const METRICS_GUIDE: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
+const METRICS_GUIDE: Color = BASE_F;
 
 // ============================================================================
 // GRID
 // ============================================================================
-const GRID_LINE: Color = BASE_D; // 0x40 - Medium-dark gray (was 0x3c)
+const GRID_LINE: Color = BASE_D;
 
 // ============================================================================
 // CONTROL POINT HANDLES
 // ============================================================================
-const HANDLE_LINE: Color = BASE_I; // 0x90 - Light gray (was 0x96)
+const HANDLE_LINE: Color = BASE_I;
 
 // ============================================================================
 // POINT COLORS
 // ============================================================================
 
-// Smooth on-curve points (circles) - BLUE
-const SMOOTH_POINT_INNER: Color = Color::from_rgb8(0x57, 0x9a, 0xff); // Light blue
-const SMOOTH_POINT_OUTER: Color = Color::from_rgb8(0x44, 0x28, 0xec); // Dark blue
+const SMOOTH_POINT_INNER: Color = Color::from_rgb8(0x57, 0x9a, 0xff);
+const SMOOTH_POINT_OUTER: Color = Color::from_rgb8(0x44, 0x28, 0xec);
 
 // Corner on-curve points (squares) - GREEN
-const CORNER_POINT_INNER: Color = Color::from_rgb8(0x6a, 0xe7, 0x56); // Light green
-const CORNER_POINT_OUTER: Color = Color::from_rgb8(0x20, 0x8e, 0x56); // Dark green
+const CORNER_POINT_INNER: Color = Color::from_rgb8(0x6a, 0xe7, 0x56);
+const CORNER_POINT_OUTER: Color = Color::from_rgb8(0x20, 0x8e, 0x56);
 
-// Off-curve control points (circles) - PURPLE
-const OFFCURVE_POINT_INNER: Color = Color::from_rgb8(0xcc, 0x99, 0xff); // Light purple
-const OFFCURVE_POINT_OUTER: Color = Color::from_rgb8(0x99, 0x00, 0xff); // Dark purple
+const OFFCURVE_POINT_INNER: Color = Color::from_rgb8(0xcc, 0x99, 0xff);
+const OFFCURVE_POINT_OUTER: Color = Color::from_rgb8(0x99, 0x00, 0xff);
 
-// Selected points (any type) - YELLOW/ORANGE
-const SELECTED_POINT_INNER: Color = Color::from_rgb8(0xff, 0xee, 0x55); // Yellow
-const SELECTED_POINT_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33); // Orange
+const SELECTED_POINT_INNER: Color = Color::from_rgb8(0xff, 0xee, 0x55);
+const SELECTED_POINT_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33);
 
 // ============================================================================
 // SELECTION RECTANGLE (Marquee)
 // ============================================================================
-const SELECTION_RECT_FILL: Color = Color::from_rgba8(0xff, 0xaa, 0x33, 0x20); // Semi-transparent orange
-const SELECTION_RECT_STROKE: Color = Color::from_rgb8(0xff, 0xaa, 0x33); // Bright orange (same as selected point outer)
+const SELECTION_RECT_FILL: Color = Color::from_rgba8(0xff, 0xaa, 0x33, 0x20);
+const SELECTION_RECT_STROKE: Color = Color::from_rgb8(0xff, 0xaa, 0x33);
 
 // ============================================================================
-// PUBLIC API - Don't edit below this line
+// PUBLIC API - Don't edit below this line unless you know what you're doing
 // ============================================================================
 
 /// Grayscale gradient - generic neutral colors for UI
 /// Use these base colors for consistent theming throughout the application
 pub mod base {
     use super::Color;
-
-    /// BASE_A - Darkest (0x10)
     pub const A: Color = super::BASE_A;
-    /// BASE_B - Very dark (0x20)
     pub const B: Color = super::BASE_B;
-    /// BASE_C - Dark (0x30)
     pub const C: Color = super::BASE_C;
-    /// BASE_D - Medium-dark (0x40)
     pub const D: Color = super::BASE_D;
-    /// BASE_E - Medium (0x50)
     pub const E: Color = super::BASE_E;
-    /// BASE_F - Medium (0x60)
     pub const F: Color = super::BASE_F;
-    /// BASE_G - Medium-light (0x70)
     pub const G: Color = super::BASE_G;
-    /// BASE_H - Light (0x80)
     pub const H: Color = super::BASE_H;
-    /// BASE_I - Light (0x90)
     pub const I: Color = super::BASE_I;
-    /// BASE_J - Very light (0xa0)
     pub const J: Color = super::BASE_J;
-    /// BASE_K - Very light (0xb0)
     pub const K: Color = super::BASE_K;
-    /// BASE_L - Near white (0xc0)
     pub const L: Color = super::BASE_L;
-    /// BASE_M - Near white (0xd0)
     pub const M: Color = super::BASE_M;
-    /// BASE_N - Almost white (0xe0)
     pub const N: Color = super::BASE_N;
-    /// BASE_O - Lightest (0xf0)
     pub const O: Color = super::BASE_O;
 }
 
 /// Global application background color
 pub mod app {
     use super::Color;
-    /// Main background color used across all views (welcome, grid, editor)
     pub const BACKGROUND: Color = super::APP_BACKGROUND;
 }
 
@@ -165,7 +145,6 @@ pub mod canvas {
 /// Colors for UI text
 pub mod text {
     use super::Color;
-    /// Primary text color for UI elements
     pub const PRIMARY: Color = super::PRIMARY_UI_TEXT;
 }
 
@@ -192,12 +171,12 @@ pub mod coordinate_panel {
     pub const GRID_LINE: Color = super::COORDINATE_PANEL_GRID_LINE;
     pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
-    // Dot colors - selected (darker to contrast with bright outlines)
-    pub const DOT_SELECTED_INNER: Color = super::BASE_F; // 0x60 - Medium gray
+    // Dot colors - selected (lighter for better visibility)
+    pub const DOT_SELECTED_INNER: Color = super::BASE_H; // 0x80 - Light gray
     pub const DOT_SELECTED_OUTER: Color = super::BASE_I; // 0x90 - Light gray, matches text
 
     // Dot colors - unselected (darker gray)
-    pub const DOT_UNSELECTED_INNER: Color = super::BASE_D; // 0x40 - Medium-dark gray
+    pub const DOT_UNSELECTED_INNER: Color = super::BASE_C; // 0x30 - Dark gray
     pub const DOT_UNSELECTED_OUTER: Color = super::BASE_I; // 0x90 - Light gray, matches text
 
     // Sizes (matching Runebender)
@@ -211,17 +190,11 @@ pub mod coordinate_panel {
 pub mod grid {
     use super::Color;
 
-    /// Grid cell background (unselected)
     pub const CELL_BACKGROUND: Color = super::GRID_CELL_BACKGROUND;
-    /// Grid cell outline (unselected)
     pub const CELL_OUTLINE: Color = super::GRID_CELL_OUTLINE;
-    /// Grid cell background when selected
     pub const CELL_SELECTED_BACKGROUND: Color = super::GRID_CELL_SELECTED_BACKGROUND;
-    /// Grid cell outline when selected
     pub const CELL_SELECTED_OUTLINE: Color = super::GRID_CELL_SELECTED_OUTLINE;
-    /// Text color for glyph names in grid
     pub const CELL_TEXT: Color = super::GRID_CELL_TEXT;
-    /// Glyph fill color in grid cells
     pub const GLYPH_COLOR: Color = super::GRID_GLYPH_COLOR;
 
     /// Editor canvas grid lines
