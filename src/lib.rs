@@ -3,14 +3,17 @@
 
 //! Runebender Xilem: A font editor built with Xilem
 
+// Many items are unused during development but will be used in future features
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use masonry::properties::types::{AsUnit, UnitPoint};
-use masonry::vello::peniko::Color;
 use std::sync::Arc;
 use winit::dpi::LogicalSize;
 use winit::error::EventLoopError;
 use xilem::core::one_of::Either;
 use xilem::style::Style;
-use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, CrossAxisAlignment, FlexExt, ZStackExt};
+use xilem::view::{button, flex_col, flex_row, indexed_stack, label, portal, sized_box, transformed, zstack, ChildAlignment, ZStackExt};
 use xilem::{window, EventLoopBuilder, WidgetView, WindowView, Xilem};
 
 mod actions;
@@ -37,9 +40,9 @@ mod welcome;
 mod components;
 mod workspace;
 
-use data::{AppState, Tab};
+use data::AppState;
 use welcome::welcome_view;
-use components::{coordinate_panel, calculate_coordinate_selection, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
+use components::{coordinate_panel, editor_view, glyph_view, grid_toolbar_view, toolbar_view};
 
 /// Entry point for the Runebender Xilem application
 pub fn run(event_loop: EventLoopBuilder) -> Result<(), EventLoopError> {

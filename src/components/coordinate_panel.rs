@@ -17,7 +17,6 @@ use masonry::core::{
     PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
-use masonry::vello::peniko::Color;
 use masonry::vello::Scene;
 
 /// Size constants for the coordinate pane - using theme

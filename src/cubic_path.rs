@@ -7,7 +7,7 @@ use crate::entity_id::EntityId;
 use crate::point::{PathPoint, PointType};
 use crate::point_list::PathPoints;
 use crate::workspace;
-use kurbo::{BezPath, Point, Shape};
+use kurbo::{BezPath, Shape};
 
 /// A single contour represented as a cubic bezier path
 ///

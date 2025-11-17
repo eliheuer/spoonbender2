@@ -5,8 +5,7 @@
 
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
-use crate::glyph_renderer;
-use crate::mouse::{Mouse, MouseButton, MouseEvent as MouseEvt};
+use crate::mouse::Mouse;
 use crate::point::PointType;
 use crate::settings;
 use crate::theme;
@@ -14,13 +13,13 @@ use crate::undo::UndoState;
 use kurbo::{Affine, Circle, Point, Rect as KurboRect, Shape, Stroke};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, NoAction, PaintCtx,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx,
     PointerButton, PointerButtonEvent, PointerEvent, PointerUpdate,
     PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
 use masonry::util::fill_color;
-use masonry::vello::peniko::{Brush, Color};
+use masonry::vello::peniko::Brush;
 use masonry::vello::Scene;
 use std::sync::Arc;
 

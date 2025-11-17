@@ -3,10 +3,8 @@
 
 //! Edit session - manages editing state for a single glyph
 
-use crate::entity_id::EntityId;
 use crate::hit_test::{self, HitTestResult};
 use crate::path::Path;
-use crate::quadrant::Quadrant;
 use crate::selection::Selection;
 use crate::tools::{ToolBox, ToolId};
 use crate::components::CoordinateSelection;

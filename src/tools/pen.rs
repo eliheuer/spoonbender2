@@ -6,7 +6,7 @@
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
 use crate::entity_id::EntityId;
-use crate::mouse::{Drag, MouseDelegate, MouseEvent};
+use crate::mouse::{MouseDelegate, MouseEvent};
 use crate::point::{PathPoint, PointType};
 use crate::path::Path;
 use crate::cubic_path::CubicPath;
