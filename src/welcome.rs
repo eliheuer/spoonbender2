@@ -126,17 +126,17 @@ pub fn welcome_view(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
         // Foreground: Welcome screen UI - Swiss modernist style, positioned in upper left
         transformed(
             flex_col((
-                label("Runebender Xilem").text_size(48.0).color(crate::theme::grid::GLYPH_COLOR),
-                label(error_text).text_size(12.0).color(crate::theme::grid::GLYPH_COLOR),
+                label("Runebender Xilem").text_size(48.0).color(crate::theme::text::PRIMARY),
+                label(error_text).text_size(12.0).color(crate::theme::text::PRIMARY),
                 // Smaller spacer between text and buttons
                 sized_box(label("")).height(8.px()),
                 sized_box(
-                    button(label("Open UFO...").color(crate::theme::grid::GLYPH_COLOR), |state: &mut AppState| {
+                    button(label("Open UFO...").color(crate::theme::text::PRIMARY), |state: &mut AppState| {
                         state.open_font_dialog();
                     })
                 ).width(200.px()),
                 sized_box(
-                    button(label("New Font").color(crate::theme::grid::GLYPH_COLOR), |state: &mut AppState| {
+                    button(label("New Font").color(crate::theme::text::PRIMARY), |state: &mut AppState| {
                         state.create_new_font();
                     })
                 ).width(200.px()),

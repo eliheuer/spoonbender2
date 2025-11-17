@@ -8,6 +8,7 @@ use crate::edit_type::EditType;
 use crate::glyph_renderer;
 use crate::mouse::{Mouse, MouseButton, MouseEvent as MouseEvt};
 use crate::point::PointType;
+use crate::settings;
 use crate::theme;
 use crate::undo::UndoState;
 use kurbo::{Affine, Circle, Point, Rect as KurboRect, Shape, Stroke};
@@ -22,11 +23,6 @@ use masonry::util::fill_color;
 use masonry::vello::peniko::{Brush, Color};
 use masonry::vello::Scene;
 use std::sync::Arc;
-
-/// Zoom constraints (from Runebender)
-const MIN_ZOOM: f64 = 0.02;
-const MAX_ZOOM: f64 = 50.0;
-const ZOOM_SCALE: f64 = 0.001;
 
 /// The main glyph editor canvas widget
 pub struct EditorWidget {
@@ -318,12 +314,12 @@ impl Widget for EditorWidget {
                 }
 
                 // PERFORMANCE: Emit SessionUpdate during active drag so preview pane updates in real-time
-                // BUT throttle to every 3rd frame to avoid excessive Xilem view rebuilds.
+                // BUT throttle to every Nth frame to avoid excessive Xilem view rebuilds.
                 // This provides smooth preview updates without killing performance.
-                // Adjust the modulo value (currently 3) to tune responsiveness vs performance.
+                // Adjust settings::performance::DRAG_UPDATE_THROTTLE to tune responsiveness vs performance.
                 if ctx.is_active() {
                     self.drag_update_counter += 1;
-                    if self.drag_update_counter % 3 == 0 {
+                    if self.drag_update_counter % settings::performance::DRAG_UPDATE_THROTTLE == 0 {
                         // Update coordinate selection before emitting update
                         self.session.update_coord_selection();
 
@@ -484,7 +480,7 @@ impl Widget for EditorWidget {
 
                 // Zoom in (Cmd/Ctrl + or =)
                 if cmd && matches!(&key_event.key, Key::Character(c) if c == "+" || c == "=") {
-                    let new_zoom = (self.session.viewport.zoom * 1.1).min(MAX_ZOOM);
+                    let new_zoom = (self.session.viewport.zoom * 1.1).min(settings::editor::MAX_ZOOM);
                     self.session.viewport.zoom = new_zoom;
                     println!("Zoom in: new zoom = {:.2}", new_zoom);
                     ctx.request_render();
@@ -494,7 +490,7 @@ impl Widget for EditorWidget {
 
                 // Zoom out (Cmd/Ctrl -)
                 if cmd && matches!(&key_event.key, Key::Character(c) if c == "-") {
-                    let new_zoom = (self.session.viewport.zoom / 1.1).max(MIN_ZOOM);
+                    let new_zoom = (self.session.viewport.zoom / 1.1).max(settings::editor::MIN_ZOOM);
                     self.session.viewport.zoom = new_zoom;
                     println!("Zoom out: new zoom = {:.2}", new_zoom);
                     ctx.request_render();

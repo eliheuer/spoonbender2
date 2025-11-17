@@ -1,4 +1,4 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Theme colors and constants
@@ -8,86 +8,50 @@
 use masonry::vello::peniko::Color;
 
 // ============================================================================
-// GRAYSCALE GRADIENT - Generic neutral colors for UI
+// BASE COLORS -- Generic colors for UI, a dark to light gradient by default
 // ============================================================================
-// Grayscale palette from darkest (A) to lightest (O) in 0x10 increments
-// Use these for consistent neutral colors throughout the UI
-// A=0x10, B=0x20, C=0x30, D=0x40, E=0x50, F=0x60, G=0x70, H=0x80,
-// I=0x90, J=0xa0, K=0xb0, L=0xc0, M=0xd0, N=0xe0, O=0xf0
-
-/// BASE_A - Darkest (0x10)
 const BASE_A: Color = Color::from_rgb8(0x10, 0x10, 0x10);
-
-/// BASE_B - Very dark (0x20)
 const BASE_B: Color = Color::from_rgb8(0x20, 0x20, 0x20);
-
-/// BASE_C - Dark (0x30)
 const BASE_C: Color = Color::from_rgb8(0x30, 0x30, 0x30);
-
-/// BASE_D - Medium-dark (0x40)
 const BASE_D: Color = Color::from_rgb8(0x40, 0x40, 0x40);
-
-/// BASE_E - Medium (0x50)
 const BASE_E: Color = Color::from_rgb8(0x50, 0x50, 0x50);
-
-/// BASE_F - Medium (0x60)
 const BASE_F: Color = Color::from_rgb8(0x60, 0x60, 0x60);
-
-/// BASE_G - Medium-light (0x70)
 const BASE_G: Color = Color::from_rgb8(0x70, 0x70, 0x70);
-
-/// BASE_H - Light (0x80)
 const BASE_H: Color = Color::from_rgb8(0x80, 0x80, 0x80);
-
-/// BASE_I - Light (0x90)
 const BASE_I: Color = Color::from_rgb8(0x90, 0x90, 0x90);
-
-/// BASE_J - Very light (0xa0)
 const BASE_J: Color = Color::from_rgb8(0xa0, 0xa0, 0xa0);
-
-/// BASE_K - Very light (0xb0)
 const BASE_K: Color = Color::from_rgb8(0xb0, 0xb0, 0xb0);
-
-/// BASE_L - Near white (0xc0)
 const BASE_L: Color = Color::from_rgb8(0xc0, 0xc0, 0xc0);
-
-/// BASE_M - Near white (0xd0)
 const BASE_M: Color = Color::from_rgb8(0xd0, 0xd0, 0xd0);
-
-/// BASE_N - Almost white (0xe0)
 const BASE_N: Color = Color::from_rgb8(0xe0, 0xe0, 0xe0);
-
-/// BASE_O - Lightest (0xf0)
 const BASE_O: Color = Color::from_rgb8(0xf0, 0xf0, 0xf0);
 
 // ============================================================================
-// GLOBAL BACKGROUNDS
+// GLOBAL BACKGROUNDS -- Used for welcome screen, grid view, editor canvas, etc
 // ============================================================================
-/// Main application background - used for welcome screen, grid view, editor canvas
-const APP_BACKGROUND: Color = BASE_B;  // Using BASE_B (0x20, close to original 0x15)
+const APP_BACKGROUND: Color = BASE_B;
 
 // ============================================================================
 // UI TEXT AND LABELS
 // ============================================================================
-const PRIMARY_UI_TEXT: Color = BASE_L;  // 0xc0 - Near white for primary UI text
-const LABEL_TEXT: Color = BASE_J;       // 0xa0 - Dimmer for labels
+const PRIMARY_UI_TEXT: Color = BASE_G;
 
 // ============================================================================
-// UI PANELS (Toolbar, Coordinate Pane, Glyph Preview)
+// UI PANELS (Toolbar, Coordinate Panel, Glyph Preview)
 // ============================================================================
-const PANEL_BACKGROUND: Color = BASE_D;           // 0x40 - Medium-dark gray
-const PANEL_OUTLINE: Color = BASE_F;              // 0x60 - Medium gray
-const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;     // 0x10 - Darkest
-const GLYPH_PREVIEW_COLOR: Color = BASE_J;        // 0xa0 - Light gray (matches grid)
+const PANEL_BACKGROUND: Color = BASE_C;
+const PANEL_OUTLINE: Color = BASE_F;
+const TOOLBAR_BUTTON_OUTLINE: Color = BASE_A;
+const GLYPH_PREVIEW_COLOR: Color = BASE_J;
 
-// Coordinate Pane specific
-const COORD_PANE_GRID_LINE: Color = BASE_A;       // 0x10 - Darkest (was 0x0a, rounded up)
+// Coordinate Panel specific
+const COORD_PANE_GRID_LINE: Color = BASE_A;
 
 // ============================================================================
 // GLYPH GRID VIEW
 // ============================================================================
 // Grid cell backgrounds
-const GRID_CELL_BACKGROUND: Color = BASE_C;       // 0x30 - Dark gray (was 0x32)
+const GRID_CELL_BACKGROUND: Color = BASE_B;       // 0x20 - Very dark gray (one shade darker)
 const GRID_CELL_OUTLINE: Color = BASE_F;          // 0x60 - Medium gray (was 0x64)
 const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14);  // Keep green
 const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90);     // Keep light green
@@ -203,11 +167,9 @@ pub mod text {
     use super::Color;
     /// Primary text color for UI elements
     pub const PRIMARY: Color = super::PRIMARY_UI_TEXT;
-    /// Dimmer text for labels and secondary information
-    pub const LABEL: Color = super::LABEL_TEXT;
 }
 
-/// Colors for UI panels (toolbar, info panes, etc.)
+/// Colors for UI panels (toolbar, coordinate panel, glyph preview, etc.)
 pub mod panel {
     use super::Color;
     pub const BACKGROUND: Color = super::PANEL_BACKGROUND;
@@ -224,7 +186,7 @@ pub mod toolbar {
     pub const ICON: Color = super::BASE_D;
 }
 
-/// Colors and sizes for coordinate pane
+/// Colors and sizes for coordinate panel
 pub mod coord_pane {
     use super::Color;
     pub const GRID_LINE: Color = super::COORD_PANE_GRID_LINE;

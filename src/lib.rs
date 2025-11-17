@@ -31,6 +31,7 @@ mod point_list;
 mod quadrant;
 mod segment;
 mod selection;
+mod settings;
 mod theme;
 mod toolbar;
 mod tools;
@@ -345,15 +346,15 @@ fn glyph_preview_pane(session: Arc<crate::edit_session::EditSession>, glyph_name
             } else {
                 Either::B(label(""))
             },
-            // Glyph name and unicode labels - match grid style
+            // Glyph name and unicode labels - use primary UI text color
             sized_box(
                 flex_col((
                     label(glyph_name)
                         .text_size(11.0)
-                        .color(theme::grid::GLYPH_COLOR),
+                        .color(theme::text::PRIMARY),
                     label(unicode_display)
                         .text_size(11.0)
-                        .color(theme::grid::GLYPH_COLOR),
+                        .color(theme::text::PRIMARY),
                     sized_box(label("")).height(4.px()), // Add 4px spacer below labels for margin
                 ))
                 .gap(2.px())
@@ -410,15 +411,15 @@ fn glyph_cell(glyph_name: String, glyph_opt: Option<Arc<workspace::Glyph>>, code
     };
 
     // Create label with glyph name and unicode
-    // Use same light gray as glyph color for consistency
+    // Use primary UI text color for consistency
     // Smaller text size and minimal gap between lines
     let name_label = label(display_name)
         .text_size(11.0)
-        .color(theme::grid::GLYPH_COLOR);
+        .color(theme::text::PRIMARY);
 
     let unicode_label = label(unicode_display)
         .text_size(11.0)
-        .color(theme::grid::GLYPH_COLOR);
+        .color(theme::text::PRIMARY);
 
     // Wrap labels in a centered column with minimal gap, constrained height
     let label_with_spacing = sized_box(

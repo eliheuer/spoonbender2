@@ -559,7 +559,7 @@ where
         label(text)
             .text_size(12.0)
             .text_alignment(parley::Alignment::Start)
-            .color(theme::text::LABEL)
+            .color(theme::text::PRIMARY)
     };
 
     sized_box(
