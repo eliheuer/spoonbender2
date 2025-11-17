@@ -1,4 +1,4 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Glyph editor widget - the main canvas for editing glyphs
@@ -13,8 +13,9 @@ use crate::undo::UndoState;
 use kurbo::{Affine, Circle, Point, Rect as KurboRect, Stroke};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx, PointerButton,
-    PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, PropertiesRef, RegisterCtx,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx,
+    PaintCtx, PointerButton, PointerButtonEvent, PointerEvent,
+    PointerUpdate, PropertiesMut, PropertiesRef, RegisterCtx,
     TextEvent, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
@@ -22,6 +23,7 @@ use masonry::util::fill_color;
 use masonry::vello::Scene;
 use masonry::vello::peniko::Brush;
 use std::sync::Arc;
+use tracing;
 
 /// The main glyph editor canvas widget
 pub struct EditorWidget {
@@ -40,17 +42,21 @@ pub struct EditorWidget {
     /// The last edit type (for grouping consecutive edits)
     last_edit_type: Option<EditType>,
 
-    /// Tool to return to when spacebar is released (for temporary preview mode)
+    /// Tool to return to when spacebar is released
+    /// (for temporary preview mode)
     previous_tool: Option<crate::tools::ToolId>,
 
     /// Frame counter for throttling preview updates during drag
     ///
-    /// PERFORMANCE OPTIMIZATION: Emitting SessionUpdate on every mouse move during drag
-    /// causes significant lag because each update triggers a full Xilem view rebuild,
-    /// which includes cloning the entire EditSession, running app_logic(), and rebuilding
-    /// the preview pane's BezPath. By throttling to every Nth frame (currently every 3rd),
-    /// we achieve a 67% reduction in rebuilds while maintaining smooth visual feedback.
-    /// The main canvas still redraws every frame - only the expensive Xilem rebuild is throttled.
+    /// PERFORMANCE OPTIMIZATION: Emitting SessionUpdate on every
+    /// mouse move during drag causes significant lag because each
+    /// update triggers a full Xilem view rebuild, which includes
+    /// cloning the entire EditSession, running app_logic(), and
+    /// rebuilding the preview pane's BezPath. By throttling to
+    /// every Nth frame (currently every 3rd), we achieve a 67%
+    /// reduction in rebuilds while maintaining smooth visual
+    /// feedback. The main canvas still redraws every frame - only
+    /// the expensive Xilem rebuild is throttled.
     drag_update_counter: u32,
 }
 
@@ -80,7 +86,8 @@ impl EditorWidget {
     /// Record an edit operation for undo
     ///
     /// This manages undo grouping:
-    /// - If the edit type matches the last edit, update the current undo group
+    /// - If the edit type matches the last edit, update the
+    ///   current undo group
     /// - If the edit type is different, create a new undo group
     fn record_edit(&mut self, edit_type: EditType) {
         match self.last_edit_type {
@@ -89,7 +96,8 @@ impl EditorWidget {
                 self.undo.update_current_undo(self.session.clone());
             }
             _ => {
-                // Different edit type or first edit - create new undo group
+                // Different edit type or first edit - create new
+                // undo group
                 self.undo.add_undo_group(self.session.clone());
                 self.last_edit_type = Some(edit_type);
             }
@@ -152,7 +160,12 @@ impl Widget for EditorWidget {
         size
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
+    fn paint(
+        &mut self,
+        ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        scene: &mut Scene,
+    ) {
         let canvas_size = ctx.size();
 
         // Fill background
@@ -167,51 +180,24 @@ impl Widget for EditorWidget {
 
         // Initialize viewport on first paint
         if !self.session.viewport_initialized {
-            // Calculate initial viewport positioning to center the glyph
-            let ascender = self.session.ascender;
-            let descender = self.session.descender;
-
-            // Calculate the visible height in design space
-            let design_height = ascender - descender;
-
-            // Center the viewport on the canvas
-            let center_x = canvas_size.width / 2.0;
-            let center_y = canvas_size.height / 2.0;
-
-            // Create a transform that:
-            // 1. Scales to fit the canvas (with some padding)
-            // 2. Centers the glyph
-            let padding = 0.8; // Leave 20% padding
-            let scale = (canvas_size.height * padding) / design_height;
-
-            // Center point in design space (middle of advance width, middle of height)
-            let design_center_x = self.session.glyph.width / 2.0;
-            let design_center_y = (ascender + descender) / 2.0;
-
-            // Update the viewport to match our rendering transform
-            // The viewport uses: zoom (scale) and offset (translation after scale)
-            self.session.viewport.zoom = scale;
-            // Offset calculation based on to_screen formula:
-            // screen.x = design.x * zoom + offset.x
-            // screen.y = -design.y * zoom + offset.y
-            // For design_center to map to canvas_center:
-            self.session.viewport.offset = kurbo::Vec2::new(
-                center_x - design_center_x * scale,
-                center_y + design_center_y * scale, // Y is flipped in to_affine
-            );
-
-            self.session.viewport_initialized = true;
+            self.initialize_viewport(canvas_size);
         }
 
         // Build transform from viewport (always uses current zoom/offset)
         let transform = self.session.viewport.affine();
 
         // Check if we're in preview mode (Preview tool is active)
-        let is_preview_mode = self.session.current_tool.id() == crate::tools::ToolId::Preview;
+        let is_preview_mode =
+            self.session.current_tool.id() == crate::tools::ToolId::Preview;
 
         if !is_preview_mode {
             // Edit mode: Draw font metrics guides
-            draw_metrics_guides(scene, &transform, &self.session, canvas_size);
+            draw_metrics_guides(
+                scene,
+                &transform,
+                &self.session,
+                canvas_size,
+            );
         }
 
         if glyph_path.is_empty() {
@@ -222,7 +208,8 @@ impl Widget for EditorWidget {
         let transformed_path = transform * &glyph_path;
 
         if is_preview_mode {
-            // Preview mode: Fill the glyph with light gray (visible on dark theme)
+            // Preview mode: Fill the glyph with light gray
+            // (visible on dark theme)
             let fill_brush = Brush::Solid(theme::path::PREVIEW_FILL);
             scene.fill(
                 peniko::Fill::NonZero,
@@ -235,16 +222,25 @@ impl Widget for EditorWidget {
             // Edit mode: Draw the glyph outline with stroke
             let stroke = Stroke::new(theme::size::PATH_STROKE_WIDTH);
             let brush = Brush::Solid(theme::path::STROKE);
-            scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &transformed_path);
+            scene.stroke(
+                &stroke,
+                Affine::IDENTITY,
+                &brush,
+                None,
+                &transformed_path,
+            );
 
             // Draw control point lines and points
             draw_paths_with_points(scene, &self.session, &transform);
 
-            // Draw tool overlays (e.g., selection rectangle for marquee)
-            // Temporarily take ownership of the tool to call paint (requires &mut)
+            // Draw tool overlays (e.g., selection rectangle for
+            // marquee). Temporarily take ownership of the tool to
+            // call paint (requires &mut)
             let mut tool = std::mem::replace(
                 &mut self.session.current_tool,
-                crate::tools::ToolBox::for_id(crate::tools::ToolId::Select),
+                crate::tools::ToolBox::for_id(
+                    crate::tools::ToolId::Select,
+                ),
             );
             tool.paint(scene, &self.session, &transform);
             self.session.current_tool = tool;
@@ -257,8 +253,6 @@ impl Widget for EditorWidget {
         _props: &mut PropertiesMut<'_>,
         event: &PointerEvent,
     ) {
-        use crate::mouse::{MouseButton, MouseEvent};
-        use crate::tools::{ToolBox, ToolId};
 
         match event {
             PointerEvent::Down(PointerButtonEvent {
@@ -266,83 +260,11 @@ impl Widget for EditorWidget {
                 state,
                 ..
             }) => {
-                println!(
-                    "[EditorWidget::on_pointer_event] Down at {:?}, current_tool: {:?}",
-                    state.position,
-                    self.session.current_tool.id()
-                );
-
-                // Request focus to receive keyboard events
-                println!("[EditorWidget] Requesting focus!");
-                ctx.request_focus();
-
-                // Capture pointer to receive drag events
-                ctx.capture_pointer();
-
-                let local_pos = ctx.local_position(state.position);
-
-                // Extract modifier keys from pointer state
-                // state.modifiers is keyboard_types::Modifiers from ui-events crate
-                use crate::mouse::Modifiers;
-                let mods = Modifiers {
-                    shift: state.modifiers.shift(),
-                    ctrl: state.modifiers.ctrl(),
-                    alt: state.modifiers.alt(),
-                    meta: state.modifiers.meta(),
-                };
-
-                // Create MouseEvent for our mouse state machine
-                let mouse_event =
-                    MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
-
-                // Temporarily take ownership of the tool to avoid borrow conflicts
-                let mut tool = std::mem::replace(
-                    &mut self.session.current_tool,
-                    ToolBox::for_id(ToolId::Select),
-                );
-                self.mouse
-                    .mouse_down(mouse_event, &mut tool, &mut self.session);
-                self.session.current_tool = tool;
-
-                ctx.request_render();
+                self.handle_pointer_down(ctx, state);
             }
 
             PointerEvent::Move(PointerUpdate { current, .. }) => {
-                let local_pos = ctx.local_position(current.position);
-
-                // Create MouseEvent
-                let mouse_event = MouseEvent::new(local_pos, None);
-
-                // Temporarily take ownership of the tool
-                let mut tool = std::mem::replace(
-                    &mut self.session.current_tool,
-                    ToolBox::for_id(ToolId::Select),
-                );
-                self.mouse
-                    .mouse_moved(mouse_event, &mut tool, &mut self.session);
-                self.session.current_tool = tool;
-
-                // Request render during drag OR when pen tool needs hover feedback
-                let needs_render = ctx.is_active() || self.session.current_tool.id() == ToolId::Pen;
-                if needs_render {
-                    ctx.request_render();
-                }
-
-                // PERFORMANCE: Emit SessionUpdate during active drag so preview pane updates in real-time
-                // BUT throttle to every Nth frame to avoid excessive Xilem view rebuilds.
-                // This provides smooth preview updates without killing performance.
-                // Adjust settings::performance::DRAG_UPDATE_THROTTLE to tune responsiveness vs performance.
-                if ctx.is_active() {
-                    self.drag_update_counter += 1;
-                    if self.drag_update_counter.is_multiple_of(settings::performance::DRAG_UPDATE_THROTTLE) {
-                        // Update coordinate selection before emitting update
-                        self.session.update_coord_selection();
-
-                        ctx.submit_action::<SessionUpdate>(SessionUpdate {
-                            session: self.session.clone(),
-                        });
-                    }
-                }
+                self.handle_pointer_move(ctx, current);
             }
 
             PointerEvent::Up(PointerButtonEvent {
@@ -350,66 +272,17 @@ impl Widget for EditorWidget {
                 state,
                 ..
             }) => {
-                let local_pos = ctx.local_position(state.position);
-
-                // Extract modifier keys from pointer state
-                use crate::mouse::Modifiers;
-                let mods = Modifiers {
-                    shift: state.modifiers.shift(),
-                    ctrl: state.modifiers.ctrl(),
-                    alt: state.modifiers.alt(),
-                    meta: state.modifiers.meta(),
-                };
-
-                // Create MouseEvent with modifiers
-                let mouse_event =
-                    MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
-
-                // Temporarily take ownership of the tool
-                let mut tool = std::mem::replace(
-                    &mut self.session.current_tool,
-                    ToolBox::for_id(ToolId::Select),
-                );
-                self.mouse
-                    .mouse_up(mouse_event, &mut tool, &mut self.session);
-
-                // Record undo if an edit occurred
-                if let Some(edit_type) = tool.edit_type() {
-                    self.record_edit(edit_type);
-                }
-
-                self.session.current_tool = tool;
-
-                // Update coordinate selection after tool operation
-                self.session.update_coord_selection();
-
-                // Reset drag update counter for next drag operation
-                self.drag_update_counter = 0;
-
-                // Emit action to notify view of session changes
-                ctx.submit_action::<SessionUpdate>(SessionUpdate {
-                    session: self.session.clone(),
-                });
-
-                ctx.release_pointer();
-                ctx.request_render();
+                self.handle_pointer_up(ctx, state);
             }
 
             PointerEvent::Cancel(_) => {
-                // Temporarily take ownership of the tool
-                let mut tool = std::mem::replace(
-                    &mut self.session.current_tool,
-                    ToolBox::for_id(ToolId::Select),
-                );
-                self.mouse.cancel(&mut tool, &mut self.session);
-                self.session.current_tool = tool;
-
-                ctx.request_render();
+                self.handle_pointer_cancel(ctx);
             }
 
             _ => {
-                // TODO: Implement wheel event handling once Masonry exposes it
-                // For now, zooming can be done via keyboard shortcuts or commands
+                // TODO: Implement wheel event handling once Masonry
+                // exposes it. For now, zooming can be done via
+                // keyboard shortcuts or commands
             }
         }
     }
@@ -420,75 +293,18 @@ impl Widget for EditorWidget {
         _props: &mut PropertiesMut<'_>,
         event: &TextEvent,
     ) {
-        use masonry::core::keyboard::{Key, KeyState, NamedKey};
+        use masonry::core::keyboard::KeyState;
 
         if let TextEvent::Keyboard(key_event) = event {
-            println!(
+            tracing::debug!(
                 "[EditorWidget::on_text_event] key: {:?}, state: {:?}",
-                key_event.key, key_event.state
+                key_event.key,
+                key_event.state
             );
 
-            // Handle spacebar for temporary preview mode (both down and up)
-            if matches!(&key_event.key, Key::Character(c) if c == " ") {
-                println!(
-                    "[EditorWidget] Spacebar detected! state: {:?}, previous_tool: {:?}",
-                    key_event.state, self.previous_tool
-                );
-
-                if key_event.state == KeyState::Down && self.previous_tool.is_none() {
-                    // Spacebar pressed: save current tool and switch to Preview
-                    let current_tool = self.session.current_tool.id();
-                    if current_tool != crate::tools::ToolId::Preview {
-                        self.previous_tool = Some(current_tool);
-
-                        // Cancel the current tool and reset mouse state (like Runebender)
-                        use crate::tools::ToolBox;
-                        let mut tool = std::mem::replace(
-                            &mut self.session.current_tool,
-                            ToolBox::for_id(crate::tools::ToolId::Select),
-                        );
-                        self.mouse.cancel(&mut tool, &mut self.session);
-
-                        // Reset mouse state by creating new instance
-                        self.mouse = Mouse::new();
-
-                        // Switch to Preview tool
-                        self.session.current_tool =
-                            ToolBox::for_id(crate::tools::ToolId::Preview);
-
-                        println!(
-                            "Spacebar down: switched to Preview, will return to {:?}",
-                            current_tool
-                        );
-
-                        // Emit SessionUpdate so the toolbar reflects the change
-                        ctx.submit_action::<SessionUpdate>(SessionUpdate {
-                            session: self.session.clone(),
-                        });
-
-                        ctx.request_render();
-                        ctx.set_handled();
-                    }
-                    return;
-                } else if key_event.state == KeyState::Up && self.previous_tool.is_some() {
-                    // Spacebar released: return to previous tool
-                    if let Some(previous) = self.previous_tool.take() {
-                        // Reset mouse state by creating new instance
-                        self.mouse = Mouse::new();
-
-                        self.session.current_tool = crate::tools::ToolBox::for_id(previous);
-                        println!("Spacebar up: returned to {:?}", previous);
-
-                        // Emit SessionUpdate so the toolbar reflects the change
-                        ctx.submit_action::<SessionUpdate>(SessionUpdate {
-                            session: self.session.clone(),
-                        });
-
-                        ctx.request_render();
-                        ctx.set_handled();
-                    }
-                    return;
-                }
+            // Handle spacebar for temporary preview mode
+            if self.handle_spacebar(ctx, key_event) {
+                return;
             }
 
             // Only handle key down events for other keys
@@ -497,131 +313,22 @@ impl Widget for EditorWidget {
             }
 
             // Check for keyboard shortcuts
-            let cmd = key_event.modifiers.meta() || key_event.modifiers.ctrl();
+            let cmd = key_event.modifiers.meta()
+                || key_event.modifiers.ctrl();
             let shift = key_event.modifiers.shift();
 
-            // Undo/Redo
-            if cmd && matches!(&key_event.key, Key::Character(c) if c == "z") {
-                if shift {
-                    // Cmd+Shift+Z = Redo
-                    self.redo();
-                    ctx.request_render();
-                    ctx.set_handled();
-                    return;
-                } else {
-                    // Cmd+Z = Undo
-                    self.undo();
-                    ctx.request_render();
-                    ctx.set_handled();
-                    return;
-                }
-            }
-
-            // Zoom in (Cmd/Ctrl + or =)
-            if cmd && matches!(&key_event.key, Key::Character(c) if c == "+" || c == "=") {
-                let new_zoom =
-                    (self.session.viewport.zoom * 1.1).min(settings::editor::MAX_ZOOM);
-                self.session.viewport.zoom = new_zoom;
-                println!("Zoom in: new zoom = {:.2}", new_zoom);
-                ctx.request_render();
-                ctx.set_handled();
-                return;
-            }
-
-            // Zoom out (Cmd/Ctrl -)
-            if cmd && matches!(&key_event.key, Key::Character(c) if c == "-") {
-                let new_zoom =
-                    (self.session.viewport.zoom / 1.1).max(settings::editor::MIN_ZOOM);
-                self.session.viewport.zoom = new_zoom;
-                println!("Zoom out: new zoom = {:.2}", new_zoom);
-                ctx.request_render();
-                ctx.set_handled();
-                return;
-            }
-
-            // Fit to window (Cmd/Ctrl+0)
-            if cmd && matches!(&key_event.key, Key::Character(c) if c == "0") {
-                // Reset viewport to fit glyph in window
-                self.session.viewport_initialized = false;
-                println!("Fit to window: resetting viewport");
-                ctx.request_render();
-                ctx.set_handled();
-                return;
-            }
-
-            // Save (Cmd/Ctrl+S)
-            if cmd && matches!(&key_event.key, Key::Character(c) if c == "s") {
-                println!("💾 Saved: {}", self.session.ufo_path.display());
-                ctx.set_handled();
-                return;
-            }
-
-            // Delete selected points (Backspace or Delete key)
-            if matches!(
+            // Handle keyboard shortcuts
+            if self.handle_keyboard_shortcuts(
+                ctx,
                 &key_event.key,
-                Key::Named(NamedKey::Backspace) | Key::Named(NamedKey::Delete)
+                cmd,
+                shift,
             ) {
-                self.session.delete_selection();
-                self.record_edit(EditType::Normal);
-                ctx.request_render();
-                ctx.set_handled();
-                return;
-            }
-
-            // Toggle point type (T key)
-            if matches!(&key_event.key, Key::Character(c) if c == "t") {
-                self.session.toggle_point_type();
-                self.record_edit(EditType::Normal);
-                ctx.request_render();
-                ctx.set_handled();
-                return;
-            }
-
-            // Reverse contours (R key)
-            if matches!(&key_event.key, Key::Character(c) if c == "r") {
-                self.session.reverse_contours();
-                self.record_edit(EditType::Normal);
-                ctx.request_render();
-                ctx.set_handled();
                 return;
             }
 
             // Handle arrow keys for nudging
-            let (dx, dy) = match &key_event.key {
-                Key::Named(NamedKey::ArrowLeft) => {
-                    println!("Arrow Left pressed");
-                    (-1.0, 0.0)
-                }
-                Key::Named(NamedKey::ArrowRight) => {
-                    println!("Arrow Right pressed");
-                    (1.0, 0.0)
-                }
-                Key::Named(NamedKey::ArrowUp) => {
-                    println!("Arrow Up pressed");
-                    (0.0, 1.0) // Design space: Y increases upward
-                }
-                Key::Named(NamedKey::ArrowDown) => {
-                    println!("Arrow Down pressed");
-                    (0.0, -1.0) // Design space: Y increases upward
-                }
-                _ => return,
-            };
-
-            let shift = key_event.modifiers.shift();
-            let ctrl = key_event.modifiers.ctrl() || key_event.modifiers.meta();
-
-            println!(
-                "Nudging selection: dx={} dy={} shift={} ctrl={} selection_len={}",
-                dx,
-                dy,
-                shift,
-                ctrl,
-                self.session.selection.len()
-            );
-
-            self.session.nudge_selection(dx, dy, shift, ctrl);
-            ctx.request_render();
-            ctx.set_handled();
+            self.handle_arrow_keys(ctx, &key_event.key, shift, cmd);
         }
     }
 
@@ -635,11 +342,464 @@ impl Widget for EditorWidget {
         _props: &PropertiesRef<'_>,
         node: &mut Node,
     ) {
-        node.set_label(format!("Editing glyph: {}", self.session.glyph_name));
+        node.set_label(format!(
+            "Editing glyph: {}",
+            self.session.glyph_name
+        ));
     }
 
     fn children_ids(&self) -> ChildrenIds {
         ChildrenIds::new()
+    }
+}
+
+impl EditorWidget {
+    /// Initialize viewport positioning to center the glyph
+    fn initialize_viewport(&mut self, canvas_size: Size) {
+        let ascender = self.session.ascender;
+        let descender = self.session.descender;
+
+        // Calculate the visible height in design space
+        let design_height = ascender - descender;
+
+        // Center the viewport on the canvas
+        let center_x = canvas_size.width / 2.0;
+        let center_y = canvas_size.height / 2.0;
+
+        // Create a transform that:
+        // 1. Scales to fit the canvas (with some padding)
+        // 2. Centers the glyph
+        let padding = 0.8; // Leave 20% padding
+        let scale = (canvas_size.height * padding) / design_height;
+
+        // Center point in design space (middle of advance width,
+        // middle of height)
+        let design_center_x = self.session.glyph.width / 2.0;
+        let design_center_y = (ascender + descender) / 2.0;
+
+        // Update the viewport to match our rendering transform
+        // The viewport uses: zoom (scale) and offset (translation
+        // after scale)
+        self.session.viewport.zoom = scale;
+        // Offset calculation based on to_screen formula:
+        // screen.x = design.x * zoom + offset.x
+        // screen.y = -design.y * zoom + offset.y
+        // For design_center to map to canvas_center:
+        self.session.viewport.offset = kurbo::Vec2::new(
+            center_x - design_center_x * scale,
+            center_y + design_center_y * scale, // Y is flipped
+        );
+
+        self.session.viewport_initialized = true;
+    }
+
+    /// Handle pointer down event
+    fn handle_pointer_down(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        state: &masonry::core::PointerState,
+    ) {
+        use crate::mouse::{MouseButton, MouseEvent, Modifiers};
+        use crate::tools::{ToolBox, ToolId};
+
+        tracing::debug!(
+            "[EditorWidget::on_pointer_event] Down at {:?}, \
+             current_tool: {:?}",
+            state.position,
+            self.session.current_tool.id()
+        );
+
+        // Request focus to receive keyboard events
+        tracing::debug!("[EditorWidget] Requesting focus!");
+        ctx.request_focus();
+
+        // Capture pointer to receive drag events
+        ctx.capture_pointer();
+
+        let local_pos = ctx.local_position(state.position);
+
+        // Extract modifier keys from pointer state
+        // state.modifiers is keyboard_types::Modifiers from
+        // ui-events crate
+        let mods = Modifiers {
+            shift: state.modifiers.shift(),
+            ctrl: state.modifiers.ctrl(),
+            alt: state.modifiers.alt(),
+            meta: state.modifiers.meta(),
+        };
+
+        // Create MouseEvent for our mouse state machine
+        let mouse_event = MouseEvent::with_modifiers(
+            local_pos,
+            Some(MouseButton::Left),
+            mods,
+        );
+
+        // Temporarily take ownership of the tool to avoid borrow
+        // conflicts
+        let mut tool = std::mem::replace(
+            &mut self.session.current_tool,
+            ToolBox::for_id(ToolId::Select),
+        );
+        self.mouse
+            .mouse_down(mouse_event, &mut tool, &mut self.session);
+        self.session.current_tool = tool;
+
+        ctx.request_render();
+    }
+
+    /// Handle pointer move event
+    fn handle_pointer_move(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        current: &masonry::core::PointerState,
+    ) {
+        use crate::mouse::MouseEvent;
+        use crate::tools::{ToolBox, ToolId};
+
+        let local_pos = ctx.local_position(current.position);
+
+        // Create MouseEvent
+        let mouse_event = MouseEvent::new(local_pos, None);
+
+        // Temporarily take ownership of the tool
+        let mut tool = std::mem::replace(
+            &mut self.session.current_tool,
+            ToolBox::for_id(ToolId::Select),
+        );
+        self.mouse
+            .mouse_moved(mouse_event, &mut tool, &mut self.session);
+        self.session.current_tool = tool;
+
+        // Request render during drag OR when pen tool needs hover
+        // feedback
+        let needs_render =
+            ctx.is_active() || self.session.current_tool.id() == ToolId::Pen;
+        if needs_render {
+            ctx.request_render();
+        }
+
+        // PERFORMANCE: Emit SessionUpdate during active drag so
+        // preview pane updates in real-time BUT throttle to every
+        // Nth frame to avoid excessive Xilem view rebuilds. This
+        // provides smooth preview updates without killing
+        // performance. Adjust
+        // settings::performance::DRAG_UPDATE_THROTTLE to tune
+        // responsiveness vs performance.
+        if ctx.is_active() {
+            self.drag_update_counter += 1;
+            let throttle = settings::performance::DRAG_UPDATE_THROTTLE;
+            if self.drag_update_counter.is_multiple_of(throttle) {
+                // Update coordinate selection before emitting update
+                self.session.update_coord_selection();
+
+                ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                    session: self.session.clone(),
+                });
+            }
+        }
+    }
+
+    /// Handle pointer up event
+    fn handle_pointer_up(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        state: &masonry::core::PointerState,
+    ) {
+        use crate::mouse::{MouseButton, MouseEvent, Modifiers};
+        use crate::tools::{ToolBox, ToolId};
+
+        let local_pos = ctx.local_position(state.position);
+
+        // Extract modifier keys from pointer state
+        let mods = Modifiers {
+            shift: state.modifiers.shift(),
+            ctrl: state.modifiers.ctrl(),
+            alt: state.modifiers.alt(),
+            meta: state.modifiers.meta(),
+        };
+
+        // Create MouseEvent with modifiers
+        let mouse_event = MouseEvent::with_modifiers(
+            local_pos,
+            Some(MouseButton::Left),
+            mods,
+        );
+
+        // Temporarily take ownership of the tool
+        let mut tool = std::mem::replace(
+            &mut self.session.current_tool,
+            ToolBox::for_id(ToolId::Select),
+        );
+        self.mouse
+            .mouse_up(mouse_event, &mut tool, &mut self.session);
+
+        // Record undo if an edit occurred
+        if let Some(edit_type) = tool.edit_type() {
+            self.record_edit(edit_type);
+        }
+
+        self.session.current_tool = tool;
+
+        // Update coordinate selection after tool operation
+        self.session.update_coord_selection();
+
+        // Reset drag update counter for next drag operation
+        self.drag_update_counter = 0;
+
+        // Emit action to notify view of session changes
+        ctx.submit_action::<SessionUpdate>(SessionUpdate {
+            session: self.session.clone(),
+        });
+
+        ctx.release_pointer();
+        ctx.request_render();
+    }
+
+    /// Handle pointer cancel event
+    fn handle_pointer_cancel(&mut self, ctx: &mut EventCtx<'_>) {
+        use crate::tools::{ToolBox, ToolId};
+
+        // Temporarily take ownership of the tool
+        let mut tool = std::mem::replace(
+            &mut self.session.current_tool,
+            ToolBox::for_id(ToolId::Select),
+        );
+        self.mouse.cancel(&mut tool, &mut self.session);
+        self.session.current_tool = tool;
+
+        ctx.request_render();
+    }
+
+    /// Handle spacebar for temporary preview mode
+    fn handle_spacebar(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        key_event: &masonry::core::keyboard::KeyboardEvent,
+    ) -> bool {
+        use masonry::core::keyboard::{Key, KeyState};
+
+        if !matches!(&key_event.key, Key::Character(c) if c == " ") {
+            return false;
+        }
+
+        tracing::debug!(
+            "[EditorWidget] Spacebar detected! state: {:?}, \
+             previous_tool: {:?}",
+            key_event.state,
+            self.previous_tool
+        );
+
+        if key_event.state == KeyState::Down
+            && self.previous_tool.is_none()
+        {
+            // Spacebar pressed: save current tool and switch to
+            // Preview
+            let current_tool = self.session.current_tool.id();
+            if current_tool != crate::tools::ToolId::Preview {
+                self.previous_tool = Some(current_tool);
+
+                // Cancel the current tool and reset mouse state
+                // (like Runebender)
+                use crate::tools::ToolBox;
+                let mut tool = std::mem::replace(
+                    &mut self.session.current_tool,
+                    ToolBox::for_id(crate::tools::ToolId::Select),
+                );
+                self.mouse.cancel(&mut tool, &mut self.session);
+
+                // Reset mouse state by creating new instance
+                self.mouse = Mouse::new();
+
+                // Switch to Preview tool
+                self.session.current_tool =
+                    ToolBox::for_id(crate::tools::ToolId::Preview);
+
+                tracing::debug!(
+                    "Spacebar down: switched to Preview, will \
+                     return to {:?}",
+                    current_tool
+                );
+
+                // Emit SessionUpdate so the toolbar reflects the
+                // change
+                ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                    session: self.session.clone(),
+                });
+
+                ctx.request_render();
+                ctx.set_handled();
+            }
+            return true;
+        } else if key_event.state == KeyState::Up
+            && self.previous_tool.is_some()
+        {
+            // Spacebar released: return to previous tool
+            if let Some(previous) = self.previous_tool.take() {
+                // Reset mouse state by creating new instance
+                self.mouse = Mouse::new();
+
+                self.session.current_tool =
+                    crate::tools::ToolBox::for_id(previous);
+                tracing::debug!("Spacebar up: returned to {:?}", previous);
+
+                // Emit SessionUpdate so the toolbar reflects the
+                // change
+                ctx.submit_action::<SessionUpdate>(SessionUpdate {
+                    session: self.session.clone(),
+                });
+
+                ctx.request_render();
+                ctx.set_handled();
+            }
+            return true;
+        }
+
+        false
+    }
+
+    /// Handle keyboard shortcuts (undo, redo, zoom, save, etc.)
+    fn handle_keyboard_shortcuts(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        key: &masonry::core::keyboard::Key,
+        cmd: bool,
+        shift: bool,
+    ) -> bool {
+        use masonry::core::keyboard::{Key, NamedKey};
+
+        // Undo/Redo
+        if cmd && matches!(key, Key::Character(c) if c == "z") {
+            if shift {
+                // Cmd+Shift+Z = Redo
+                self.redo();
+            } else {
+                // Cmd+Z = Undo
+                self.undo();
+            }
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        // Zoom in (Cmd/Ctrl + or =)
+        if cmd && matches!(key, Key::Character(c) if c == "+" || c == "=") {
+            let new_zoom = (self.session.viewport.zoom * 1.1)
+                .min(settings::editor::MAX_ZOOM);
+            self.session.viewport.zoom = new_zoom;
+            tracing::debug!("Zoom in: new zoom = {:.2}", new_zoom);
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        // Zoom out (Cmd/Ctrl -)
+        if cmd && matches!(key, Key::Character(c) if c == "-") {
+            let new_zoom = (self.session.viewport.zoom / 1.1)
+                .max(settings::editor::MIN_ZOOM);
+            self.session.viewport.zoom = new_zoom;
+            tracing::debug!("Zoom out: new zoom = {:.2}", new_zoom);
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        // Fit to window (Cmd/Ctrl+0)
+        if cmd && matches!(key, Key::Character(c) if c == "0") {
+            // Reset viewport to fit glyph in window
+            self.session.viewport_initialized = false;
+            tracing::debug!("Fit to window: resetting viewport");
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        // Save (Cmd/Ctrl+S)
+        if cmd && matches!(key, Key::Character(c) if c == "s") {
+            tracing::debug!(
+                "💾 Saved: {}",
+                self.session.ufo_path.display()
+            );
+            ctx.set_handled();
+            return true;
+        }
+
+        // Delete selected points (Backspace or Delete key)
+        if matches!(
+            key,
+            Key::Named(NamedKey::Backspace) | Key::Named(NamedKey::Delete)
+        ) {
+            self.session.delete_selection();
+            self.record_edit(EditType::Normal);
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        // Toggle point type (T key)
+        if matches!(key, Key::Character(c) if c == "t") {
+            self.session.toggle_point_type();
+            self.record_edit(EditType::Normal);
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        // Reverse contours (R key)
+        if matches!(key, Key::Character(c) if c == "r") {
+            self.session.reverse_contours();
+            self.record_edit(EditType::Normal);
+            ctx.request_render();
+            ctx.set_handled();
+            return true;
+        }
+
+        false
+    }
+
+    /// Handle arrow keys for nudging
+    fn handle_arrow_keys(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        key: &masonry::core::keyboard::Key,
+        shift: bool,
+        ctrl: bool,
+    ) {
+        use masonry::core::keyboard::{Key, NamedKey};
+
+        let (dx, dy) = match key {
+            Key::Named(NamedKey::ArrowLeft) => {
+                tracing::debug!("Arrow Left pressed");
+                (-1.0, 0.0)
+            }
+            Key::Named(NamedKey::ArrowRight) => {
+                tracing::debug!("Arrow Right pressed");
+                (1.0, 0.0)
+            }
+            Key::Named(NamedKey::ArrowUp) => {
+                tracing::debug!("Arrow Up pressed");
+                (0.0, 1.0) // Design space: Y increases upward
+            }
+            Key::Named(NamedKey::ArrowDown) => {
+                tracing::debug!("Arrow Down pressed");
+                (0.0, -1.0) // Design space: Y increases upward
+            }
+            _ => return,
+        };
+
+        tracing::debug!(
+            "Nudging selection: dx={} dy={} shift={} ctrl={} \
+             selection_len={}",
+            dx,
+            dy,
+            shift,
+            ctrl,
+            self.session.selection.len()
+        );
+
+        self.session.nudge_selection(dx, dy, shift, ctrl);
+        ctx.request_render();
+        ctx.set_handled();
     }
 }
 
@@ -653,8 +813,9 @@ fn draw_metrics_guides(
     let stroke = Stroke::new(theme::size::METRIC_LINE_WIDTH);
     let brush = Brush::Solid(theme::metrics::GUIDE);
 
-    // Helper to draw a horizontal line at a given Y coordinate in design space
-    // Lines are contained within the metrics box (from x=0 to x=advance_width)
+    // Helper to draw a horizontal line at a given Y coordinate in
+    // design space. Lines are contained within the metrics box
+    // (from x=0 to x=advance_width)
     let draw_hline = |scene: &mut Scene, y: f64| {
         let start = Point::new(0.0, y);
         let end = Point::new(session.glyph.width, y);
@@ -663,11 +824,18 @@ fn draw_metrics_guides(
         let end_screen = *transform * end;
 
         let line = kurbo::Line::new(start_screen, end_screen);
-        scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &line);
+        scene.stroke(
+            &stroke,
+            Affine::IDENTITY,
+            &brush,
+            None,
+            &line,
+        );
     };
 
-    // Helper to draw a vertical line at a given X coordinate in design space
-    // Lines are contained within the metrics box (from y=descender to y=ascender)
+    // Helper to draw a vertical line at a given X coordinate in
+    // design space. Lines are contained within the metrics box
+    // (from y=descender to y=ascender)
     let draw_vline = |scene: &mut Scene, x: f64| {
         let start = Point::new(x, session.descender);
         let end = Point::new(x, session.ascender);
@@ -676,7 +844,13 @@ fn draw_metrics_guides(
         let end_screen = *transform * end;
 
         let line = kurbo::Line::new(start_screen, end_screen);
-        scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &line);
+        scene.stroke(
+            &stroke,
+            Affine::IDENTITY,
+            &brush,
+            None,
+            &line,
+        );
     };
 
     // Draw vertical lines (left and right edges of metrics box)
@@ -705,63 +879,20 @@ fn draw_metrics_guides(
 }
 
 /// Draw paths with control point lines and styled points
-fn draw_paths_with_points(scene: &mut Scene, session: &EditSession, transform: &Affine) {
+fn draw_paths_with_points(
+    scene: &mut Scene,
+    session: &EditSession,
+    transform: &Affine,
+) {
     use crate::path::Path;
 
     // First pass: draw control point lines (handles)
-    // In cubic bezier curves, handles connect on-curve points to their adjacent off-curve control points
+    // In cubic bezier curves, handles connect on-curve points to
+    // their adjacent off-curve control points
     for path in session.paths.iter() {
         match path {
             Path::Cubic(cubic) => {
-                let points: Vec<_> = cubic.points.iter().collect();
-                if points.is_empty() {
-                    continue;
-                }
-
-                // For each point, if it's on-curve, draw handles to adjacent off-curve points
-                for i in 0..points.len() {
-                    let pt = points[i];
-
-                    if pt.is_on_curve() {
-                        // Look at the next point (with wrapping for closed paths)
-                        let next_i = if i + 1 < points.len() {
-                            i + 1
-                        } else if cubic.closed {
-                            0
-                        } else {
-                            continue;
-                        };
-
-                        // Look at the previous point (with wrapping for closed paths)
-                        let prev_i = if i > 0 {
-                            i - 1
-                        } else if cubic.closed {
-                            points.len() - 1
-                        } else {
-                            continue;
-                        };
-
-                        // Draw handle to next point if it's off-curve
-                        if next_i < points.len() && points[next_i].is_off_curve() {
-                            let start = *transform * pt.point;
-                            let end = *transform * points[next_i].point;
-                            let line = kurbo::Line::new(start, end);
-                            let stroke = Stroke::new(theme::size::HANDLE_LINE_WIDTH);
-                            let brush = Brush::Solid(theme::handle::LINE);
-                            scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &line);
-                        }
-
-                        // Draw handle to previous point if it's off-curve
-                        if prev_i < points.len() && points[prev_i].is_off_curve() {
-                            let start = *transform * pt.point;
-                            let end = *transform * points[prev_i].point;
-                            let line = kurbo::Line::new(start, end);
-                            let stroke = Stroke::new(theme::size::HANDLE_LINE_WIDTH);
-                            let brush = Brush::Solid(theme::handle::LINE);
-                            scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &line);
-                        }
-                    }
-                }
+                draw_control_handles(scene, cubic, transform);
             }
         }
     }
@@ -770,102 +901,210 @@ fn draw_paths_with_points(scene: &mut Scene, session: &EditSession, transform: &
     for path in session.paths.iter() {
         match path {
             Path::Cubic(cubic) => {
-                for pt in cubic.points.iter() {
-                    let screen_pos = *transform * pt.point;
-                    let is_selected = session.selection.contains(&pt.id);
-
-                    match pt.typ {
-                        PointType::OnCurve { smooth } => {
-                            if smooth {
-                                // Draw smooth point as circle
-                                let radius = if is_selected {
-                                    theme::size::SMOOTH_POINT_SELECTED_RADIUS
-                                } else {
-                                    theme::size::SMOOTH_POINT_RADIUS
-                                };
-
-                                let (inner_color, outer_color) = if is_selected {
-                                    (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
-                                } else {
-                                    (theme::point::SMOOTH_INNER, theme::point::SMOOTH_OUTER)
-                                };
-
-                                // Outer circle (border)
-                                let outer_circle = Circle::new(screen_pos, radius + 1.0);
-                                fill_color(scene, &outer_circle, outer_color);
-
-                                // Inner circle
-                                let inner_circle = Circle::new(screen_pos, radius);
-                                fill_color(scene, &inner_circle, inner_color);
-                            } else {
-                                // Draw corner point as square
-                                let half_size = if is_selected {
-                                    theme::size::CORNER_POINT_SELECTED_HALF_SIZE
-                                } else {
-                                    theme::size::CORNER_POINT_HALF_SIZE
-                                };
-
-                                let (inner_color, outer_color) = if is_selected {
-                                    (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
-                                } else {
-                                    (theme::point::CORNER_INNER, theme::point::CORNER_OUTER)
-                                };
-
-                                // Outer square (border)
-                                let outer_rect = KurboRect::new(
-                                    screen_pos.x - half_size - 1.0,
-                                    screen_pos.y - half_size - 1.0,
-                                    screen_pos.x + half_size + 1.0,
-                                    screen_pos.y + half_size + 1.0,
-                                );
-                                fill_color(scene, &outer_rect, outer_color);
-
-                                // Inner square
-                                let inner_rect = KurboRect::new(
-                                    screen_pos.x - half_size,
-                                    screen_pos.y - half_size,
-                                    screen_pos.x + half_size,
-                                    screen_pos.y + half_size,
-                                );
-                                fill_color(scene, &inner_rect, inner_color);
-                            }
-                        }
-                        PointType::OffCurve { .. } => {
-                            // Draw off-curve point as small circle
-                            let radius = if is_selected {
-                                theme::size::OFFCURVE_POINT_SELECTED_RADIUS
-                            } else {
-                                theme::size::OFFCURVE_POINT_RADIUS
-                            };
-
-                            let (inner_color, outer_color) = if is_selected {
-                                (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
-                            } else {
-                                (theme::point::OFFCURVE_INNER, theme::point::OFFCURVE_OUTER)
-                            };
-
-                            // Outer circle (border)
-                            let outer_circle = Circle::new(screen_pos, radius + 1.0);
-                            fill_color(scene, &outer_circle, outer_color);
-
-                            // Inner circle
-                            let inner_circle = Circle::new(screen_pos, radius);
-                            fill_color(scene, &inner_circle, inner_color);
-                        }
-                    }
-                }
+                draw_points(scene, cubic, session, transform);
             }
         }
     }
 }
 
-// --- MARK: XILEM VIEW WRAPPER ---
+/// Draw control handles for a cubic path
+fn draw_control_handles(
+    scene: &mut Scene,
+    cubic: &crate::cubic_path::CubicPath,
+    transform: &Affine,
+) {
+    let points: Vec<_> = cubic.points.iter().collect();
+    if points.is_empty() {
+        return;
+    }
+
+    // For each point, if it's on-curve, draw handles to adjacent
+    // off-curve points
+    for i in 0..points.len() {
+        let pt = points[i];
+
+        if !pt.is_on_curve() {
+            continue;
+        }
+
+        // Look at the next point (with wrapping for closed paths)
+        let next_i = if i + 1 < points.len() {
+            i + 1
+        } else if cubic.closed {
+            0
+        } else {
+            continue;
+        };
+
+        // Look at the previous point (with wrapping for closed
+        // paths)
+        let prev_i = if i > 0 {
+            i - 1
+        } else if cubic.closed {
+            points.len() - 1
+        } else {
+            continue;
+        };
+
+        // Draw handle to next point if it's off-curve
+        if next_i < points.len() && points[next_i].is_off_curve() {
+            let start = *transform * pt.point;
+            let end = *transform * points[next_i].point;
+            let line = kurbo::Line::new(start, end);
+            let stroke = Stroke::new(theme::size::HANDLE_LINE_WIDTH);
+            let brush = Brush::Solid(theme::handle::LINE);
+            scene.stroke(
+                &stroke,
+                Affine::IDENTITY,
+                &brush,
+                None,
+                &line,
+            );
+        }
+
+        // Draw handle to previous point if it's off-curve
+        if prev_i < points.len() && points[prev_i].is_off_curve() {
+            let start = *transform * pt.point;
+            let end = *transform * points[prev_i].point;
+            let line = kurbo::Line::new(start, end);
+            let stroke = Stroke::new(theme::size::HANDLE_LINE_WIDTH);
+            let brush = Brush::Solid(theme::handle::LINE);
+            scene.stroke(
+                &stroke,
+                Affine::IDENTITY,
+                &brush,
+                None,
+                &line,
+            );
+        }
+    }
+}
+
+/// Draw points for a cubic path
+fn draw_points(
+    scene: &mut Scene,
+    cubic: &crate::cubic_path::CubicPath,
+    session: &EditSession,
+    transform: &Affine,
+) {
+    for pt in cubic.points.iter() {
+        let screen_pos = *transform * pt.point;
+        let is_selected = session.selection.contains(&pt.id);
+
+        match pt.typ {
+            PointType::OnCurve { smooth } => {
+                if smooth {
+                    draw_smooth_point(scene, screen_pos, is_selected);
+                } else {
+                    draw_corner_point(scene, screen_pos, is_selected);
+                }
+            }
+            PointType::OffCurve { .. } => {
+                draw_offcurve_point(scene, screen_pos, is_selected);
+            }
+        }
+    }
+}
+
+/// Draw a smooth on-curve point as a circle
+fn draw_smooth_point(
+    scene: &mut Scene,
+    screen_pos: Point,
+    is_selected: bool,
+) {
+    let radius = if is_selected {
+        theme::size::SMOOTH_POINT_SELECTED_RADIUS
+    } else {
+        theme::size::SMOOTH_POINT_RADIUS
+    };
+
+    let (inner_color, outer_color) = if is_selected {
+        (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
+    } else {
+        (theme::point::SMOOTH_INNER, theme::point::SMOOTH_OUTER)
+    };
+
+    // Outer circle (border)
+    let outer_circle = Circle::new(screen_pos, radius + 1.0);
+    fill_color(scene, &outer_circle, outer_color);
+
+    // Inner circle
+    let inner_circle = Circle::new(screen_pos, radius);
+    fill_color(scene, &inner_circle, inner_color);
+}
+
+/// Draw a corner on-curve point as a square
+fn draw_corner_point(
+    scene: &mut Scene,
+    screen_pos: Point,
+    is_selected: bool,
+) {
+    let half_size = if is_selected {
+        theme::size::CORNER_POINT_SELECTED_HALF_SIZE
+    } else {
+        theme::size::CORNER_POINT_HALF_SIZE
+    };
+
+    let (inner_color, outer_color) = if is_selected {
+        (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
+    } else {
+        (theme::point::CORNER_INNER, theme::point::CORNER_OUTER)
+    };
+
+    // Outer square (border)
+    let outer_rect = KurboRect::new(
+        screen_pos.x - half_size - 1.0,
+        screen_pos.y - half_size - 1.0,
+        screen_pos.x + half_size + 1.0,
+        screen_pos.y + half_size + 1.0,
+    );
+    fill_color(scene, &outer_rect, outer_color);
+
+    // Inner square
+    let inner_rect = KurboRect::new(
+        screen_pos.x - half_size,
+        screen_pos.y - half_size,
+        screen_pos.x + half_size,
+        screen_pos.y + half_size,
+    );
+    fill_color(scene, &inner_rect, inner_color);
+}
+
+/// Draw an off-curve point as a small circle
+fn draw_offcurve_point(
+    scene: &mut Scene,
+    screen_pos: Point,
+    is_selected: bool,
+) {
+    let radius = if is_selected {
+        theme::size::OFFCURVE_POINT_SELECTED_RADIUS
+    } else {
+        theme::size::OFFCURVE_POINT_RADIUS
+    };
+
+    let (inner_color, outer_color) = if is_selected {
+        (theme::point::SELECTED_INNER, theme::point::SELECTED_OUTER)
+    } else {
+        (theme::point::OFFCURVE_INNER, theme::point::OFFCURVE_OUTER)
+    };
+
+    // Outer circle (border)
+    let outer_circle = Circle::new(screen_pos, radius + 1.0);
+    fill_color(scene, &outer_circle, outer_color);
+
+    // Inner circle
+    let inner_circle = Circle::new(screen_pos, radius);
+    fill_color(scene, &inner_circle, inner_color);
+}
+
+// ===== XILEM VIEW WRAPPER =====
 
 use std::marker::PhantomData;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
-/// Create an editor view from an edit session with a callback for session updates
+/// Create an editor view from an edit session with a callback for
+/// session updates
 pub fn editor_view<State, F>(
     session: Arc<EditSession>,
     on_session_update: F,
@@ -890,13 +1129,17 @@ pub struct EditorView<State, F> {
 
 impl<State, F> ViewMarker for EditorView<State, F> {}
 
-impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), ViewCtx>
-    for EditorView<State, F>
+impl<State: 'static, F: Fn(&mut State, EditSession) + 'static>
+    View<State, (), ViewCtx> for EditorView<State, F>
 {
     type Element = Pod<EditorWidget>;
     type ViewState = ();
 
-    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
+    fn build(
+        &self,
+        ctx: &mut ViewCtx,
+        _app_state: &mut State,
+    ) -> (Self::Element, Self::ViewState) {
         let widget = EditorWidget::new(self.session.clone());
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());
@@ -911,12 +1154,17 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
         mut element: Mut<'_, Self::Element>,
         _app_state: &mut State,
     ) {
-        // Update the widget's session if it changed (e.g., tool selection changed)
-        // We compare Arc pointers - if they're different, the session was updated
+        // Update the widget's session if it changed (e.g., tool
+        // selection changed). We compare Arc pointers - if they're
+        // different, the session was updated
         if !Arc::ptr_eq(&self.session, &prev.session) {
-            println!("[EditorView::rebuild] Session Arc changed, updating widget");
-            println!(
-                "[EditorView::rebuild] Old tool: {:?}, New tool: {:?}",
+            tracing::debug!(
+                "[EditorView::rebuild] Session Arc changed, \
+                 updating widget"
+            );
+            tracing::debug!(
+                "[EditorView::rebuild] Old tool: {:?}, New tool: \
+                 {:?}",
                 prev.session.current_tool.id(),
                 self.session.current_tool.id()
             );
@@ -925,10 +1173,12 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
             let mut widget = element.downcast::<EditorWidget>();
 
             // Update the session, but preserve:
-            // - Mouse state (to avoid breaking active drag operations)
+            // - Mouse state (to avoid breaking active drag
+            //   operations)
             // - Undo state
             // - Canvas size
-            // This allows tool changes and other session updates to take effect
+            // This allows tool changes and other session updates to
+            // take effect
             widget.widget.session = (*self.session).clone();
             widget.ctx.request_render();
         }
@@ -953,14 +1203,19 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
         // Handle SessionUpdate messages from the widget
         match message.take_message::<SessionUpdate>() {
             Some(update) => {
-                println!(
-                    "[EditorView::message] Handling SessionUpdate, calling callback, selection.len()={}",
+                tracing::debug!(
+                    "[EditorView::message] Handling SessionUpdate, \
+                     calling callback, selection.len()={}",
                     update.session.selection.len()
                 );
                 (self.on_session_update)(app_state, update.session);
-                println!("[EditorView::message] Callback complete, returning Action(())");
-                // Return Action(()) to propagate to root and trigger full app rebuild
-                // This ensures all UI elements (including coordinate pane) see the updated state
+                tracing::debug!(
+                    "[EditorView::message] Callback complete, \
+                     returning Action(())"
+                );
+                // Return Action(()) to propagate to root and trigger
+                // full app rebuild. This ensures all UI elements
+                // (including coordinate pane) see the updated state
                 MessageResult::Action(())
             }
             None => MessageResult::Stale,

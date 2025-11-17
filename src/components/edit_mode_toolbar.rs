@@ -1,51 +1,56 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Toolbar widget with icon-based tool buttons
+//! Edit mode toolbar widget - tool selection toolbar for the editor view
+//!
+//! This toolbar displays icon-based buttons for selecting editing tools
+//! (Select, Pen, Preview, etc.) and is shown in the editor view when
+//! editing glyphs.
 
 use crate::tools::ToolId;
 use kurbo::{Affine, BezPath, Point, Rect, Shape, Size};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx, PointerButton,
-    PointerButtonEvent, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx,
+    PaintCtx, PointerButton, PointerButtonEvent, PointerEvent,
+    PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
     UpdateCtx, Widget,
 };
 use masonry::util::{fill_color, stroke};
 use masonry::vello::Scene;
-use masonry::vello::peniko::Color;
+use tracing;
 
-/// Toolbar dimensions
-const TOOLBAR_ITEM_SIZE: f64 = 48.0;
-const TOOLBAR_ITEM_SPACING: f64 = 6.0; // Space between buttons
-const TOOLBAR_PADDING: f64 = 8.0; // Padding around the entire toolbar (space between buttons and container)
-const ICON_PADDING: f64 = 8.0;
-#[allow(dead_code)]
-const ITEM_STROKE_WIDTH: f64 = 1.5;
-const BUTTON_RADIUS: f64 = 6.0; // Rounded corner radius
-const BORDER_WIDTH: f64 = 1.5; // Border thickness for buttons and panel
+// Import toolbar dimensions from theme
+use crate::theme::size::{
+    TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_RADIUS, TOOLBAR_ICON_PADDING,
+    TOOLBAR_ITEM_SIZE, TOOLBAR_ITEM_SPACING, TOOLBAR_PADDING,
+};
 
-/// Toolbar colors (from theme)
-const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND; // Panel background
-const COLOR_UNSELECTED: Color = crate::theme::toolbar::BUTTON_UNSELECTED; // Unselected buttons
-const COLOR_SELECTED: Color = crate::theme::toolbar::BUTTON_SELECTED; // Selected button
-const COLOR_ICON: Color = crate::theme::toolbar::ICON; // Icon color
-const COLOR_PANEL_BORDER: Color = crate::theme::panel::OUTLINE; // Panel container border
-const COLOR_BUTTON_BORDER: Color = crate::theme::panel::BUTTON_OUTLINE; // Toolbar button borders
+// Import toolbar colors from theme
+use crate::theme::panel::{
+    BACKGROUND as COLOR_PANEL,
+    BUTTON_OUTLINE as COLOR_BUTTON_BORDER,
+    OUTLINE as COLOR_PANEL_BORDER,
+};
+use crate::theme::toolbar::{
+    BUTTON_SELECTED as COLOR_SELECTED,
+    BUTTON_UNSELECTED as COLOR_UNSELECTED,
+    ICON as COLOR_ICON,
+};
 
 /// Available tools in display order
 /// Currently only showing implemented tools: Select, Pen, Preview
 const TOOLBAR_TOOLS: &[ToolId] = &[ToolId::Select, ToolId::Pen, ToolId::Preview];
 
-/// Toolbar widget
-pub struct ToolbarWidget {
+/// Edit mode toolbar widget
+pub struct EditModeToolbarWidget {
     /// Currently selected tool
     selected_tool: ToolId,
     /// Currently hovered tool (if any)
     hover_tool: Option<ToolId>,
 }
 
-impl ToolbarWidget {
+impl EditModeToolbarWidget {
     pub fn new(selected_tool: ToolId) -> Self {
         Self {
             selected_tool,
@@ -68,7 +73,8 @@ impl ToolbarWidget {
 
     /// Get the rect for a tool button by index
     fn button_rect(&self, index: usize) -> Rect {
-        let x = TOOLBAR_PADDING + index as f64 * (TOOLBAR_ITEM_SIZE + TOOLBAR_ITEM_SPACING);
+        let x = TOOLBAR_PADDING
+            + index as f64 * (TOOLBAR_ITEM_SIZE + TOOLBAR_ITEM_SPACING);
         let y = TOOLBAR_PADDING;
         Rect::new(x, y, x + TOOLBAR_ITEM_SIZE, y + TOOLBAR_ITEM_SIZE)
     }
@@ -88,7 +94,7 @@ impl ToolbarWidget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ToolSelected(pub ToolId);
 
-impl Widget for ToolbarWidget {
+impl Widget for EditModeToolbarWidget {
     type Action = ToolSelected;
 
     fn register_children(&mut self, _ctx: &mut RegisterCtx<'_>) {
@@ -120,20 +126,32 @@ impl Widget for ToolbarWidget {
         bc.constrain(size)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx<'_>, _props: &PropertiesRef<'_>, scene: &mut Scene) {
-        // Draw a solid background panel behind all buttons to prevent transparency issues
+    fn paint(
+        &mut self,
+        ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        scene: &mut Scene,
+    ) {
+        // Draw a solid background panel behind all buttons to prevent
+        // transparency issues
         let size = ctx.size();
         let panel_rect = size.to_rect();
         let panel_rrect = kurbo::RoundedRect::from_rect(panel_rect, 8.0);
 
-        // Solid opaque background - darker than buttons but brighter than canvas
+        // Solid opaque background - darker than buttons but brighter
+        // than canvas
         fill_color(scene, &panel_rrect, COLOR_PANEL);
 
         // Draw panel border - inset slightly to prevent corner artifacts
-        let border_inset = BORDER_WIDTH / 2.0;
+        let border_inset = TOOLBAR_BORDER_WIDTH / 2.0;
         let inset_rect = panel_rect.inset(-border_inset);
         let inset_rrect = kurbo::RoundedRect::from_rect(inset_rect, 8.0);
-        stroke(scene, &inset_rrect, COLOR_PANEL_BORDER, BORDER_WIDTH);
+        stroke(
+            scene,
+            &inset_rrect,
+            COLOR_PANEL_BORDER,
+            TOOLBAR_BORDER_WIDTH,
+        );
 
         // Draw each toolbar button as a separate rounded rectangle
         for (i, &tool) in TOOLBAR_TOOLS.iter().enumerate() {
@@ -141,7 +159,10 @@ impl Widget for ToolbarWidget {
             let is_selected = tool == self.selected_tool;
 
             // Create rounded rectangle for button
-            let button_rrect = kurbo::RoundedRect::from_rect(button_rect, BUTTON_RADIUS);
+            let button_rrect = kurbo::RoundedRect::from_rect(
+                button_rect,
+                TOOLBAR_BUTTON_RADIUS,
+            );
 
             // Draw button background
             let bg_color = if is_selected {
@@ -152,7 +173,12 @@ impl Widget for ToolbarWidget {
             fill_color(scene, &button_rrect, bg_color);
 
             // Draw button border (thicker)
-            stroke(scene, &button_rrect, COLOR_BUTTON_BORDER, BORDER_WIDTH);
+            stroke(
+                scene,
+                &button_rrect,
+                COLOR_BUTTON_BORDER,
+                TOOLBAR_BORDER_WIDTH,
+            );
 
             // Draw icon
             let icon_path = Self::icon_for_tool(tool);
@@ -161,9 +187,11 @@ impl Widget for ToolbarWidget {
             // Determine icon color based on state
             let is_hovered = self.hover_tool == Some(tool);
             let icon_color = if is_selected || is_hovered {
-                crate::theme::base::C // Darker icon for selected or hovered button
+                crate::theme::base::C // Darker icon for selected or
+                                      // hovered button
             } else {
-                COLOR_ICON // Normal icon color for unselected, unhovered buttons
+                COLOR_ICON // Normal icon color for unselected,
+                            // unhovered buttons
             };
             fill_color(scene, &constrained_path, icon_color);
         }
@@ -198,31 +226,39 @@ impl Widget for ToolbarWidget {
                 state,
                 ..
             }) => {
-                println!(
-                    "[ToolbarWidget::on_pointer_event] Down at {:?}",
+                tracing::debug!(
+                    "[EditModeToolbarWidget::on_pointer_event] Down at {:?}",
                     state.position
                 );
                 let local_pos = ctx.local_position(state.position);
-                println!(
-                    "[ToolbarWidget::on_pointer_event] local_pos: {:?}",
+                tracing::debug!(
+                    "[EditModeToolbarWidget::on_pointer_event] \
+                     local_pos: {:?}",
                     local_pos
                 );
                 if let Some(tool) = self.tool_at_point(local_pos) {
-                    println!("[ToolbarWidget::on_pointer_event] Hit tool: {:?}", tool);
+                    tracing::debug!(
+                        "[EditModeToolbarWidget::on_pointer_event] Hit \
+                         tool: {:?}",
+                        tool
+                    );
                     if tool != self.selected_tool {
                         self.selected_tool = tool;
                         ctx.submit_action::<ToolSelected>(ToolSelected(tool));
                         ctx.request_render();
                     }
-                    // Mark event as handled to prevent it from reaching widgets below in zstack
+                    // Mark event as handled to prevent it from reaching
+                    // widgets below in zstack
                     ctx.set_handled();
                 } else {
-                    // Even if we didn't hit a tool, consume the event so it doesn't go to the editor
+                    // Even if we didn't hit a tool, consume the event so
+                    // it doesn't go to the editor
                     ctx.set_handled();
                 }
             }
             PointerEvent::Move(pointer_move) => {
-                let local_pos = ctx.local_position(pointer_move.current.position);
+                let local_pos =
+                    ctx.local_position(pointer_move.current.position);
                 let new_hover = self.tool_at_point(local_pos);
                 if new_hover != self.hover_tool {
                     self.hover_tool = new_hover;
@@ -255,7 +291,7 @@ fn constrain_icon(mut path: BezPath, button_rect: Rect, tool: ToolId) -> BezPath
     let bounds = path.bounding_box();
 
     // Calculate available space (button size minus padding)
-    let available = TOOLBAR_ITEM_SIZE - 2.0 * ICON_PADDING;
+    let available = TOOLBAR_ITEM_SIZE - 2.0 * TOOLBAR_ICON_PADDING;
 
     // Calculate scale to fit icon in available space
     let scale_x = available / bounds.width();
@@ -265,10 +301,12 @@ fn constrain_icon(mut path: BezPath, button_rect: Rect, tool: ToolId) -> BezPath
     // Center the icon in the button
     let scaled_width = bounds.width() * scale;
     let scaled_height = bounds.height() * scale;
-    let mut offset_x =
-        button_rect.min_x() + (TOOLBAR_ITEM_SIZE - scaled_width) / 2.0 - bounds.min_x() * scale;
-    let offset_y =
-        button_rect.min_y() + (TOOLBAR_ITEM_SIZE - scaled_height) / 2.0 - bounds.min_y() * scale;
+    let mut offset_x = button_rect.min_x()
+        + (TOOLBAR_ITEM_SIZE - scaled_width) / 2.0
+        - bounds.min_x() * scale;
+    let offset_y = button_rect.min_y()
+        + (TOOLBAR_ITEM_SIZE - scaled_height) / 2.0
+        - bounds.min_y() * scale;
 
     // Apply per-tool visual centering adjustments
     match tool {
@@ -472,48 +510,53 @@ fn ellipse_icon() -> BezPath {
     bez
 }
 
-// --- XILEM VIEW WRAPPER ---
+// ===== XILEM VIEW WRAPPER =====
 
 use std::marker::PhantomData;
 use xilem::core::{MessageContext, MessageResult, Mut, View, ViewMarker};
 use xilem::{Pod, ViewCtx};
 
-/// Create a toolbar view
-pub fn toolbar_view<State, Action>(
+/// Create an edit mode toolbar view
+pub fn edit_mode_toolbar_view<State, Action>(
     selected_tool: ToolId,
     callback: impl Fn(&mut State, ToolId) + Send + Sync + 'static,
-) -> ToolbarView<State, Action>
+) -> EditModeToolbarView<State, Action>
 where
     Action: 'static,
 {
-    ToolbarView {
+    EditModeToolbarView {
         selected_tool,
         callback: Box::new(callback),
         phantom: PhantomData,
     }
 }
 
-/// The Xilem View for ToolbarWidget
+/// The Xilem View for EditModeToolbarWidget
 /// Callback type for toolbar button clicks
-type ToolbarCallback<State> = Box<dyn Fn(&mut State, ToolId) + Send + Sync>;
+type EditModeToolbarCallback<State> =
+    Box<dyn Fn(&mut State, ToolId) + Send + Sync>;
 
 #[must_use = "View values do nothing unless provided to Xilem."]
-pub struct ToolbarView<State, Action = ()> {
+pub struct EditModeToolbarView<State, Action = ()> {
     selected_tool: ToolId,
-    callback: ToolbarCallback<State>,
+    callback: EditModeToolbarCallback<State>,
     phantom: PhantomData<fn() -> (State, Action)>,
 }
 
-impl<State, Action> ViewMarker for ToolbarView<State, Action> {}
+impl<State, Action> ViewMarker for EditModeToolbarView<State, Action> {}
 
 impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx>
-    for ToolbarView<State, Action>
+    for EditModeToolbarView<State, Action>
 {
-    type Element = Pod<ToolbarWidget>;
+    type Element = Pod<EditModeToolbarWidget>;
     type ViewState = ();
 
-    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
-        let widget = ToolbarWidget::new(self.selected_tool);
+    fn build(
+        &self,
+        ctx: &mut ViewCtx,
+        _app_state: &mut State,
+    ) -> (Self::Element, Self::ViewState) {
+        let widget = EditModeToolbarWidget::new(self.selected_tool);
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());
         (pod, ())
@@ -528,7 +571,7 @@ impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx>
         _app_state: &mut State,
     ) {
         // Update widget if selected tool changed
-        let mut widget = element.downcast::<ToolbarWidget>();
+        let mut widget = element.downcast::<EditModeToolbarWidget>();
         if widget.widget.selected_tool != self.selected_tool {
             widget.widget.selected_tool = self.selected_tool;
             widget.ctx.request_render();
@@ -554,10 +597,14 @@ impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx>
         // Handle tool selection actions from widget
         match message.take_message::<ToolSelected>() {
             Some(action) => {
-                println!("[ToolbarView::message] Tool selected: {:?}", action.0);
+                tracing::debug!(
+                    "[EditModeToolbarView::message] Tool selected: {:?}",
+                    action.0
+                );
                 (self.callback)(app_state, action.0);
-                // Return Action to trigger full app rebuild so the toolbar gets the updated tool
-                // This causes app_logic() to be called, which reads the fresh tool from the session
+                // Return Action to trigger full app rebuild so the toolbar
+                // gets the updated tool. This causes app_logic() to be
+                // called, which reads the fresh tool from the session
                 MessageResult::Action(Action::default())
             }
             None => MessageResult::Stale,
@@ -610,3 +657,4 @@ fn measure_icon() -> BezPath {
     bez.line_to((140.0, 50.0));
     bez
 }
+

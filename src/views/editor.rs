@@ -9,9 +9,10 @@ use xilem::view::{ChildAlignment, ZStackExt, flex_col, label, sized_box, transfo
 use masonry::properties::types::AsUnit;
 use masonry::properties::types::UnitPoint;
 
-use crate::components::grid_toolbar::GridToolbarButton;
+use crate::components::workspace_toolbar::WorkspaceToolbarButton;
 use crate::components::{
-    coordinate_panel, editor_view, glyph_view, grid_toolbar_view, toolbar_view,
+    coordinate_panel, edit_mode_toolbar_view, editor_view, glyph_view,
+    workspace_toolbar_view,
 };
 use crate::data::AppState;
 use crate::theme;
@@ -34,8 +35,9 @@ pub fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
                     state.update_editor_session(updated_session);
                 },
             ),
-            // Foreground: floating toolbar positioned in top-left with fixed margin
-            transformed(toolbar_view(
+            // Foreground: floating edit mode toolbar positioned in
+            // top-left with fixed margin
+            transformed(edit_mode_toolbar_view(
                 current_tool,
                 |state: &mut AppState, tool_id| {
                     state.set_editor_tool(tool_id);
@@ -51,10 +53,10 @@ pub fn editor_tab(state: &mut AppState) -> impl WidgetView<AppState> + use<> {
             transformed(coordinate_panel_from_session(&session_arc))
                 .translate((-MARGIN, -MARGIN))
                 .alignment(ChildAlignment::SelfAligned(UnitPoint::BOTTOM_RIGHT)),
-            // Top-right: Grid toolbar for navigation
-            transformed(grid_toolbar_view(
+            // Top-right: Workspace toolbar for navigation
+            transformed(workspace_toolbar_view(
                 |state: &mut AppState, button| match button {
-                    GridToolbarButton::Grid => state.close_editor(),
+                    WorkspaceToolbarButton::GlyphGrid => state.close_editor(),
                 },
             ))
             .translate((-MARGIN, MARGIN))

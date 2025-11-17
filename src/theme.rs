@@ -271,4 +271,18 @@ pub mod size {
 
     /// Width of metric guide lines
     pub const METRIC_LINE_WIDTH: f64 = 1.0;
+
+    // ===== Toolbar dimensions =====
+    /// Size of toolbar buttons (width and height)
+    pub const TOOLBAR_ITEM_SIZE: f64 = 48.0;
+    /// Space between toolbar buttons
+    pub const TOOLBAR_ITEM_SPACING: f64 = 6.0;
+    /// Padding around the entire toolbar
+    pub const TOOLBAR_PADDING: f64 = 8.0;
+    /// Padding inside buttons for icons
+    pub const TOOLBAR_ICON_PADDING: f64 = 8.0;
+    /// Rounded corner radius for toolbar buttons
+    pub const TOOLBAR_BUTTON_RADIUS: f64 = 6.0;
+    /// Border thickness for toolbar buttons and panels
+    pub const TOOLBAR_BORDER_WIDTH: f64 = 1.5;
 }
