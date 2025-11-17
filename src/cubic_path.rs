@@ -67,10 +67,7 @@ impl CubicPath {
         let points: Vec<&PathPoint> = self.points.iter().collect();
 
         // Find the first on-curve point to start
-        let start_idx = points
-            .iter()
-            .position(|p| p.is_on_curve())
-            .unwrap_or(0);
+        let start_idx = points.iter().position(|p| p.is_on_curve()).unwrap_or(0);
 
         // Rotate points so we start at an on-curve point
         let rotated: Vec<&PathPoint> = points[start_idx..]
@@ -198,10 +195,7 @@ impl CubicPath {
 
         // Determine if the path is closed
         // In UFO, a contour is closed unless the first point is a Move
-        let closed = !matches!(
-            contour.points[0].point_type,
-            workspace::PointType::Move
-        );
+        let closed = !matches!(contour.points[0].point_type, workspace::PointType::Move);
 
         // Convert all points
         let mut path_points: Vec<PathPoint> = contour
@@ -221,8 +215,8 @@ impl CubicPath {
 
     /// Convert this cubic path to a workspace contour (for saving)
     pub fn to_contour(&self) -> workspace::Contour {
-        use crate::workspace::{Contour, ContourPoint, PointType as WsPointType};
         use crate::point::PointType;
+        use crate::workspace::{Contour, ContourPoint, PointType as WsPointType};
 
         let mut contour_points: Vec<PathPoint> = self.points.to_vec();
 
@@ -274,7 +268,8 @@ impl SegmentIterator {
         let points_vec: Vec<PathPoint> = points.iter().cloned().collect();
 
         // Find first on-curve point
-        let (start_idx, start_pt) = points_vec.iter()
+        let (start_idx, start_pt) = points_vec
+            .iter()
             .enumerate()
             .find(|(_, p)| p.is_on_curve())
             .map(|(i, p)| (i, p.point))
@@ -306,10 +301,8 @@ impl Iterator for SegmentIterator {
             // Line segment from prev to current
             let start_idx = self.prev_on_curve_idx;
             let end_idx = self.index;
-            let segment = crate::segment::Segment::Line(kurbo::Line::new(
-                self.prev_on_curve,
-                pt.point,
-            ));
+            let segment =
+                crate::segment::Segment::Line(kurbo::Line::new(self.prev_on_curve, pt.point));
 
             self.prev_on_curve = pt.point;
             self.prev_on_curve_idx = self.index;

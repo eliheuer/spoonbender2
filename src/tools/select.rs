@@ -61,8 +61,7 @@ impl Tool for SelectTool {
 
             // Stroke the selection rectangle with dashed bright orange
             // Create a dashed stroke pattern: 4px dash, 4px gap
-            let stroke = kurbo::Stroke::new(1.5)
-                .with_dashes(0.0, [4.0, 4.0]);
+            let stroke = kurbo::Stroke::new(1.5).with_dashes(0.0, [4.0, 4.0]);
             let brush = Brush::Solid(crate::theme::selection::RECT_STROKE);
             scene.stroke(&stroke, Affine::IDENTITY, &brush, None, rect);
         }
@@ -80,7 +79,10 @@ impl MouseDelegate for SelectTool {
     type Data = EditSession;
 
     fn left_down(&mut self, event: MouseEvent, data: &mut EditSession) {
-        println!("SelectTool::left_down pos={:?} shift={}", event.pos, event.mods.shift);
+        println!(
+            "SelectTool::left_down pos={:?} shift={}",
+            event.pos, event.mods.shift
+        );
 
         // Hit test for a point at the cursor - selection happens HERE, on mouse down
         if let Some(hit) = data.hit_test_point(event.pos, None) {
@@ -137,8 +139,13 @@ impl MouseDelegate for SelectTool {
                 if data.selection.contains(&hit.entity) {
                     // We're dragging a selected point
                     let design_pos = data.viewport.from_screen(event.pos);
-                    self.state = State::DraggingPoints { last_pos: design_pos };
-                    println!("Select tool: started dragging {} selected point(s)", data.selection.len());
+                    self.state = State::DraggingPoints {
+                        last_pos: design_pos,
+                    };
+                    println!(
+                        "Select tool: started dragging {} selected point(s)",
+                        data.selection.len()
+                    );
                     return;
                 }
             }
@@ -149,7 +156,10 @@ impl MouseDelegate for SelectTool {
         let previous_selection = data.selection.clone();
         let rect = kurbo::Rect::from_points(drag.start, drag.current);
 
-        println!("Select tool: started marquee selection, toggle={}", event.mods.shift);
+        println!(
+            "Select tool: started marquee selection, toggle={}",
+            event.mods.shift
+        );
         self.state = State::MarqueeSelect {
             previous_selection,
             rect,
@@ -164,10 +174,8 @@ impl MouseDelegate for SelectTool {
                 let current_pos = data.viewport.from_screen(event.pos);
 
                 // Calculate delta in design space
-                let delta = kurbo::Vec2::new(
-                    current_pos.x - last_pos.x,
-                    current_pos.y - last_pos.y,
-                );
+                let delta =
+                    kurbo::Vec2::new(current_pos.x - last_pos.x, current_pos.y - last_pos.y);
 
                 // Move selected points
                 data.move_selection(delta);
@@ -175,17 +183,16 @@ impl MouseDelegate for SelectTool {
                 // Update last position
                 *last_pos = current_pos;
             }
-            State::MarqueeSelect { previous_selection, rect, toggle } => {
+            State::MarqueeSelect {
+                previous_selection,
+                rect,
+                toggle,
+            } => {
                 // Update the selection rectangle
                 *rect = kurbo::Rect::from_points(drag.start, drag.current);
 
                 // Update selection based on points in rectangle
-                update_selection_for_marquee(
-                    data,
-                    previous_selection,
-                    *rect,
-                    *toggle,
-                );
+                update_selection_for_marquee(data, previous_selection, *rect, *toggle);
             }
             State::Ready => {}
         }
@@ -197,7 +204,10 @@ impl MouseDelegate for SelectTool {
                 println!("Select tool: finished dragging points");
             }
             State::MarqueeSelect { .. } => {
-                println!("Select tool: finished marquee selection, selected {} points", data.selection.len());
+                println!(
+                    "Select tool: finished marquee selection, selected {} points",
+                    data.selection.len()
+                );
                 // Update coordinate selection after marquee
                 data.update_coord_selection();
             }
@@ -210,7 +220,10 @@ impl MouseDelegate for SelectTool {
 
     fn cancel(&mut self, data: &mut EditSession) {
         // If we were in marquee mode, restore the previous selection
-        if let State::MarqueeSelect { previous_selection, .. } = &self.state {
+        if let State::MarqueeSelect {
+            previous_selection, ..
+        } = &self.state
+        {
             data.selection = previous_selection.clone();
             data.update_coord_selection();
         }

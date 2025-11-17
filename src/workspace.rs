@@ -70,8 +70,8 @@ impl Workspace {
         let path = path.as_ref();
 
         // Load the UFO using norad
-        let font = Font::load(path)
-            .with_context(|| format!("Failed to load UFO from {:?}", path))?;
+        let font =
+            Font::load(path).with_context(|| format!("Failed to load UFO from {:?}", path))?;
 
         // Extract font metadata
         let family_name = font
@@ -179,7 +179,10 @@ impl Workspace {
             }
         });
 
-        glyph_list.into_iter().map(|(name, _)| name.clone()).collect()
+        glyph_list
+            .into_iter()
+            .map(|(name, _)| name.clone())
+            .collect()
     }
 
     /// Get a glyph by name

@@ -3,18 +3,18 @@
 
 //! Pen tool for drawing new paths
 
+use crate::cubic_path::CubicPath;
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
 use crate::entity_id::EntityId;
 use crate::mouse::{MouseDelegate, MouseEvent};
-use crate::point::{PathPoint, PointType};
 use crate::path::Path;
-use crate::cubic_path::CubicPath;
+use crate::point::{PathPoint, PointType};
 use crate::point_list::PathPoints;
 use crate::tools::{Tool, ToolId};
 use kurbo::Affine;
-use masonry::vello::peniko;
 use masonry::vello::Scene;
+use masonry::vello::peniko;
 use std::sync::Arc;
 
 /// Distance threshold for closing a path (in design units)
@@ -57,8 +57,8 @@ impl Tool for PenTool {
     }
 
     fn paint(&mut self, scene: &mut Scene, session: &EditSession, _transform: &Affine) {
-        use masonry::vello::peniko::Brush;
         use kurbo::{BezPath, Point};
+        use masonry::vello::peniko::Brush;
 
         let orange_color = crate::theme::point::SELECTED_OUTER;
         let brush = Brush::Solid(orange_color);
@@ -68,8 +68,9 @@ impl Tool for PenTool {
             if let Some(mouse_screen) = self.mouse_pos {
                 let mouse_design = session.viewport.from_screen(mouse_screen);
                 let first_point = self.current_path_points[0].point;
-                let distance = ((mouse_design.x - first_point.x).powi(2) +
-                               (mouse_design.y - first_point.y).powi(2)).sqrt();
+                let distance = ((mouse_design.x - first_point.x).powi(2)
+                    + (mouse_design.y - first_point.y).powi(2))
+                .sqrt();
                 distance < CLOSE_PATH_DISTANCE
             } else {
                 false
@@ -109,34 +110,34 @@ impl Tool for PenTool {
             }
 
             // Use dashed stroke for preview (like selection marquee)
-            let stroke = kurbo::Stroke::new(2.0)
-                .with_dashes(0.0, [4.0, 4.0]);
+            let stroke = kurbo::Stroke::new(2.0).with_dashes(0.0, [4.0, 4.0]);
             scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &bez_path);
         }
 
         // Draw circles at each point (only when drawing)
         if self.drawing {
             for (i, pt) in self.current_path_points.iter().enumerate() {
-            let design_pt = Point::new(pt.point.x, pt.point.y);
-            let screen_pt = session.viewport.to_screen(design_pt);
+                let design_pt = Point::new(pt.point.x, pt.point.y);
+                let screen_pt = session.viewport.to_screen(design_pt);
 
-            // First point gets special treatment when hovering
-            if i == 0 && hovering_close {
-                // Draw larger circle to show close zone
-                let close_zone = kurbo::Circle::new(screen_pt, CLOSE_PATH_DISTANCE * session.viewport.zoom);
-                let zone_stroke = kurbo::Stroke::new(1.0);
-                scene.stroke(&zone_stroke, Affine::IDENTITY, &brush, None, &close_zone);
-            }
+                // First point gets special treatment when hovering
+                if i == 0 && hovering_close {
+                    // Draw larger circle to show close zone
+                    let close_zone =
+                        kurbo::Circle::new(screen_pt, CLOSE_PATH_DISTANCE * session.viewport.zoom);
+                    let zone_stroke = kurbo::Stroke::new(1.0);
+                    scene.stroke(&zone_stroke, Affine::IDENTITY, &brush, None, &close_zone);
+                }
 
-            // Draw point circle
-            let circle = kurbo::Circle::new(screen_pt, 4.0);
-            scene.fill(
-                peniko::Fill::NonZero,
-                Affine::IDENTITY,
-                &brush,
-                None,
-                &circle,
-            );
+                // Draw point circle
+                let circle = kurbo::Circle::new(screen_pt, 4.0);
+                scene.fill(
+                    peniko::Fill::NonZero,
+                    Affine::IDENTITY,
+                    &brush,
+                    None,
+                    &circle,
+                );
             }
         }
 
@@ -167,13 +168,7 @@ impl Tool for PenTool {
             if self.snapped_segment.is_some() {
                 let indicator_circle = kurbo::Circle::new(preview_screen_pos, 8.0);
                 let stroke = kurbo::Stroke::new(1.5);
-                scene.stroke(
-                    &stroke,
-                    Affine::IDENTITY,
-                    &brush,
-                    None,
-                    &indicator_circle,
-                );
+                scene.stroke(&stroke, Affine::IDENTITY, &brush, None, &indicator_circle);
             }
         }
     }
@@ -207,8 +202,9 @@ impl MouseDelegate for PenTool {
         // Check if we're clicking near the first point to close the path
         if self.current_path_points.len() >= 3 {
             let first_point = self.current_path_points[0].point;
-            let distance = ((design_pos.x - first_point.x).powi(2) +
-                           (design_pos.y - first_point.y).powi(2)).sqrt();
+            let distance = ((design_pos.x - first_point.x).powi(2)
+                + (design_pos.y - first_point.y).powi(2))
+            .sqrt();
 
             if distance < CLOSE_PATH_DISTANCE {
                 println!("Pen tool: closing path at first point");
@@ -227,7 +223,11 @@ impl MouseDelegate for PenTool {
         self.current_path_points.push(point);
         self.drawing = true;
 
-        println!("Pen tool: added point at {:?}, total points: {}", design_pos, self.current_path_points.len());
+        println!(
+            "Pen tool: added point at {:?}, total points: {}",
+            design_pos,
+            self.current_path_points.len()
+        );
     }
 
     fn mouse_moved(&mut self, event: MouseEvent, data: &mut EditSession) {
@@ -238,7 +238,8 @@ impl MouseDelegate for PenTool {
         // This prevents snapping while building a new path
         if !self.drawing {
             // Hit test segments at cursor position
-            if let Some((segment_info, t)) = data.hit_test_segments(event.pos, CURVE_SNAP_DISTANCE) {
+            if let Some((segment_info, t)) = data.hit_test_segments(event.pos, CURVE_SNAP_DISTANCE)
+            {
                 // Store the snapped segment for rendering and click handling
                 self.snapped_segment = Some((segment_info, t));
             } else {
@@ -284,7 +285,10 @@ impl PenTool {
         paths.push(path);
         data.paths = Arc::new(paths);
 
-        println!("Pen tool: added open path with {} points", self.current_path_points.len());
+        println!(
+            "Pen tool: added open path with {} points",
+            self.current_path_points.len()
+        );
     }
 
     /// Close the current path and finish drawing
@@ -306,7 +310,10 @@ impl PenTool {
         paths.push(path);
         data.paths = Arc::new(paths);
 
-        println!("Pen tool: closed path with {} points", self.current_path_points.len());
+        println!(
+            "Pen tool: closed path with {} points",
+            self.current_path_points.len()
+        );
 
         // Reset for next path
         self.current_path_points.clear();

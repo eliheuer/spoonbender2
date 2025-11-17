@@ -7,38 +7,34 @@ use crate::tools::ToolId;
 use kurbo::{Affine, BezPath, Point, Rect, Shape, Size};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx,
-    PointerButton, PointerButtonEvent, PointerEvent,
-    PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx, PointerButton,
+    PointerButtonEvent, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
+    UpdateCtx, Widget,
 };
 use masonry::util::{fill_color, stroke};
-use masonry::vello::peniko::Color;
 use masonry::vello::Scene;
+use masonry::vello::peniko::Color;
 
 /// Toolbar dimensions
 const TOOLBAR_ITEM_SIZE: f64 = 48.0;
-const TOOLBAR_ITEM_SPACING: f64 = 6.0;  // Space between buttons
-const TOOLBAR_PADDING: f64 = 8.0;  // Padding around the entire toolbar (space between buttons and container)
+const TOOLBAR_ITEM_SPACING: f64 = 6.0; // Space between buttons
+const TOOLBAR_PADDING: f64 = 8.0; // Padding around the entire toolbar (space between buttons and container)
 const ICON_PADDING: f64 = 8.0;
 const ITEM_STROKE_WIDTH: f64 = 1.5;
-const BUTTON_RADIUS: f64 = 6.0;  // Rounded corner radius
-const BORDER_WIDTH: f64 = 1.5;  // Border thickness for buttons and panel
+const BUTTON_RADIUS: f64 = 6.0; // Rounded corner radius
+const BORDER_WIDTH: f64 = 1.5; // Border thickness for buttons and panel
 
 /// Toolbar colors (from theme)
-const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND;           // Panel background
-const COLOR_UNSELECTED: Color = crate::theme::toolbar::BUTTON_UNSELECTED;  // Unselected buttons
-const COLOR_SELECTED: Color = crate::theme::toolbar::BUTTON_SELECTED;      // Selected button
-const COLOR_ICON: Color = crate::theme::toolbar::ICON;                     // Icon color
-const COLOR_PANEL_BORDER: Color = crate::theme::panel::OUTLINE;       // Panel container border
+const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND; // Panel background
+const COLOR_UNSELECTED: Color = crate::theme::toolbar::BUTTON_UNSELECTED; // Unselected buttons
+const COLOR_SELECTED: Color = crate::theme::toolbar::BUTTON_SELECTED; // Selected button
+const COLOR_ICON: Color = crate::theme::toolbar::ICON; // Icon color
+const COLOR_PANEL_BORDER: Color = crate::theme::panel::OUTLINE; // Panel container border
 const COLOR_BUTTON_BORDER: Color = crate::theme::panel::BUTTON_OUTLINE; // Toolbar button borders
 
 /// Available tools in display order
 /// Currently only showing implemented tools: Select, Pen, Preview
-const TOOLBAR_TOOLS: &[ToolId] = &[
-    ToolId::Select,
-    ToolId::Pen,
-    ToolId::Preview,
-];
+const TOOLBAR_TOOLS: &[ToolId] = &[ToolId::Select, ToolId::Pen, ToolId::Preview];
 
 /// Toolbar widget
 pub struct ToolbarWidget {
@@ -115,7 +111,9 @@ impl Widget for ToolbarWidget {
     ) -> Size {
         // Calculate total width needed for all tools plus padding
         let num_tools = TOOLBAR_TOOLS.len();
-        let width = TOOLBAR_PADDING * 2.0 + num_tools as f64 * TOOLBAR_ITEM_SIZE + (num_tools - 1) as f64 * TOOLBAR_ITEM_SPACING;
+        let width = TOOLBAR_PADDING * 2.0
+            + num_tools as f64 * TOOLBAR_ITEM_SIZE
+            + (num_tools - 1) as f64 * TOOLBAR_ITEM_SPACING;
         let height = TOOLBAR_ITEM_SIZE + TOOLBAR_PADDING * 2.0;
         let size = Size::new(width, height);
         bc.constrain(size)
@@ -145,7 +143,11 @@ impl Widget for ToolbarWidget {
             let button_rrect = kurbo::RoundedRect::from_rect(button_rect, BUTTON_RADIUS);
 
             // Draw button background
-            let bg_color = if is_selected { COLOR_SELECTED } else { COLOR_UNSELECTED };
+            let bg_color = if is_selected {
+                COLOR_SELECTED
+            } else {
+                COLOR_UNSELECTED
+            };
             fill_color(scene, &button_rrect, bg_color);
 
             // Draw button border (thicker)
@@ -158,9 +160,9 @@ impl Widget for ToolbarWidget {
             // Determine icon color based on state
             let is_hovered = self.hover_tool == Some(tool);
             let icon_color = if is_selected || is_hovered {
-                crate::theme::base::C  // Darker icon for selected or hovered button
+                crate::theme::base::C // Darker icon for selected or hovered button
             } else {
-                COLOR_ICON  // Normal icon color for unselected, unhovered buttons
+                COLOR_ICON // Normal icon color for unselected, unhovered buttons
             };
             fill_color(scene, &constrained_path, icon_color);
         }
@@ -190,10 +192,20 @@ impl Widget for ToolbarWidget {
         event: &PointerEvent,
     ) {
         match event {
-            PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
-                println!("[ToolbarWidget::on_pointer_event] Down at {:?}", state.position);
+            PointerEvent::Down(PointerButtonEvent {
+                button: Some(PointerButton::Primary),
+                state,
+                ..
+            }) => {
+                println!(
+                    "[ToolbarWidget::on_pointer_event] Down at {:?}",
+                    state.position
+                );
                 let local_pos = ctx.local_position(state.position);
-                println!("[ToolbarWidget::on_pointer_event] local_pos: {:?}", local_pos);
+                println!(
+                    "[ToolbarWidget::on_pointer_event] local_pos: {:?}",
+                    local_pos
+                );
                 if let Some(tool) = self.tool_at_point(local_pos) {
                     println!("[ToolbarWidget::on_pointer_event] Hit tool: {:?}", tool);
                     if tool != self.selected_tool {
@@ -252,8 +264,10 @@ fn constrain_icon(mut path: BezPath, button_rect: Rect, tool: ToolId) -> BezPath
     // Center the icon in the button
     let scaled_width = bounds.width() * scale;
     let scaled_height = bounds.height() * scale;
-    let mut offset_x = button_rect.min_x() + (TOOLBAR_ITEM_SIZE - scaled_width) / 2.0 - bounds.min_x() * scale;
-    let offset_y = button_rect.min_y() + (TOOLBAR_ITEM_SIZE - scaled_height) / 2.0 - bounds.min_y() * scale;
+    let mut offset_x =
+        button_rect.min_x() + (TOOLBAR_ITEM_SIZE - scaled_width) / 2.0 - bounds.min_x() * scale;
+    let offset_y =
+        button_rect.min_y() + (TOOLBAR_ITEM_SIZE - scaled_height) / 2.0 - bounds.min_y() * scale;
 
     // Apply per-tool visual centering adjustments
     match tool {
@@ -485,15 +499,13 @@ pub struct ToolbarView<State, Action = ()> {
 
 impl<State, Action> ViewMarker for ToolbarView<State, Action> {}
 
-impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx> for ToolbarView<State, Action> {
+impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx>
+    for ToolbarView<State, Action>
+{
     type Element = Pod<ToolbarWidget>;
     type ViewState = ();
 
-    fn build(
-        &self,
-        ctx: &mut ViewCtx,
-        _app_state: &mut State,
-    ) -> (Self::Element, Self::ViewState) {
+    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
         let widget = ToolbarWidget::new(self.selected_tool);
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());

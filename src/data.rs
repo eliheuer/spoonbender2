@@ -123,8 +123,7 @@ impl AppState {
     /// Get the selected glyph's advance width
     pub fn selected_glyph_advance(&self) -> Option<f64> {
         if let (Some(workspace), Some(glyph_name)) = (&self.workspace, &self.selected_glyph) {
-            workspace.get_glyph(glyph_name)
-                .map(|g| g.width)
+            workspace.get_glyph(glyph_name).map(|g| g.width)
         } else {
             None
         }
@@ -133,15 +132,16 @@ impl AppState {
     /// Get the selected glyph's unicode value
     pub fn selected_glyph_unicode(&self) -> Option<String> {
         if let (Some(workspace), Some(glyph_name)) = (&self.workspace, &self.selected_glyph) {
-            workspace.get_glyph(glyph_name)
-                .and_then(|g| {
-                    if g.codepoints.is_empty() {
-                        None
-                    } else {
-                        g.codepoints.iter().next()
-                            .map(|c| format!("U+{:04X}", *c as u32))
-                    }
-                })
+            workspace.get_glyph(glyph_name).and_then(|g| {
+                if g.codepoints.is_empty() {
+                    None
+                } else {
+                    g.codepoints
+                        .iter()
+                        .next()
+                        .map(|c| format!("U+{:04X}", *c as u32))
+                }
+            })
         } else {
             None
         }
@@ -184,7 +184,10 @@ impl AppState {
 
                 // Debug logging only for glyph "a"
                 if session.glyph_name == "a" {
-                    println!("[close_editor] Synced glyph 'a' with {} contours to workspace", updated_glyph.contours.len());
+                    println!(
+                        "[close_editor] Synced glyph 'a' with {} contours to workspace",
+                        updated_glyph.contours.len()
+                    );
                 }
             }
         }
@@ -198,7 +201,10 @@ impl AppState {
         println!("[AppState::set_editor_tool] Setting tool to {:?}", tool_id);
         if let Some(session) = &mut self.editor_session {
             session.current_tool = crate::tools::ToolBox::for_id(tool_id);
-            println!("[AppState::set_editor_tool] Updated session, current_tool is now {:?}", session.current_tool.id());
+            println!(
+                "[AppState::set_editor_tool] Updated session, current_tool is now {:?}",
+                session.current_tool.id()
+            );
         }
     }
 
@@ -213,7 +219,10 @@ impl AppState {
 
             // Debug logging only for glyph "a"
             if session.glyph_name == "a" {
-                println!("[update_editor_session] Syncing glyph 'a' with {} contours back to workspace", updated_glyph.contours.len());
+                println!(
+                    "[update_editor_session] Syncing glyph 'a' with {} contours back to workspace",
+                    updated_glyph.contours.len()
+                );
             }
 
             workspace.update_glyph(&session.glyph_name, updated_glyph.clone());
@@ -221,7 +230,10 @@ impl AppState {
             // Verify the update worked (only for "a")
             if session.glyph_name == "a" {
                 if let Some(glyph_from_workspace) = workspace.get_glyph(&session.glyph_name) {
-                    println!("[update_editor_session] Verified: workspace now has glyph 'a' with {} contours", glyph_from_workspace.contours.len());
+                    println!(
+                        "[update_editor_session] Verified: workspace now has glyph 'a' with {} contours",
+                        glyph_from_workspace.contours.len()
+                    );
                 }
             }
         }

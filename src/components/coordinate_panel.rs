@@ -12,16 +12,16 @@ use crate::theme;
 use kurbo::{Circle, Point, Rect, Shape};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx,
-    PointerButton, PointerButtonEvent, PointerEvent,
-    PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx, PointerButton,
+    PointerButtonEvent, PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx,
+    Widget,
 };
 use masonry::kurbo::Size;
 use masonry::vello::Scene;
 
 /// Size constants for the coordinate pane - using theme
 const PANE_WIDTH: f64 = 240.0;
-const PANE_HEIGHT: f64 = 80.0;  // Matches container height
+const PANE_HEIGHT: f64 = 80.0; // Matches container height
 const LABEL_WIDTH: f64 = 12.0;
 const VALUE_WIDTH: f64 = 50.0;
 
@@ -125,12 +125,7 @@ impl CoordinatePanelWidget {
         // Center the selector vertically if there's extra vertical space
         let top = PADDING + ((available_height - selector_size) / 2.0).max(0.0);
 
-        Rect::new(
-            PADDING,
-            top,
-            PADDING + selector_size,
-            top + selector_size,
-        )
+        Rect::new(PADDING, top, PADDING + selector_size, top + selector_size)
     }
 
     /// Get the center point for a specific quadrant dot within the picker bounds
@@ -170,10 +165,7 @@ impl CoordinatePanelWidget {
     fn quadrant_at_point(&self, point: Point) -> Option<Quadrant> {
         // Use the FULL widget bounds for hit detection, not just the visual picker bounds
         // The padding is just for visual spacing, not for limiting clickability
-        let hit_bounds = Rect::from_origin_size(
-            kurbo::Point::ZERO,
-            self.widget_size,
-        );
+        let hit_bounds = Rect::from_origin_size(kurbo::Point::ZERO, self.widget_size);
 
         if !hit_bounds.contains(point) {
             return None;
@@ -225,16 +217,32 @@ impl Widget for CoordinatePanelWidget {
         event: &PointerEvent,
     ) {
         match event {
-            PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
+            PointerEvent::Down(PointerButtonEvent {
+                button: Some(PointerButton::Primary),
+                state,
+                ..
+            }) => {
                 let local_pos = ctx.local_position(state.position);
-                println!("[CoordinatePanelWidget::on_pointer_event] Pointer down at local_pos: {:?}", local_pos);
+                println!(
+                    "[CoordinatePanelWidget::on_pointer_event] Pointer down at local_pos: {:?}",
+                    local_pos
+                );
                 if let Some(quadrant) = self.quadrant_at_point(local_pos) {
-                    println!("[CoordinatePanelWidget::on_pointer_event] Clicked on quadrant: {:?}", quadrant);
-                    println!("[CoordinatePanelWidget::on_pointer_event] Old quadrant: {:?}", self.session.coord_selection.quadrant);
+                    println!(
+                        "[CoordinatePanelWidget::on_pointer_event] Clicked on quadrant: {:?}",
+                        quadrant
+                    );
+                    println!(
+                        "[CoordinatePanelWidget::on_pointer_event] Old quadrant: {:?}",
+                        self.session.coord_selection.quadrant
+                    );
 
                     // Update the session's quadrant selection
                     self.session.coord_selection.quadrant = quadrant;
-                    println!("[CoordinatePanelWidget::on_pointer_event] New quadrant: {:?}", self.session.coord_selection.quadrant);
+                    println!(
+                        "[CoordinatePanelWidget::on_pointer_event] New quadrant: {:?}",
+                        self.session.coord_selection.quadrant
+                    );
 
                     // Emit SessionUpdate action
                     ctx.submit_action::<SessionUpdate>(SessionUpdate {
@@ -244,7 +252,9 @@ impl Widget for CoordinatePanelWidget {
                     // Request a repaint to show the new selected quadrant
                     ctx.request_render();
                 } else {
-                    println!("[CoordinatePanelWidget::on_pointer_event] Click was not on any quadrant dot");
+                    println!(
+                        "[CoordinatePanelWidget::on_pointer_event] Click was not on any quadrant dot"
+                    );
                 }
             }
             _ => {}
@@ -393,15 +403,13 @@ pub struct CoordinatePanelView<State, F> {
 
 impl<State, F> ViewMarker for CoordinatePanelView<State, F> {}
 
-impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static> View<State, (), ViewCtx> for CoordinatePanelView<State, F> {
+impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send + Sync + 'static>
+    View<State, (), ViewCtx> for CoordinatePanelView<State, F>
+{
     type Element = Pod<CoordinatePanelWidget>;
     type ViewState = ();
 
-    fn build(
-        &self,
-        ctx: &mut ViewCtx,
-        _app_state: &mut State,
-    ) -> (Self::Element, Self::ViewState) {
+    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
         let widget = CoordinatePanelWidget::new((*self.session).clone());
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());
@@ -420,8 +428,10 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         // We compare Arc pointers - if they're different, the session was updated
         if !Arc::ptr_eq(&self.session, &prev.session) {
             println!("[CoordinatePanelView::rebuild] Session Arc changed, updating widget");
-            println!("[CoordinatePanelView::rebuild] Old quadrant: {:?}, New quadrant: {:?}",
-                     prev.session.coord_selection.quadrant, self.session.coord_selection.quadrant);
+            println!(
+                "[CoordinatePanelView::rebuild] Old quadrant: {:?}, New quadrant: {:?}",
+                prev.session.coord_selection.quadrant, self.session.coord_selection.quadrant
+            );
 
             // Get mutable access to the widget and update the session
             let mut widget = element.downcast::<CoordinatePanelWidget>();
@@ -449,9 +459,14 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
         // Handle SessionUpdate messages from the widget
         match message.take_message::<SessionUpdate>() {
             Some(update) => {
-                println!("[CoordinatePanelView::message] Handling SessionUpdate, quadrant={:?}", update.session.coord_selection.quadrant);
+                println!(
+                    "[CoordinatePanelView::message] Handling SessionUpdate, quadrant={:?}",
+                    update.session.coord_selection.quadrant
+                );
                 (self.on_session_update)(app_state, update.session);
-                println!("[CoordinatePanelView::message] Callback complete, returning RequestRebuild");
+                println!(
+                    "[CoordinatePanelView::message] Callback complete, returning RequestRebuild"
+                );
                 // Use RequestRebuild instead of Action to avoid destroying the window
                 MessageResult::RequestRebuild
             }
@@ -465,11 +480,17 @@ impl<State: 'static, F: Fn(&mut State, crate::edit_session::EditSession) + Send 
 /// Calculate coordinate selection from edit session
 ///
 /// Returns a CoordinateSelection with bounding box information for all selected points
-pub fn calculate_coordinate_selection(session: &crate::edit_session::EditSession) -> CoordinateSelection {
+pub fn calculate_coordinate_selection(
+    session: &crate::edit_session::EditSession,
+) -> CoordinateSelection {
     let selection = &session.selection;
     let paths = &session.paths;
 
-    println!("[calculate_coordinate_selection] selection.len()={}, paths.len()={}", selection.len(), paths.len());
+    println!(
+        "[calculate_coordinate_selection] selection.len()={}, paths.len()={}",
+        selection.len(),
+        paths.len()
+    );
 
     let mut min_x = f64::INFINITY;
     let mut max_x = f64::NEG_INFINITY;
@@ -480,10 +501,16 @@ pub fn calculate_coordinate_selection(session: &crate::edit_session::EditSession
     for path in paths.iter() {
         match path {
             crate::path::Path::Cubic(cubic) => {
-                println!("[calculate_coordinate_selection] Checking cubic path with {} points", cubic.points.len());
+                println!(
+                    "[calculate_coordinate_selection] Checking cubic path with {} points",
+                    cubic.points.len()
+                );
                 for pt in cubic.points.iter() {
                     if selection.contains(&pt.id) {
-                        println!("[calculate_coordinate_selection] Found selected point at ({}, {})", pt.point.x, pt.point.y);
+                        println!(
+                            "[calculate_coordinate_selection] Found selected point at ({}, {})",
+                            pt.point.x, pt.point.y
+                        );
                         min_x = min_x.min(pt.point.x);
                         max_x = max_x.max(pt.point.x);
                         min_y = min_y.min(pt.point.y);
@@ -495,7 +522,10 @@ pub fn calculate_coordinate_selection(session: &crate::edit_session::EditSession
         }
     }
 
-    println!("[calculate_coordinate_selection] count={}, min_x={}, max_x={}, min_y={}, max_y={}", count, min_x, max_x, min_y, max_y);
+    println!(
+        "[calculate_coordinate_selection] count={}, min_x={}, max_x={}, min_y={}, max_y={}",
+        count, min_x, max_x, min_y, max_y
+    );
 
     if count > 0 && min_x.is_finite() {
         let frame = Rect::new(min_x, min_y, max_x, max_y);
@@ -511,11 +541,11 @@ pub fn calculate_coordinate_selection(session: &crate::edit_session::EditSession
 
 // --- MARK: COMPLETE COORDINATE PANE VIEW ---
 
-use masonry::properties::types::MainAxisAlignment;
-use xilem::style::Style;
-use xilem::view::{flex_col, flex_row, label, sized_box, CrossAxisAlignment};
-use xilem::{WidgetView};
 use masonry::properties::types::AsUnit;
+use masonry::properties::types::MainAxisAlignment;
+use xilem::WidgetView;
+use xilem::style::Style;
+use xilem::view::{CrossAxisAlignment, flex_col, flex_row, label, sized_box};
 
 /// Complete coordinate info pane with quadrant picker and coordinate labels
 ///
@@ -532,7 +562,12 @@ where
 
     // Calculate coordinate values based on the selection
     let (x_text, y_text, w_text, h_text) = if coord_sel.count == 0 {
-        ("—".to_string(), "—".to_string(), "—".to_string(), "—".to_string())
+        (
+            "—".to_string(),
+            "—".to_string(),
+            "—".to_string(),
+            "—".to_string(),
+        )
     } else {
         let pt = coord_sel.reference_point();
         let x = format!("{:.0}", pt.x);
@@ -576,7 +611,7 @@ where
             .gap(0.px()),
         ))
         .main_axis_alignment(MainAxisAlignment::Start)
-        .gap(8.px())
+        .gap(8.px()),
     )
     .width(150.px())
     .height(80.px())

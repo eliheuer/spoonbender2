@@ -45,7 +45,10 @@ impl MouseDelegate for PreviewTool {
     type Data = EditSession;
 
     fn left_down(&mut self, _event: MouseEvent, session: &mut EditSession) {
-        println!("[PreviewTool] left_down - capturing offset: {:?}", session.viewport.offset);
+        println!(
+            "[PreviewTool] left_down - capturing offset: {:?}",
+            session.viewport.offset
+        );
         // Capture the current viewport offset when we start dragging
         self.state = State::Dragging {
             start_offset: session.viewport.offset,
@@ -59,12 +62,17 @@ impl MouseDelegate for PreviewTool {
     }
 
     fn left_drag_changed(&mut self, _event: MouseEvent, drag: Drag, session: &mut EditSession) {
-        println!("[PreviewTool] left_drag_changed - state: {:?}, drag.start: {:?}, drag.current: {:?}",
-                 self.state, drag.start, drag.current);
+        println!(
+            "[PreviewTool] left_drag_changed - state: {:?}, drag.start: {:?}, drag.current: {:?}",
+            self.state, drag.start, drag.current
+        );
         if let State::Dragging { start_offset } = self.state {
             // Calculate the delta in screen space
             let delta = drag.current - drag.start;
-            println!("[PreviewTool] delta: {:?}, start_offset: {:?}", delta, start_offset);
+            println!(
+                "[PreviewTool] delta: {:?}, start_offset: {:?}",
+                delta, start_offset
+            );
 
             // Update viewport offset
             // Note: We add the delta directly since screen space panning

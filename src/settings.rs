@@ -41,10 +41,10 @@ const DRAG_UPDATE_THROTTLE: u32 = 3;
 pub mod editor {
     /// Minimum zoom level (2% of original size)
     pub const MIN_ZOOM: f64 = super::MIN_ZOOM;
-    
+
     /// Maximum zoom level (50x original size)
     pub const MAX_ZOOM: f64 = super::MAX_ZOOM;
-    
+
     /// Zoom scale factor for scroll wheel sensitivity
     pub const ZOOM_SCALE: f64 = super::ZOOM_SCALE;
 }
@@ -57,4 +57,3 @@ pub mod performance {
     /// Set to 3 to update every 3rd frame (67% reduction in rebuilds)
     pub const DRAG_UPDATE_THROTTLE: u32 = super::DRAG_UPDATE_THROTTLE;
 }
-

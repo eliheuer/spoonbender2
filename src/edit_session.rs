@@ -3,11 +3,11 @@
 
 //! Edit session - manages editing state for a single glyph
 
+use crate::components::CoordinateSelection;
 use crate::hit_test::{self, HitTestResult};
 use crate::path::Path;
 use crate::selection::Selection;
 use crate::tools::{ToolBox, ToolId};
-use crate::components::CoordinateSelection;
 use crate::workspace::Glyph;
 use kurbo::{Point, Rect};
 use std::sync::Arc;
@@ -67,12 +67,12 @@ impl ViewPort {
     pub fn affine(&self) -> kurbo::Affine {
         // Build transformation: scale, flip Y, translate
         kurbo::Affine::new([
-            self.zoom,    // x scale
-            0.0,          // x skew
-            0.0,          // y skew
-            -self.zoom,   // y scale (negative for Y-flip)
-            self.offset.x,  // x translation
-            self.offset.y,  // y translation
+            self.zoom,     // x scale
+            0.0,           // x skew
+            0.0,           // y skew
+            -self.zoom,    // y scale (negative for Y-flip)
+            self.offset.x, // x translation
+            self.offset.y, // y translation
         ])
     }
 }
@@ -235,18 +235,26 @@ impl EditSession {
     /// Hit test for a point at screen coordinates
     ///
     /// Returns the EntityId of the closest point within max_dist screen pixels
-    pub fn hit_test_point(&self, screen_pos: Point, max_dist: Option<f64>) -> Option<HitTestResult> {
+    pub fn hit_test_point(
+        &self,
+        screen_pos: Point,
+        max_dist: Option<f64>,
+    ) -> Option<HitTestResult> {
         let max_dist = max_dist.unwrap_or(hit_test::MIN_CLICK_DISTANCE);
 
         // Collect all points from all paths as screen coordinates
         let candidates = self.paths.iter().flat_map(|path| {
             match path {
                 Path::Cubic(cubic) => {
-                    cubic.points().iter().map(|pt| {
-                        // Convert point to screen space for distance calculation
-                        let screen_pt = self.viewport.to_screen(pt.point);
-                        (pt.id, screen_pt, pt.is_on_curve())
-                    }).collect::<Vec<_>>()
+                    cubic
+                        .points()
+                        .iter()
+                        .map(|pt| {
+                            // Convert point to screen space for distance calculation
+                            let screen_pt = self.viewport.to_screen(pt.point);
+                            (pt.id, screen_pt, pt.is_on_curve())
+                        })
+                        .collect::<Vec<_>>()
                 }
             }
         });
@@ -261,7 +269,11 @@ impl EditSession {
     /// the parametric position (t) on that segment where the nearest point lies.
     ///
     /// The parameter t ranges from 0.0 (start of segment) to 1.0 (end of segment).
-    pub fn hit_test_segments(&self, screen_pos: Point, max_dist: f64) -> Option<(crate::segment::SegmentInfo, f64)> {
+    pub fn hit_test_segments(
+        &self,
+        screen_pos: Point,
+        max_dist: f64,
+    ) -> Option<(crate::segment::SegmentInfo, f64)> {
         // Convert screen position to design space
         let design_pos = self.viewport.from_screen(screen_pos);
 
@@ -343,13 +355,25 @@ impl EditSession {
                         // If this on-curve point is selected, mark its adjacent off-curve points
                         if point.is_on_curve() && self.selection.contains(&point.id) {
                             // Check previous point
-                            let prev_i = if i > 0 { i - 1 } else if cubic.closed { len - 1 } else { continue };
+                            let prev_i = if i > 0 {
+                                i - 1
+                            } else if cubic.closed {
+                                len - 1
+                            } else {
+                                continue;
+                            };
                             if prev_i < len && points[prev_i].is_off_curve() {
                                 points_to_move.insert(points[prev_i].id);
                             }
 
                             // Check next point
-                            let next_i = if i + 1 < len { i + 1 } else if cubic.closed { 0 } else { continue };
+                            let next_i = if i + 1 < len {
+                                i + 1
+                            } else if cubic.closed {
+                                0
+                            } else {
+                                continue;
+                            };
                             if next_i < len && points[next_i].is_off_curve() {
                                 points_to_move.insert(points[next_i].id);
                             }
@@ -369,10 +393,8 @@ impl EditSession {
                     // Update positions of points to move
                     for point in points.iter_mut() {
                         if points_to_move.contains(&point.id) {
-                            point.point = Point::new(
-                                point.point.x + delta.x,
-                                point.point.y + delta.y,
-                            );
+                            point.point =
+                                Point::new(point.point.x + delta.x, point.point.y + delta.y);
                         }
                     }
                 }
@@ -478,9 +500,13 @@ impl EditSession {
     /// For cubic curves: subdivides the curve, inserting 1 on-curve and 2 off-curve points
     ///
     /// Returns true if the point was successfully inserted.
-    pub fn insert_point_on_segment(&mut self, segment_info: &crate::segment::SegmentInfo, t: f64) -> bool {
-        use crate::point::{PathPoint, PointType};
+    pub fn insert_point_on_segment(
+        &mut self,
+        segment_info: &crate::segment::SegmentInfo,
+        t: f64,
+    ) -> bool {
         use crate::entity_id::EntityId;
+        use crate::point::{PathPoint, PointType};
         use crate::segment::Segment;
 
         // Find the path containing this segment
@@ -492,7 +518,9 @@ impl EditSession {
                     // Check if this segment belongs to this path
                     let mut found = false;
                     for seg in cubic.iter_segments() {
-                        if seg.start_idx == segment_info.start_idx && seg.end_idx == segment_info.end_idx {
+                        if seg.start_idx == segment_info.start_idx
+                            && seg.end_idx == segment_info.end_idx
+                        {
                             found = true;
                             break;
                         }
@@ -519,7 +547,10 @@ impl EditSession {
                             let insert_idx = segment_info.end_idx;
                             points.insert(insert_idx, new_point);
 
-                            println!("Pen tool: inserted point on line segment at index {}", insert_idx);
+                            println!(
+                                "Pen tool: inserted point on line segment at index {}",
+                                insert_idx
+                            );
                             return true;
                         }
                         Segment::Cubic(cubic_bez) => {
@@ -595,7 +626,10 @@ impl EditSession {
                             insert_idx += 1;
                             points.insert(insert_idx, cp2_right);
 
-                            println!("Pen tool: subdivided cubic curve, inserted 5 points starting at index {}", segment_info.start_idx + 1);
+                            println!(
+                                "Pen tool: subdivided cubic curve, inserted 5 points starting at index {}",
+                                segment_info.start_idx + 1
+                            );
                             return true;
                         }
                     }
@@ -614,10 +648,8 @@ impl EditSession {
         use crate::workspace::Glyph;
 
         // Convert paths back to contours
-        let contours: Vec<crate::workspace::Contour> = self.paths
-            .iter()
-            .map(|path| path.to_contour())
-            .collect();
+        let contours: Vec<crate::workspace::Contour> =
+            self.paths.iter().map(|path| path.to_contour()).collect();
 
         // Create updated glyph with new contours but preserve other metadata
         Glyph {

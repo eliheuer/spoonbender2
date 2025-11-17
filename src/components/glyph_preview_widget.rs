@@ -1,18 +1,43 @@
 // Copyright 2025 the Spoonbender Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Custom widget for rendering font glyphs using Vello
+//! Reusable component for rendering filled font glyphs using Vello
 //!
-//! This module provides a Masonry widget that renders glyph outlines
-//! from Kurbo BezPath data using Vello's GPU-accelerated rendering.
+//! This module provides a unified glyph rendering component that is used
+//! throughout the application wherever glyph previews are needed:
+//!
+//! - **Glyph Grid**: Displays each glyph in the grid cells (60x60px previews)
+//! - **Editor Preview Pane**: Shows a larger preview (150x150px) of the glyph
+//!   being edited in the bottom-left corner of the editor
+//!
+//! The component handles all the complexity of glyph rendering:
+//!
+//! - **GPU-accelerated rendering** via Vello for smooth performance
+//! - **Uniform scaling** based on units-per-em (UPM) to ensure consistent
+//!   visual size across different fonts
+//! - **Baseline positioning** for proper vertical alignment
+//! - **Horizontal centering** with optional advance-width support for stable
+//!   positioning during editing
+//! - **Y-axis flipping** to convert from font coordinate space (Y-up) to
+//!   screen coordinate space (Y-down)
+//!
+//! The component consists of two layers:
+//!
+//! - **`GlyphWidget`**: Low-level Masonry widget that performs the actual
+//!   rendering
+//! - **`GlyphView`**: Xilem View wrapper that integrates with the reactive UI
+//!   system and handles efficient updates when glyph paths change
 
 use kurbo::{Affine, BezPath, Shape};
 use masonry::accesskit::{Node, Role};
-use masonry::core::{AccessCtx, BoxConstraints, ChildrenIds, LayoutCtx, NoAction, PaintCtx, PropertiesMut, PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget};
+use masonry::core::{
+    AccessCtx, BoxConstraints, ChildrenIds, LayoutCtx, NoAction, PaintCtx, PropertiesMut,
+    PropertiesRef, RegisterCtx, Update, UpdateCtx, Widget,
+};
 use masonry::kurbo::Size;
 use masonry::util::fill_color;
-use masonry::vello::peniko::Color;
 use masonry::vello::Scene;
+use masonry::vello::peniko::Color;
 
 /// A widget that renders a glyph from a BezPath
 pub struct GlyphWidget {
@@ -154,12 +179,12 @@ impl Widget for GlyphWidget {
         let baseline = widget_size.height * self.baseline_offset;
 
         let transform = Affine::new([
-            scale,                          // x scale
-            0.0,                            // x skew
-            0.0,                            // y skew
-            -scale,                         // y scale (negative to flip Y axis)
-            x_translation,                  // x translation (centering)
-            widget_size.height - baseline,  // y translation (baseline positioning)
+            scale,                         // x scale
+            0.0,                           // x skew
+            0.0,                           // y skew
+            -scale,                        // y scale (negative to flip Y axis)
+            x_translation,                 // x translation (centering)
+            widget_size.height - baseline, // y translation (baseline positioning)
         ]);
 
         // Apply transform to path
@@ -249,11 +274,7 @@ impl<State: 'static, Action: 'static> View<State, Action, ViewCtx> for GlyphView
     type Element = Pod<GlyphWidget>;
     type ViewState = ();
 
-    fn build(
-        &self,
-        ctx: &mut ViewCtx,
-        _app_state: &mut State,
-    ) -> (Self::Element, Self::ViewState) {
+    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
         let mut widget = GlyphWidget::new(self.path.clone(), self.size, self.upm);
         if let Some(color) = self.color {
             widget = widget.with_color(color);

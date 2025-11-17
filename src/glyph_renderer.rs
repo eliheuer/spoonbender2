@@ -3,8 +3,8 @@
 
 //! Glyph rendering - converts glyph contours to Kurbo paths
 
-use kurbo::{BezPath, Point, Shape};
 use crate::workspace::{Contour, ContourPoint, Glyph, PointType};
+use kurbo::{BezPath, Point, Shape};
 
 /// Convert a Norad Glyph to a Kurbo BezPath
 pub fn glyph_to_bezpath(glyph: &Glyph) -> BezPath {
@@ -28,7 +28,12 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
     // Find the first on-curve point to start the path
     let start_idx = points
         .iter()
-        .position(|p| matches!(p.point_type, PointType::Move | PointType::Line | PointType::Curve))
+        .position(|p| {
+            matches!(
+                p.point_type,
+                PointType::Move | PointType::Line | PointType::Curve
+            )
+        })
         .unwrap_or(0);
 
     // Rotate the points so we start at an on-curve point

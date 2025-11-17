@@ -5,9 +5,9 @@
 
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
-use crate::mouse::{MouseDelegate, MouseEvent, Drag};
-use masonry::vello::Scene;
+use crate::mouse::{Drag, MouseDelegate, MouseEvent};
 use kurbo::Affine;
+use masonry::vello::Scene;
 
 /// Tool identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -119,7 +119,7 @@ impl ToolBox {
         match self {
             ToolBox::Select(tool) => tool.paint(scene, session, transform),
             ToolBox::Pen(tool) => tool.paint(scene, session, transform),
-            ToolBox::Preview(_) => {}, // Preview tool has no overlays
+            ToolBox::Preview(_) => {} // Preview tool has no overlays
         }
     }
 
@@ -246,6 +246,6 @@ impl MouseDelegate for ToolBox {
 }
 
 // Tool modules
-pub mod select;
 pub mod pen;
 pub mod preview;
+pub mod select;

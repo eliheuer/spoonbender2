@@ -7,22 +7,21 @@
 use kurbo::{Affine, BezPath, Point, Rect, Shape, Size};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, EventCtx, LayoutCtx, PaintCtx,
-    PointerButton, PointerButtonEvent, PointerEvent,
-    PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
+    AccessCtx, BoxConstraints, EventCtx, LayoutCtx, PaintCtx, PointerButton, PointerButtonEvent,
+    PointerEvent, PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
 };
 use masonry::util::{fill_color, stroke};
-use masonry::vello::peniko::Color;
 use masonry::vello::Scene;
+use masonry::vello::peniko::Color;
 
 /// Toolbar dimensions (matching edit toolbar style)
 const TOOLBAR_ITEM_SIZE: f64 = 48.0;
-const TOOLBAR_ITEM_SPACING: f64 = 6.0;  // Space between buttons
-const TOOLBAR_PADDING: f64 = 8.0;  // Padding around the entire toolbar
+const TOOLBAR_ITEM_SPACING: f64 = 6.0; // Space between buttons
+const TOOLBAR_PADDING: f64 = 8.0; // Padding around the entire toolbar
 const ICON_PADDING: f64 = 8.0;
 const ITEM_STROKE_WIDTH: f64 = 1.5;
-const BUTTON_RADIUS: f64 = 6.0;  // Rounded corner radius
-const BORDER_WIDTH: f64 = 1.5;  // Border thickness for buttons and panel
+const BUTTON_RADIUS: f64 = 6.0; // Rounded corner radius
+const BORDER_WIDTH: f64 = 1.5; // Border thickness for buttons and panel
 
 /// Toolbar colors (from theme)
 const COLOR_PANEL: Color = crate::theme::panel::BACKGROUND;
@@ -142,12 +141,7 @@ impl Widget for GridToolbarWidget {
         fill_color(scene, &button_path, button_color);
 
         // Button border
-        stroke(
-            scene,
-            &button_path,
-            COLOR_BUTTON_BORDER,
-            BORDER_WIDTH,
-        );
+        stroke(scene, &button_path, COLOR_BUTTON_BORDER, BORDER_WIDTH);
 
         // Draw icon
         let icon = GridToolbarWidget::icon_for_button(GridToolbarButton::Grid);
@@ -193,7 +187,11 @@ impl Widget for GridToolbarWidget {
         event: &PointerEvent,
     ) {
         match event {
-            PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
+            PointerEvent::Down(PointerButtonEvent {
+                button: Some(PointerButton::Primary),
+                state,
+                ..
+            }) => {
                 let local_pos = ctx.local_position(state.position);
                 if let Some(button) = self.button_at_point(local_pos) {
                     ctx.submit_action::<GridToolbarAction>(GridToolbarAction(button));
@@ -269,15 +267,13 @@ pub struct GridToolbarView<State, Action = ()> {
 
 impl<State, Action> ViewMarker for GridToolbarView<State, Action> {}
 
-impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx> for GridToolbarView<State, Action> {
+impl<State: 'static, Action: 'static + Default> View<State, Action, ViewCtx>
+    for GridToolbarView<State, Action>
+{
     type Element = Pod<GridToolbarWidget>;
     type ViewState = ();
 
-    fn build(
-        &self,
-        ctx: &mut ViewCtx,
-        _app_state: &mut State,
-    ) -> (Self::Element, Self::ViewState) {
+    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
         let widget = GridToolbarWidget::new();
         (ctx.with_action_widget(|ctx| ctx.create_pod(widget)), ())
     }

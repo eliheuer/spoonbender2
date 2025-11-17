@@ -13,14 +13,14 @@ use crate::undo::UndoState;
 use kurbo::{Affine, Circle, Point, Rect as KurboRect, Shape, Stroke};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
-    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx,
-    PointerButton, PointerButtonEvent, PointerEvent, PointerUpdate,
-    PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
+    AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx, PaintCtx, PointerButton,
+    PointerButtonEvent, PointerEvent, PointerUpdate, PropertiesMut, PropertiesRef, RegisterCtx,
+    TextEvent, Update, UpdateCtx, Widget,
 };
 use masonry::kurbo::Size;
 use masonry::util::fill_color;
-use masonry::vello::peniko::Brush;
 use masonry::vello::Scene;
+use masonry::vello::peniko::Brush;
 use std::sync::Arc;
 
 /// The main glyph editor canvas widget
@@ -110,7 +110,6 @@ impl EditorWidget {
             tracing::debug!("Redo: restored next state");
         }
     }
-
 }
 
 /// Action emitted by the editor widget when the session is updated
@@ -244,7 +243,7 @@ impl Widget for EditorWidget {
             // Temporarily take ownership of the tool to call paint (requires &mut)
             let mut tool = std::mem::replace(
                 &mut self.session.current_tool,
-                crate::tools::ToolBox::for_id(crate::tools::ToolId::Select)
+                crate::tools::ToolBox::for_id(crate::tools::ToolId::Select),
             );
             tool.paint(scene, &self.session, &transform);
             self.session.current_tool = tool;
@@ -261,9 +260,16 @@ impl Widget for EditorWidget {
         use crate::tools::{ToolBox, ToolId};
 
         match event {
-            PointerEvent::Down(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
-                println!("[EditorWidget::on_pointer_event] Down at {:?}, current_tool: {:?}",
-                         state.position, self.session.current_tool.id());
+            PointerEvent::Down(PointerButtonEvent {
+                button: Some(PointerButton::Primary),
+                state,
+                ..
+            }) => {
+                println!(
+                    "[EditorWidget::on_pointer_event] Down at {:?}, current_tool: {:?}",
+                    state.position,
+                    self.session.current_tool.id()
+                );
 
                 // Request focus to receive keyboard events
                 println!("[EditorWidget] Requesting focus!");
@@ -285,11 +291,16 @@ impl Widget for EditorWidget {
                 };
 
                 // Create MouseEvent for our mouse state machine
-                let mouse_event = MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
+                let mouse_event =
+                    MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
 
                 // Temporarily take ownership of the tool to avoid borrow conflicts
-                let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
-                self.mouse.mouse_down(mouse_event, &mut tool, &mut self.session);
+                let mut tool = std::mem::replace(
+                    &mut self.session.current_tool,
+                    ToolBox::for_id(ToolId::Select),
+                );
+                self.mouse
+                    .mouse_down(mouse_event, &mut tool, &mut self.session);
                 self.session.current_tool = tool;
 
                 ctx.request_render();
@@ -302,8 +313,12 @@ impl Widget for EditorWidget {
                 let mouse_event = MouseEvent::new(local_pos, None);
 
                 // Temporarily take ownership of the tool
-                let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
-                self.mouse.mouse_moved(mouse_event, &mut tool, &mut self.session);
+                let mut tool = std::mem::replace(
+                    &mut self.session.current_tool,
+                    ToolBox::for_id(ToolId::Select),
+                );
+                self.mouse
+                    .mouse_moved(mouse_event, &mut tool, &mut self.session);
                 self.session.current_tool = tool;
 
                 // Request render during drag OR when pen tool needs hover feedback
@@ -329,7 +344,11 @@ impl Widget for EditorWidget {
                 }
             }
 
-            PointerEvent::Up(PointerButtonEvent { button: Some(PointerButton::Primary), state, .. }) => {
+            PointerEvent::Up(PointerButtonEvent {
+                button: Some(PointerButton::Primary),
+                state,
+                ..
+            }) => {
                 let local_pos = ctx.local_position(state.position);
 
                 // Extract modifier keys from pointer state
@@ -342,11 +361,16 @@ impl Widget for EditorWidget {
                 };
 
                 // Create MouseEvent with modifiers
-                let mouse_event = MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
+                let mouse_event =
+                    MouseEvent::with_modifiers(local_pos, Some(MouseButton::Left), mods);
 
                 // Temporarily take ownership of the tool
-                let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
-                self.mouse.mouse_up(mouse_event, &mut tool, &mut self.session);
+                let mut tool = std::mem::replace(
+                    &mut self.session.current_tool,
+                    ToolBox::for_id(ToolId::Select),
+                );
+                self.mouse
+                    .mouse_up(mouse_event, &mut tool, &mut self.session);
 
                 // Record undo if an edit occurred
                 if let Some(edit_type) = tool.edit_type() {
@@ -372,7 +396,10 @@ impl Widget for EditorWidget {
 
             PointerEvent::Cancel(_) => {
                 // Temporarily take ownership of the tool
-                let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(ToolId::Select));
+                let mut tool = std::mem::replace(
+                    &mut self.session.current_tool,
+                    ToolBox::for_id(ToolId::Select),
+                );
                 self.mouse.cancel(&mut tool, &mut self.session);
                 self.session.current_tool = tool;
 
@@ -396,11 +423,17 @@ impl Widget for EditorWidget {
 
         match event {
             TextEvent::Keyboard(key_event) => {
-                println!("[EditorWidget::on_text_event] key: {:?}, state: {:?}", key_event.key, key_event.state);
+                println!(
+                    "[EditorWidget::on_text_event] key: {:?}, state: {:?}",
+                    key_event.key, key_event.state
+                );
 
                 // Handle spacebar for temporary preview mode (both down and up)
                 if matches!(&key_event.key, Key::Character(c) if c == " ") {
-                    println!("[EditorWidget] Spacebar detected! state: {:?}, previous_tool: {:?}", key_event.state, self.previous_tool);
+                    println!(
+                        "[EditorWidget] Spacebar detected! state: {:?}, previous_tool: {:?}",
+                        key_event.state, self.previous_tool
+                    );
 
                     if key_event.state == KeyState::Down && self.previous_tool.is_none() {
                         // Spacebar pressed: save current tool and switch to Preview
@@ -410,16 +443,23 @@ impl Widget for EditorWidget {
 
                             // Cancel the current tool and reset mouse state (like Runebender)
                             use crate::tools::ToolBox;
-                            let mut tool = std::mem::replace(&mut self.session.current_tool, ToolBox::for_id(crate::tools::ToolId::Select));
+                            let mut tool = std::mem::replace(
+                                &mut self.session.current_tool,
+                                ToolBox::for_id(crate::tools::ToolId::Select),
+                            );
                             self.mouse.cancel(&mut tool, &mut self.session);
 
                             // Reset mouse state by creating new instance
                             self.mouse = Mouse::new();
 
                             // Switch to Preview tool
-                            self.session.current_tool = ToolBox::for_id(crate::tools::ToolId::Preview);
+                            self.session.current_tool =
+                                ToolBox::for_id(crate::tools::ToolId::Preview);
 
-                            println!("Spacebar down: switched to Preview, will return to {:?}", current_tool);
+                            println!(
+                                "Spacebar down: switched to Preview, will return to {:?}",
+                                current_tool
+                            );
 
                             // Emit SessionUpdate so the toolbar reflects the change
                             ctx.submit_action::<SessionUpdate>(SessionUpdate {
@@ -479,7 +519,8 @@ impl Widget for EditorWidget {
 
                 // Zoom in (Cmd/Ctrl + or =)
                 if cmd && matches!(&key_event.key, Key::Character(c) if c == "+" || c == "=") {
-                    let new_zoom = (self.session.viewport.zoom * 1.1).min(settings::editor::MAX_ZOOM);
+                    let new_zoom =
+                        (self.session.viewport.zoom * 1.1).min(settings::editor::MAX_ZOOM);
                     self.session.viewport.zoom = new_zoom;
                     println!("Zoom in: new zoom = {:.2}", new_zoom);
                     ctx.request_render();
@@ -489,7 +530,8 @@ impl Widget for EditorWidget {
 
                 // Zoom out (Cmd/Ctrl -)
                 if cmd && matches!(&key_event.key, Key::Character(c) if c == "-") {
-                    let new_zoom = (self.session.viewport.zoom / 1.1).max(settings::editor::MIN_ZOOM);
+                    let new_zoom =
+                        (self.session.viewport.zoom / 1.1).max(settings::editor::MIN_ZOOM);
                     self.session.viewport.zoom = new_zoom;
                     println!("Zoom out: new zoom = {:.2}", new_zoom);
                     ctx.request_render();
@@ -515,7 +557,10 @@ impl Widget for EditorWidget {
                 }
 
                 // Delete selected points (Backspace or Delete key)
-                if matches!(&key_event.key, Key::Named(NamedKey::Backspace) | Key::Named(NamedKey::Delete)) {
+                if matches!(
+                    &key_event.key,
+                    Key::Named(NamedKey::Backspace) | Key::Named(NamedKey::Delete)
+                ) {
                     self.session.delete_selection();
                     self.record_edit(EditType::Normal);
                     ctx.request_render();
@@ -553,11 +598,11 @@ impl Widget for EditorWidget {
                     }
                     Key::Named(NamedKey::ArrowUp) => {
                         println!("Arrow Up pressed");
-                        (0.0, 1.0)    // Design space: Y increases upward
+                        (0.0, 1.0) // Design space: Y increases upward
                     }
                     Key::Named(NamedKey::ArrowDown) => {
                         println!("Arrow Down pressed");
-                        (0.0, -1.0)  // Design space: Y increases upward
+                        (0.0, -1.0) // Design space: Y increases upward
                     }
                     _ => return,
                 };
@@ -565,8 +610,14 @@ impl Widget for EditorWidget {
                 let shift = key_event.modifiers.shift();
                 let ctrl = key_event.modifiers.ctrl() || key_event.modifiers.meta();
 
-                println!("Nudging selection: dx={} dy={} shift={} ctrl={} selection_len={}",
-                    dx, dy, shift, ctrl, self.session.selection.len());
+                println!(
+                    "Nudging selection: dx={} dy={} shift={} ctrl={} selection_len={}",
+                    dx,
+                    dy,
+                    shift,
+                    ctrl,
+                    self.session.selection.len()
+                );
 
                 self.session.nudge_selection(dx, dy, shift, ctrl);
                 ctx.request_render();
@@ -841,15 +892,13 @@ pub struct EditorView<State, F> {
 
 impl<State, F> ViewMarker for EditorView<State, F> {}
 
-impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), ViewCtx> for EditorView<State, F> {
+impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), ViewCtx>
+    for EditorView<State, F>
+{
     type Element = Pod<EditorWidget>;
     type ViewState = ();
 
-    fn build(
-        &self,
-        ctx: &mut ViewCtx,
-        _app_state: &mut State,
-    ) -> (Self::Element, Self::ViewState) {
+    fn build(&self, ctx: &mut ViewCtx, _app_state: &mut State) -> (Self::Element, Self::ViewState) {
         let widget = EditorWidget::new(self.session.clone());
         let pod = ctx.create_pod(widget);
         ctx.record_action(pod.new_widget.id());
@@ -868,8 +917,11 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
         // We compare Arc pointers - if they're different, the session was updated
         if !Arc::ptr_eq(&self.session, &prev.session) {
             println!("[EditorView::rebuild] Session Arc changed, updating widget");
-            println!("[EditorView::rebuild] Old tool: {:?}, New tool: {:?}",
-                     prev.session.current_tool.id(), self.session.current_tool.id());
+            println!(
+                "[EditorView::rebuild] Old tool: {:?}, New tool: {:?}",
+                prev.session.current_tool.id(),
+                self.session.current_tool.id()
+            );
 
             // Get mutable access to the widget
             let mut widget = element.downcast::<EditorWidget>();
@@ -903,7 +955,10 @@ impl<State: 'static, F: Fn(&mut State, EditSession) + 'static> View<State, (), V
         // Handle SessionUpdate messages from the widget
         match message.take_message::<SessionUpdate>() {
             Some(update) => {
-                println!("[EditorView::message] Handling SessionUpdate, calling callback, selection.len()={}", update.session.selection.len());
+                println!(
+                    "[EditorView::message] Handling SessionUpdate, calling callback, selection.len()={}",
+                    update.session.selection.len()
+                );
                 (self.on_session_update)(app_state, update.session);
                 println!("[EditorView::message] Callback complete, returning Action(())");
                 // Return Action(()) to propagate to root and trigger full app rebuild

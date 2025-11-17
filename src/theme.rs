@@ -51,62 +51,62 @@ const COORDINATE_PANEL_GRID_LINE: Color = BASE_A;
 // GLYPH GRID VIEW
 // ============================================================================
 // Grid cell backgrounds
-const GRID_CELL_BACKGROUND: Color = BASE_B;       // 0x20 - Very dark gray (one shade darker)
-const GRID_CELL_OUTLINE: Color = BASE_F;          // 0x60 - Medium gray (was 0x64)
-const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14);  // Keep green
-const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90);     // Keep light green
+const GRID_CELL_BACKGROUND: Color = BASE_B; // 0x20 - Very dark gray (one shade darker)
+const GRID_CELL_OUTLINE: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
+const GRID_CELL_SELECTED_BACKGROUND: Color = Color::from_rgb8(0x14, 0x64, 0x14); // Keep green
+const GRID_CELL_SELECTED_OUTLINE: Color = Color::from_rgb8(0x90, 0xee, 0x90); // Keep light green
 
 // Glyph rendering in grid
-const GRID_GLYPH_COLOR: Color = BASE_J;           // 0xa0 - Light gray for glyph preview
-const GRID_CELL_TEXT: Color = BASE_L;             // 0xc0 - Near white
+const GRID_GLYPH_COLOR: Color = BASE_J; // 0xa0 - Light gray for glyph preview
+const GRID_CELL_TEXT: Color = BASE_L; // 0xc0 - Near white
 
 // ============================================================================
 // PATHS AND OUTLINES
 // ============================================================================
-const PATH_STROKE: Color = BASE_L;                // 0xc0 - Near white (was 0xc8)
-const PATH_FILL: Color = BASE_F;                  // 0x60 - Medium gray (was 0x64)
-const PATH_PREVIEW_FILL: Color = BASE_L;          // 0xc0 - Near white (was 0xc8)
+const PATH_STROKE: Color = BASE_L; // 0xc0 - Near white (was 0xc8)
+const PATH_FILL: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
+const PATH_PREVIEW_FILL: Color = BASE_L; // 0xc0 - Near white (was 0xc8)
 
 // ============================================================================
 // METRICS GUIDES
 // ============================================================================
-const METRICS_GUIDE: Color = BASE_F;              // 0x60 - Medium gray (was 0x64)
+const METRICS_GUIDE: Color = BASE_F; // 0x60 - Medium gray (was 0x64)
 
 // ============================================================================
 // GRID
 // ============================================================================
-const GRID_LINE: Color = BASE_D;                  // 0x40 - Medium-dark gray (was 0x3c)
+const GRID_LINE: Color = BASE_D; // 0x40 - Medium-dark gray (was 0x3c)
 
 // ============================================================================
 // CONTROL POINT HANDLES
 // ============================================================================
-const HANDLE_LINE: Color = BASE_I;                // 0x90 - Light gray (was 0x96)
+const HANDLE_LINE: Color = BASE_I; // 0x90 - Light gray (was 0x96)
 
 // ============================================================================
 // POINT COLORS
 // ============================================================================
 
 // Smooth on-curve points (circles) - BLUE
-const SMOOTH_POINT_INNER: Color = Color::from_rgb8(0x57, 0x9a, 0xff);  // Light blue
-const SMOOTH_POINT_OUTER: Color = Color::from_rgb8(0x44, 0x28, 0xec);  // Dark blue
+const SMOOTH_POINT_INNER: Color = Color::from_rgb8(0x57, 0x9a, 0xff); // Light blue
+const SMOOTH_POINT_OUTER: Color = Color::from_rgb8(0x44, 0x28, 0xec); // Dark blue
 
 // Corner on-curve points (squares) - GREEN
-const CORNER_POINT_INNER: Color = Color::from_rgb8(0x6a, 0xe7, 0x56);  // Light green
-const CORNER_POINT_OUTER: Color = Color::from_rgb8(0x20, 0x8e, 0x56);  // Dark green
+const CORNER_POINT_INNER: Color = Color::from_rgb8(0x6a, 0xe7, 0x56); // Light green
+const CORNER_POINT_OUTER: Color = Color::from_rgb8(0x20, 0x8e, 0x56); // Dark green
 
 // Off-curve control points (circles) - PURPLE
-const OFFCURVE_POINT_INNER: Color = Color::from_rgb8(0xcc, 0x99, 0xff);  // Light purple
-const OFFCURVE_POINT_OUTER: Color = Color::from_rgb8(0x99, 0x00, 0xff);  // Dark purple
+const OFFCURVE_POINT_INNER: Color = Color::from_rgb8(0xcc, 0x99, 0xff); // Light purple
+const OFFCURVE_POINT_OUTER: Color = Color::from_rgb8(0x99, 0x00, 0xff); // Dark purple
 
 // Selected points (any type) - YELLOW/ORANGE
-const SELECTED_POINT_INNER: Color = Color::from_rgb8(0xff, 0xee, 0x55);  // Yellow
-const SELECTED_POINT_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33);  // Orange
+const SELECTED_POINT_INNER: Color = Color::from_rgb8(0xff, 0xee, 0x55); // Yellow
+const SELECTED_POINT_OUTER: Color = Color::from_rgb8(0xff, 0xaa, 0x33); // Orange
 
 // ============================================================================
 // SELECTION RECTANGLE (Marquee)
 // ============================================================================
-const SELECTION_RECT_FILL: Color = Color::from_rgba8(0xff, 0xaa, 0x33, 0x20);  // Semi-transparent orange
-const SELECTION_RECT_STROKE: Color = Color::from_rgb8(0xff, 0xaa, 0x33);       // Bright orange (same as selected point outer)
+const SELECTION_RECT_FILL: Color = Color::from_rgba8(0xff, 0xaa, 0x33, 0x20); // Semi-transparent orange
+const SELECTION_RECT_STROKE: Color = Color::from_rgb8(0xff, 0xaa, 0x33); // Bright orange (same as selected point outer)
 
 // ============================================================================
 // PUBLIC API - Don't edit below this line
@@ -193,18 +193,18 @@ pub mod coordinate_panel {
     pub const TEXT: Color = super::PRIMARY_UI_TEXT;
 
     // Dot colors - selected (matches glyph preview color)
-    pub const DOT_SELECTED_INNER: Color = super::GLYPH_PREVIEW_COLOR;  // 0xa0 - Light gray (same as glyph preview)
-    pub const DOT_SELECTED_OUTER: Color = super::BASE_B;  // 0x20 - Same as unselected outline
+    pub const DOT_SELECTED_INNER: Color = super::GLYPH_PREVIEW_COLOR; // 0xa0 - Light gray (same as glyph preview)
+    pub const DOT_SELECTED_OUTER: Color = super::BASE_B; // 0x20 - Same as unselected outline
 
     // Dot colors - unselected (darker gray)
-    pub const DOT_UNSELECTED_INNER: Color = super::BASE_F;  // 0x60 - Medium gray (was 0x5a)
-    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_B;  // 0x20 - Very dark gray (was 0x28)
+    pub const DOT_UNSELECTED_INNER: Color = super::BASE_F; // 0x60 - Medium gray (was 0x5a)
+    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_B; // 0x20 - Very dark gray (was 0x28)
 
     // Sizes (matching Runebender)
-    pub const PADDING: f64 = 16.0;  // Increased from 8px for more even margins
-    pub const SELECTOR_SIZE: f64 = 64.0;  // Reduced from 64px to fit with larger padding
-    pub const DOT_RADIUS: f64 = 10.0;  // Reduced from 6px for smaller circles
-    pub const STROKE_WIDTH: f64 = 1.0;  // Match container outline width
+    pub const PADDING: f64 = 16.0; // Increased from 8px for more even margins
+    pub const SELECTOR_SIZE: f64 = 64.0; // Reduced from 64px to fit with larger padding
+    pub const DOT_RADIUS: f64 = 10.0; // Reduced from 6px for smaller circles
+    pub const STROKE_WIDTH: f64 = 1.0; // Match container outline width
 }
 
 /// Colors for glyph grid view
