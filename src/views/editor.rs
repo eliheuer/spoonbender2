@@ -125,10 +125,10 @@ fn glyph_preview_pane(
         sized_box(
             flex_col((
                 label(glyph_name)
-                    .text_size(11.0)
+                    .text_size(18.0)
                     .color(theme::text::PRIMARY),
                 label(unicode_display)
-                    .text_size(11.0)
+                    .text_size(18.0)
                     .color(theme::text::PRIMARY),
                 sized_box(label("")).height(4.px()),
             ))

@@ -22,7 +22,7 @@ use masonry::vello::Scene;
 
 /// Local constants for the coordinate panel, maybe move to settings?
 const PANEL_WIDTH: f64 = 240.0;
-const PANEL_HEIGHT: f64 = 80.0;
+const PANEL_HEIGHT: f64 = 100.0;
 
 // Import from theme (includes all sizing and color constants)
 use crate::theme::coordinate_panel::*;
@@ -542,14 +542,14 @@ where
     // Helper function to create styled coordinate labels
     let coord_label = |text: String| {
         label(text)
-            .text_size(12.0)
+            .text_size(18.0)
             .text_alignment(parley::Alignment::Start)
             .color(theme::text::PRIMARY)
     };
 
     let quadrant_selector = sized_box(
         coordinate_panel_view(session, on_session_update)
-    ).width(80.px());
+    ).width(104.px()); // 72px selector + 16px padding on each side
 
     let coord_values = flex_col((
         coord_label(format!("x: {:<6}", x_text)),
@@ -563,10 +563,11 @@ where
     sized_box(
         flex_row((quadrant_selector, coord_values))
             .main_axis_alignment(MainAxisAlignment::Start)
-            .gap(8.px()),
+            .gap(0.px()),
     )
-    .width(150.px())
-    .height(80.px())
+    .width(166.px()) // 150px content + 16px padding (8px each side)
+    .height(116.px()) // 100px content + 16px padding (8px each side)
+    .padding(8.0) // Add padding inside the panel
     .background_color(crate::theme::panel::BACKGROUND)
     .border_color(crate::theme::panel::OUTLINE)
     .border_width(1.5)

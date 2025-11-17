@@ -181,7 +181,7 @@ pub mod coordinate_panel {
 
     // Sizes (matching Runebender)
     pub const PADDING: f64 = 16.0; // Increased from 8px for more even margins
-    pub const SELECTOR_SIZE: f64 = 64.0; // Reduced from 64px to fit with larger padding
+    pub const SELECTOR_SIZE: f64 = 72.0; // Larger selector for better visibility
     pub const DOT_RADIUS: f64 = 10.0; // Reduced from 6px for smaller circles
     pub const STROKE_WIDTH: f64 = 1.0; // Match container outline width
 }
