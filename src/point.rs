@@ -100,6 +100,35 @@ impl PathPoint {
         let typ = PointType::from_workspace_type(pt.point_type);
         Self::new(point, typ)
     }
+
+    /// Convert from a workspace contour point for quadratic paths
+    ///
+    /// QCurve points are treated as smooth on-curve points
+    pub fn from_contour_point_quadratic(
+        pt: &workspace::ContourPoint,
+    ) -> Self {
+        let point = Point::new(pt.x, pt.y);
+        let typ = match pt.point_type {
+            workspace::PointType::Move => {
+                PointType::OnCurve { smooth: false }
+            }
+            workspace::PointType::Line => {
+                PointType::OnCurve { smooth: false }
+            }
+            workspace::PointType::QCurve => {
+                PointType::OnCurve { smooth: true }
+            }
+            workspace::PointType::OffCurve => {
+                PointType::OffCurve { auto: false }
+            }
+            workspace::PointType::Curve => {
+                // In a quadratic path, Curve points are treated
+                // as smooth on-curve (same as QCurve)
+                PointType::OnCurve { smooth: true }
+            }
+        };
+        Self::new(point, typ)
+    }
 }
 
 #[allow(dead_code)]

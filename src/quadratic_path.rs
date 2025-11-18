@@ -1,7 +1,7 @@
 // Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Cubic bezier path representation
+//! Quadratic bezier path representation
 
 use crate::entity_id::EntityId;
 use crate::point::{PathPoint, PointType};
@@ -9,14 +9,15 @@ use crate::point_list::PathPoints;
 use crate::workspace;
 use kurbo::{BezPath, Shape};
 
-/// A single contour represented as a cubic bezier path
+/// A single contour represented as a quadratic bezier path
 ///
-/// This corresponds to a UFO contour. Points are stored in order,
-/// with the convention that for closed paths, the first point
-/// (index 0) is conceptually the last point in the cyclic sequence.
+/// This corresponds to a UFO contour with QCurve points. Points
+/// are stored in order, with the convention that for closed paths,
+/// the first point (index 0) is conceptually the last point in
+/// the cyclic sequence.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct CubicPath {
+pub struct QuadraticPath {
     /// The points in this path
     pub points: PathPoints,
 
@@ -28,8 +29,8 @@ pub struct CubicPath {
 }
 
 #[allow(dead_code)]
-impl CubicPath {
-    /// Create a new cubic path
+impl QuadraticPath {
+    /// Create a new quadratic path
     pub fn new(points: PathPoints, closed: bool) -> Self {
         Self {
             points,
@@ -38,7 +39,7 @@ impl CubicPath {
         }
     }
 
-    /// Create a new empty cubic path
+    /// Create a new empty quadratic path
     pub fn empty() -> Self {
         Self::new(PathPoints::new(), false)
     }
@@ -58,7 +59,7 @@ impl CubicPath {
         &self.points
     }
 
-    /// Convert this cubic path to a kurbo BezPath for rendering
+    /// Convert this quadratic path to a kurbo BezPath for rendering
     pub fn to_bezpath(&self) -> BezPath {
         let mut path = BezPath::new();
 
@@ -98,14 +99,17 @@ impl CubicPath {
     }
 
     /// Convert from a workspace contour (norad format)
+    ///
+    /// Assumes the contour contains QCurve points for quadratic
+    /// segments.
     pub fn from_contour(contour: &workspace::Contour) -> Self {
         if contour.points.is_empty() {
             return Self::empty();
         }
 
         // Determine if the path is closed
-        // In UFO, a contour is closed unless the first point is a
-        // Move
+        // In UFO, a contour is closed unless the first point is
+        // a Move
         let closed = !matches!(
             contour.points[0].point_type,
             workspace::PointType::Move
@@ -115,11 +119,12 @@ impl CubicPath {
         let mut path_points: Vec<PathPoint> = contour
             .points
             .iter()
-            .map(PathPoint::from_contour_point)
+            .map(PathPoint::from_contour_point_quadratic)
             .collect();
 
         // If closed, rotate left by 1 to match Runebender's
-        // convention (first point in closed path is last in vector)
+        // convention (first point in closed path is last in
+        // vector)
         if closed && !path_points.is_empty() {
             path_points.rotate_left(1);
         }
@@ -127,7 +132,8 @@ impl CubicPath {
         Self::new(PathPoints::from_vec(path_points), closed)
     }
 
-    /// Convert this cubic path to a workspace contour (for saving)
+    /// Convert this quadratic path to a workspace contour (for
+    /// saving)
     pub fn to_contour(&self) -> workspace::Contour {
         use crate::point::PointType;
         use crate::workspace::{
@@ -148,7 +154,7 @@ impl CubicPath {
             .map(|pt| {
                 let point_type = match pt.typ {
                     PointType::OnCurve { smooth: true } => {
-                        WsPointType::Curve
+                        WsPointType::QCurve
                     }
                     PointType::OnCurve { smooth: false } => {
                         WsPointType::Line
@@ -171,8 +177,8 @@ impl CubicPath {
 
     /// Iterate over the segments in this path
     ///
-    /// Returns an iterator that yields SegmentInfo for each segment
-    /// (line or curve)
+    /// Returns an iterator that yields SegmentInfo for each
+    /// segment (line or quadratic curve)
     pub fn iter_segments(
         &self,
     ) -> impl Iterator<Item = crate::segment::SegmentInfo> + '_ {
@@ -228,22 +234,30 @@ impl CubicPath {
     }
 
     /// Collect off-curve points preceding the current index
+    ///
+    /// For quadratic paths, we expect at most one off-curve
+    /// point before each on-curve point.
     fn collect_preceding_off_curve_points<'a>(
         rotated: &'a [&PathPoint],
         current_idx: usize,
     ) -> Vec<&'a PathPoint> {
         let mut off_curve_before = Vec::new();
-        let mut j = current_idx.saturating_sub(1);
+        let j = current_idx.saturating_sub(1);
 
-        while j > 0 && rotated[j].is_off_curve() {
-            off_curve_before.insert(0, rotated[j]);
-            j = j.saturating_sub(1);
+        // For quadratic, we only need the immediately preceding
+        // off-curve point (if any)
+        if j > 0 && rotated[j].is_off_curve() {
+            off_curve_before.push(rotated[j]);
         }
 
         off_curve_before
     }
 
     /// Add a segment to the path based on control points
+    ///
+    /// For quadratic paths:
+    /// - 0 control points = line
+    /// - 1 control point = quadratic curve
     fn add_segment_to_path(
         path: &mut BezPath,
         off_curve_before: &[&PathPoint],
@@ -258,19 +272,12 @@ impl CubicPath {
                 // One control point - quadratic curve
                 path.quad_to(off_curve_before[0].point, end_point);
             }
-            2 => {
-                // Two control points - cubic curve
-                path.curve_to(
-                    off_curve_before[0].point,
-                    off_curve_before[1].point,
-                    end_point,
-                );
-            }
-            n => {
-                // More than 2 - use last two
-                path.curve_to(
-                    off_curve_before[n - 2].point,
-                    off_curve_before[n - 1].point,
+            _ => {
+                // More than 1 control point - this shouldn't
+                // happen in a pure quadratic path, but handle
+                // gracefully by using the last one
+                path.quad_to(
+                    off_curve_before[off_curve_before.len() - 1].point,
                     end_point,
                 );
             }
@@ -286,7 +293,8 @@ impl CubicPath {
             Self::collect_trailing_off_curve_points(rotated);
 
         if !trailing_off_curve.is_empty() {
-            // These off-curve points connect back to the first point
+            // These off-curve points connect back to the first
+            // point
             let first_pt = rotated[0];
             Self::add_segment_to_path(
                 path,
@@ -297,18 +305,20 @@ impl CubicPath {
     }
 
     /// Collect trailing off-curve points at the end of the path
+    ///
+    /// For quadratic paths, we expect at most one trailing
+    /// off-curve point.
     fn collect_trailing_off_curve_points<'a>(
         rotated: &'a [&PathPoint],
     ) -> Vec<&'a PathPoint> {
-        let mut trailing_off_curve = Vec::new();
-        let mut j = rotated.len().saturating_sub(1);
+        let len = rotated.len();
 
-        while j > 0 && rotated[j].is_off_curve() {
-            trailing_off_curve.insert(0, rotated[j]);
-            j = j.saturating_sub(1);
+        // For quadratic, check only the last point
+        if len > 1 && rotated[len - 1].is_off_curve() {
+            vec![rotated[len - 1]]
+        } else {
+            Vec::new()
         }
-
-        trailing_off_curve
     }
 }
 
@@ -374,34 +384,28 @@ impl SegmentIterator {
         })
     }
 
-    /// Handle off-curve point: create a cubic curve segment
-    fn next_cubic_segment_at(
+    /// Handle off-curve point: create a quadratic curve segment
+    fn next_quadratic_segment_at(
         &mut self,
         point_idx: usize,
-        cp1: kurbo::Point,
+        cp: kurbo::Point,
     ) -> Option<crate::segment::SegmentInfo> {
-        // Cubic curve: need 2 off-curve + 1 on-curve
-        if point_idx + 2 >= self.points.len() {
+        // Quadratic curve: need 1 off-curve + 1 on-curve
+        if point_idx + 1 >= self.points.len() {
             return None;
         }
 
-        let cp2 = self.points[point_idx + 1].point;
-        let end = self.points[point_idx + 2].point;
+        let end = self.points[point_idx + 1].point;
 
         let start_idx = self.prev_on_curve_idx;
-        let end_idx = point_idx + 2;
-        let segment = crate::segment::Segment::Cubic(
-            kurbo::CubicBez::new(
-                self.prev_on_curve,
-                cp1,
-                cp2,
-                end,
-            ),
+        let end_idx = point_idx + 1;
+        let segment = crate::segment::Segment::Quadratic(
+            kurbo::QuadBez::new(self.prev_on_curve, cp, end),
         );
 
         self.prev_on_curve = end;
-        self.prev_on_curve_idx = point_idx + 2;
-        self.index = point_idx + 3;
+        self.prev_on_curve_idx = point_idx + 1;
+        self.index = point_idx + 2;
 
         Some(crate::segment::SegmentInfo {
             segment,
@@ -426,7 +430,8 @@ impl Iterator for SegmentIterator {
         if is_on_curve {
             self.next_line_segment_at(point_idx, point)
         } else {
-            self.next_cubic_segment_at(point_idx, point)
+            self.next_quadratic_segment_at(point_idx, point)
         }
     }
 }
+

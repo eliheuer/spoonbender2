@@ -64,10 +64,6 @@ impl EditModeToolbarWidget {
             ToolId::Select => select_icon(),
             ToolId::Pen => pen_icon(),
             ToolId::Preview => preview_icon(),
-            _ => {
-                // For any unimplemented tools, return empty path
-                BezPath::new()
-            }
         }
     }
 

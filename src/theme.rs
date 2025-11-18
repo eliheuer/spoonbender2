@@ -161,8 +161,8 @@ pub mod panel {
 /// Colors for toolbar buttons
 pub mod toolbar {
     use super::Color;
-    pub const BUTTON_UNSELECTED: Color = super::BASE_H;
-    pub const BUTTON_SELECTED: Color = super::BASE_I;
+    pub const BUTTON_UNSELECTED: Color = super::BASE_G;
+    pub const BUTTON_SELECTED: Color = super::BASE_J;
     pub const ICON: Color = super::BASE_D;
 }
 

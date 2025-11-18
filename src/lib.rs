@@ -12,6 +12,7 @@ use xilem::{EventLoopBuilder, WidgetView, WindowView, Xilem, window};
 mod components;
 mod cubic_path;
 mod data;
+mod quadratic_path;
 mod edit_session;
 mod edit_type;
 mod entity_id;
@@ -29,6 +30,7 @@ mod theme;
 mod toolbar;
 mod tools;
 mod undo;
+mod viewport;
 mod views;
 mod workspace;
 

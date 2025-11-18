@@ -393,6 +393,17 @@ fn update_selection_for_marquee(
                     }
                 }
             }
+            Path::Quadratic(quadratic) => {
+                for pt in quadratic.points.iter() {
+                    // Convert point to screen space for hit testing
+                    let screen_pos = data.viewport.to_screen(pt.point);
+
+                    // Check if point is inside the rectangle
+                    if rect.contains(screen_pos) {
+                        new_selection.insert(pt.id);
+                    }
+                }
+            }
         }
     }
 

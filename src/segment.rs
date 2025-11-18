@@ -3,13 +3,17 @@
 
 //! Path segment representation for hit-testing and curve operations
 
-use kurbo::{CubicBez, Line, ParamCurve, ParamCurveNearest, Point};
+use kurbo::{
+    CubicBez, Line, ParamCurve, ParamCurveNearest, Point, QuadBez,
+};
 
-/// A segment of a path (line or cubic bezier curve)
+/// A segment of a path (line, quadratic, or cubic bezier curve)
 #[derive(Debug, Clone, Copy)]
 pub enum Segment {
     /// A line segment
     Line(Line),
+    /// A quadratic bezier curve segment
+    Quadratic(QuadBez),
     /// A cubic bezier curve segment
     Cubic(CubicBez),
 }
@@ -39,6 +43,11 @@ impl Segment {
                 let dist_sq = (nearest_pt - point).hypot2();
                 (t, dist_sq)
             }
+            Segment::Quadratic(quad) => {
+                // Use kurbo's nearest function
+                let result = quad.nearest(point, 1e-6);
+                (result.t, result.distance_sq)
+            }
             Segment::Cubic(cubic) => {
                 // Use kurbo's nearest function
                 let result = cubic.nearest(point, 1e-6);
@@ -51,6 +60,7 @@ impl Segment {
     pub fn eval(&self, t: f64) -> Point {
         match self {
             Segment::Line(line) => line.eval(t),
+            Segment::Quadratic(quad) => quad.eval(t),
             Segment::Cubic(cubic) => cubic.eval(t),
         }
     }
@@ -143,6 +153,50 @@ impl Segment {
         // This curve goes from the split point to the original end (P3)
         // with control points R1 and Q2
         let right = CubicBez::new(split_point, r1, q2, p3);
+
+        (left, right)
+    }
+
+    /// Subdivide a quadratic bezier curve at parameter t
+    ///
+    /// Returns (left_curve, right_curve) where left_curve goes from t=0 to
+    /// t=t_split and right_curve goes from t=t_split to t=1. The curves
+    /// together exactly match the original curve.
+    ///
+    /// Uses the de Casteljau algorithm for numerically stable subdivision.
+    ///
+    /// For a quadratic bezier with control points P0, P1, P2:
+    ///
+    /// ```text
+    /// Level 0 (original):          P0      P1      P2
+    ///                                \    /  \    /
+    /// Level 1 (lerp at t):            Q0      Q1
+    ///                                   \    /
+    /// Level 2 (lerp at t):                 split_point
+    /// ```
+    ///
+    /// The left subcurve has control points (P0, Q0, split_point)
+    /// The right subcurve has control points (split_point, Q1, P2)
+    pub fn subdivide_quadratic(
+        quad: QuadBez,
+        t: f64,
+    ) -> (QuadBez, QuadBez) {
+        let p0 = quad.p0;
+        let p1 = quad.p1;
+        let p2 = quad.p2;
+
+        // Level 1: Linearly interpolate between adjacent control points
+        let q0 = p0 + (p1 - p0) * t;
+        let q1 = p1 + (p2 - p1) * t;
+
+        // Level 2: Final interpolation to find the split point
+        let split_point = q0 + (q1 - q0) * t;
+
+        // Construct the left subcurve
+        let left = QuadBez::new(p0, q0, split_point);
+
+        // Construct the right subcurve
+        let right = QuadBez::new(split_point, q1, p2);
 
         (left, right)
     }

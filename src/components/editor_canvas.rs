@@ -894,6 +894,13 @@ fn draw_paths_with_points(
             Path::Cubic(cubic) => {
                 draw_control_handles(scene, cubic, transform);
             }
+            Path::Quadratic(quadratic) => {
+                draw_control_handles_quadratic(
+                    scene,
+                    quadratic,
+                    transform,
+                );
+            }
         }
     }
 
@@ -902,6 +909,14 @@ fn draw_paths_with_points(
         match path {
             Path::Cubic(cubic) => {
                 draw_points(scene, cubic, session, transform);
+            }
+            Path::Quadratic(quadratic) => {
+                draw_points_quadratic(
+                    scene,
+                    quadratic,
+                    session,
+                    transform,
+                );
             }
         }
     }
@@ -1095,6 +1110,105 @@ fn draw_offcurve_point(
     // Inner circle
     let inner_circle = Circle::new(screen_pos, radius);
     fill_color(scene, &inner_circle, inner_color);
+}
+
+/// Draw control handles for a quadratic path
+fn draw_control_handles_quadratic(
+    scene: &mut Scene,
+    quadratic: &crate::quadratic_path::QuadraticPath,
+    transform: &Affine,
+) {
+    let points: Vec<_> = quadratic.points.iter().collect();
+    if points.is_empty() {
+        return;
+    }
+
+    // For each point, if it's on-curve, draw handles to adjacent
+    // off-curve points
+    for i in 0..points.len() {
+        let pt = points[i];
+
+        if !pt.is_on_curve() {
+            continue;
+        }
+
+        // Look at the next point (with wrapping for closed paths)
+        let next_i = if i + 1 < points.len() {
+            i + 1
+        } else if quadratic.closed {
+            0
+        } else {
+            continue;
+        };
+
+        // Look at the previous point (with wrapping for closed
+        // paths)
+        let prev_i = if i > 0 {
+            i - 1
+        } else if quadratic.closed {
+            points.len() - 1
+        } else {
+            continue;
+        };
+
+        // Draw handle to next point if it's off-curve
+        if next_i < points.len() && points[next_i].is_off_curve() {
+            let start = *transform * pt.point;
+            let end = *transform * points[next_i].point;
+            let line = kurbo::Line::new(start, end);
+            let stroke = Stroke::new(theme::size::HANDLE_LINE_WIDTH);
+            let brush = Brush::Solid(theme::handle::LINE);
+            scene.stroke(
+                &stroke,
+                Affine::IDENTITY,
+                &brush,
+                None,
+                &line,
+            );
+        }
+
+        // Draw handle to previous point if it's off-curve
+        if prev_i < points.len() && points[prev_i].is_off_curve() {
+            let start = *transform * pt.point;
+            let end = *transform * points[prev_i].point;
+            let line = kurbo::Line::new(start, end);
+            let stroke = Stroke::new(theme::size::HANDLE_LINE_WIDTH);
+            let brush = Brush::Solid(theme::handle::LINE);
+            scene.stroke(
+                &stroke,
+                Affine::IDENTITY,
+                &brush,
+                None,
+                &line,
+            );
+        }
+    }
+}
+
+/// Draw points for a quadratic path
+fn draw_points_quadratic(
+    scene: &mut Scene,
+    quadratic: &crate::quadratic_path::QuadraticPath,
+    session: &EditSession,
+    transform: &Affine,
+) {
+    for pt in quadratic.points.iter() {
+        let screen_pos = *transform * pt.point;
+        let is_selected = session.selection.contains(&pt.id);
+
+        match pt.typ {
+            PointType::OnCurve { smooth } => {
+                if smooth {
+                    draw_smooth_point(scene, screen_pos, is_selected);
+                } else {
+                    draw_corner_point(scene, screen_pos, is_selected);
+                }
+            }
+            PointType::OffCurve { .. } => {
+                draw_offcurve_point(scene, screen_pos, is_selected);
+            }
+        }
+    }
 }
 
 // ===== XILEM VIEW WRAPPER =====
