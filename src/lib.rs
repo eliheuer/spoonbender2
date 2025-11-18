@@ -9,7 +9,6 @@ use xilem::core::one_of::Either;
 use xilem::view::indexed_stack;
 use xilem::{EventLoopBuilder, WidgetView, WindowView, Xilem, window};
 
-mod actions;
 mod components;
 mod cubic_path;
 mod data;

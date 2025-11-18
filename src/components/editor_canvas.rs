@@ -1,7 +1,7 @@
 // Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Glyph editor widget - the main canvas for editing glyphs
+//! Glyph editor canvas widget - the main canvas for editing glyphs
 
 use crate::edit_session::EditSession;
 use crate::edit_type::EditType;
