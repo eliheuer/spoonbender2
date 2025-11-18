@@ -5,7 +5,7 @@
 
 use crate::cubic_path::CubicPath;
 use crate::edit_session::EditSession;
-use crate::edit_type::EditType;
+use crate::edit_types::EditType;
 use crate::entity_id::EntityId;
 use crate::mouse::{MouseDelegate, MouseEvent};
 use crate::path::Path;
@@ -42,7 +42,7 @@ pub struct PenTool {
 
     /// Snapped segment information (segment + parameter t on segment)
     /// When Some, the preview dot should snap to this curve position
-    snapped_segment: Option<(crate::segment::SegmentInfo, f64)>,
+    snapped_segment: Option<(crate::path_segment::SegmentInfo, f64)>,
 }
 
 // ===== Tool Implementation =====

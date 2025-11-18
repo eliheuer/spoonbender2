@@ -8,7 +8,7 @@
 //! editing glyphs.
 
 use crate::tools::ToolId;
-use kurbo::{Affine, BezPath, Point, Rect, Shape, Size};
+use kurbo::{BezPath, Point, Size};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
     AccessCtx, BoxConstraints, ChildrenIds, EventCtx, LayoutCtx,
@@ -16,26 +16,13 @@ use masonry::core::{
     PropertiesMut, PropertiesRef, RegisterCtx, TextEvent, Update,
     UpdateCtx, Widget,
 };
-use masonry::util::{fill_color, stroke};
 use masonry::vello::Scene;
 use tracing;
 
-// Import toolbar dimensions from theme
-use crate::theme::size::{
-    TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_RADIUS, TOOLBAR_ICON_PADDING,
-    TOOLBAR_ITEM_SIZE, TOOLBAR_ITEM_SPACING, TOOLBAR_PADDING,
-};
-
-// Import toolbar colors from theme
-use crate::theme::panel::{
-    BACKGROUND as COLOR_PANEL,
-    BUTTON_OUTLINE as COLOR_BUTTON_BORDER,
-    OUTLINE as COLOR_PANEL_BORDER,
-};
-use crate::theme::toolbar::{
-    BUTTON_SELECTED as COLOR_SELECTED,
-    BUTTON_UNSELECTED as COLOR_UNSELECTED,
-    ICON as COLOR_ICON,
+// Import shared toolbar functionality
+use crate::components::toolbars::{
+    button_rect, calculate_toolbar_size, paint_button, paint_icon,
+    paint_panel, ButtonState,
 };
 
 /// Available tools in display order
@@ -67,18 +54,11 @@ impl EditModeToolbarWidget {
         }
     }
 
-    /// Get the rect for a tool button by index
-    fn button_rect(&self, index: usize) -> Rect {
-        let x = TOOLBAR_PADDING
-            + index as f64 * (TOOLBAR_ITEM_SIZE + TOOLBAR_ITEM_SPACING);
-        let y = TOOLBAR_PADDING;
-        Rect::new(x, y, x + TOOLBAR_ITEM_SIZE, y + TOOLBAR_ITEM_SIZE)
-    }
 
     /// Find which tool was clicked
     fn tool_at_point(&self, point: Point) -> Option<ToolId> {
         for (i, &tool) in TOOLBAR_TOOLS.iter().enumerate() {
-            if self.button_rect(i).contains(point) {
+            if button_rect(i).contains(point) {
                 return Some(tool);
             }
         }
@@ -112,13 +92,7 @@ impl Widget for EditModeToolbarWidget {
         _props: &mut PropertiesMut<'_>,
         bc: &BoxConstraints,
     ) -> Size {
-        // Calculate total width needed for all tools plus padding
-        let num_tools = TOOLBAR_TOOLS.len();
-        let width = TOOLBAR_PADDING * 2.0
-            + num_tools as f64 * TOOLBAR_ITEM_SIZE
-            + (num_tools - 1) as f64 * TOOLBAR_ITEM_SPACING;
-        let height = TOOLBAR_ITEM_SIZE + TOOLBAR_PADDING * 2.0;
-        let size = Size::new(width, height);
+        let size = calculate_toolbar_size(TOOLBAR_TOOLS.len());
         bc.constrain(size)
     }
 
@@ -128,68 +102,25 @@ impl Widget for EditModeToolbarWidget {
         _props: &PropertiesRef<'_>,
         scene: &mut Scene,
     ) {
-        // Draw a solid background panel behind all buttons to prevent
-        // transparency issues
         let size = ctx.size();
-        let panel_rect = size.to_rect();
-        let panel_rrect = kurbo::RoundedRect::from_rect(panel_rect, 8.0);
 
-        // Solid opaque background - darker than buttons but brighter
-        // than canvas
-        fill_color(scene, &panel_rrect, COLOR_PANEL);
+        // Draw background panel
+        paint_panel(scene, size);
 
-        // Draw panel border - inset slightly to prevent corner artifacts
-        let border_inset = TOOLBAR_BORDER_WIDTH / 2.0;
-        let inset_rect = panel_rect.inset(-border_inset);
-        let inset_rrect = kurbo::RoundedRect::from_rect(inset_rect, 8.0);
-        stroke(
-            scene,
-            &inset_rrect,
-            COLOR_PANEL_BORDER,
-            TOOLBAR_BORDER_WIDTH,
-        );
-
-        // Draw each toolbar button as a separate rounded rectangle
+        // Draw each toolbar button
         for (i, &tool) in TOOLBAR_TOOLS.iter().enumerate() {
-            let button_rect = self.button_rect(i);
+            let rect = button_rect(i);
             let is_selected = tool == self.selected_tool;
+            let is_hovered = self.hover_tool == Some(tool);
 
-            // Create rounded rectangle for button
-            let button_rrect = kurbo::RoundedRect::from_rect(
-                button_rect,
-                TOOLBAR_BUTTON_RADIUS,
-            );
+            let state = ButtonState::new(is_hovered, is_selected);
 
-            // Draw button background
-            let bg_color = if is_selected {
-                COLOR_SELECTED
-            } else {
-                COLOR_UNSELECTED
-            };
-            fill_color(scene, &button_rrect, bg_color);
-
-            // Draw button border (thicker)
-            stroke(
-                scene,
-                &button_rrect,
-                COLOR_BUTTON_BORDER,
-                TOOLBAR_BORDER_WIDTH,
-            );
+            // Draw button background and border
+            paint_button(scene, rect, state);
 
             // Draw icon
-            let icon_path = Self::icon_for_tool(tool);
-            let constrained_path = constrain_icon(icon_path, button_rect, tool);
-
-            // Determine icon color based on state
-            let is_hovered = self.hover_tool == Some(tool);
-            let icon_color = if is_selected || is_hovered {
-                crate::theme::base::C // Darker icon for selected or
-                                      // hovered button
-            } else {
-                COLOR_ICON // Normal icon color for unselected,
-                            // unhovered buttons
-            };
-            fill_color(scene, &constrained_path, icon_color);
+            let icon = Self::icon_for_tool(tool);
+            paint_icon(scene, icon, rect, state);
         }
     }
 
@@ -281,44 +212,6 @@ impl Widget for EditModeToolbarWidget {
     }
 }
 
-/// Constrain an icon path to fit within a button rect with padding
-fn constrain_icon(mut path: BezPath, button_rect: Rect, tool: ToolId) -> BezPath {
-    // Get bounding box of the icon
-    let bounds = path.bounding_box();
-
-    // Calculate available space (button size minus padding)
-    let available = TOOLBAR_ITEM_SIZE - 2.0 * TOOLBAR_ICON_PADDING;
-
-    // Calculate scale to fit icon in available space
-    let scale_x = available / bounds.width();
-    let scale_y = available / bounds.height();
-    let scale = scale_x.min(scale_y);
-
-    // Center the icon in the button
-    let scaled_width = bounds.width() * scale;
-    let scaled_height = bounds.height() * scale;
-    let mut offset_x = button_rect.min_x()
-        + (TOOLBAR_ITEM_SIZE - scaled_width) / 2.0
-        - bounds.min_x() * scale;
-    let offset_y = button_rect.min_y()
-        + (TOOLBAR_ITEM_SIZE - scaled_height) / 2.0
-        - bounds.min_y() * scale;
-
-    // Apply per-tool visual centering adjustments
-    match tool {
-        ToolId::Select | ToolId::Preview => {
-            // Shift 1px to the right for better visual centering
-            offset_x += 1.0;
-        }
-        _ => {}
-    }
-
-    // Apply transformation
-    let transform = Affine::translate((offset_x, offset_y)) * Affine::scale(scale);
-    path.apply_affine(transform);
-
-    path
-}
 
 // --- Icon Definitions ---
 

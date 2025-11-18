@@ -7,31 +7,19 @@
 //! Similar to tabs in Glyphs app, this toolbar allows users to switch
 //! between multiple editor workspaces and return to the glyph grid view.
 
-use kurbo::{Affine, BezPath, Point, Rect, Shape, Size};
+use kurbo::{BezPath, Point, Rect, RoundedRect, Shape, Size};
 use masonry::accesskit::{Node, Role};
 use masonry::core::{
     AccessCtx, BoxConstraints, EventCtx, LayoutCtx, PaintCtx,
     PointerButton, PointerButtonEvent, PointerEvent, PropertiesMut,
     PropertiesRef, RegisterCtx, TextEvent, Update, UpdateCtx, Widget,
 };
-use masonry::util::{fill_color, stroke};
 use masonry::vello::Scene;
 
-// Import toolbar dimensions from theme
-use crate::theme::size::{
-    TOOLBAR_BORDER_WIDTH, TOOLBAR_BUTTON_RADIUS, TOOLBAR_ICON_PADDING,
-    TOOLBAR_ITEM_SIZE, TOOLBAR_ITEM_SPACING, TOOLBAR_PADDING,
-};
-
-// Import toolbar colors from theme
-use crate::theme::panel::{
-    BACKGROUND as COLOR_PANEL,
-    BUTTON_OUTLINE as COLOR_BUTTON_BORDER,
-    OUTLINE as COLOR_PANEL_BORDER,
-};
-use crate::theme::toolbar::{
-    BUTTON_UNSELECTED as COLOR_BUTTON,
-    ICON as COLOR_ICON,
+// Import shared toolbar functionality
+use crate::components::toolbars::{
+    button_rect, calculate_toolbar_size, paint_button, paint_icon,
+    paint_panel, ButtonState,
 };
 
 /// Workspace toolbar button types
@@ -59,37 +47,15 @@ impl WorkspaceToolbarWidget {
         }
     }
 
-    /// Get the rect for a button by index
-    fn button_rect(&self, index: usize) -> Rect {
-        let x = TOOLBAR_PADDING
-            + index as f64 * (TOOLBAR_ITEM_SIZE + TOOLBAR_ITEM_SPACING);
-        let y = TOOLBAR_PADDING;
-        Rect::new(
-            x,
-            y,
-            x + TOOLBAR_ITEM_SIZE,
-            y + TOOLBAR_ITEM_SIZE,
-        )
-    }
-
     /// Find which button was clicked
     fn button_at_point(&self, point: Point) -> Option<WorkspaceToolbarButton> {
         // Currently only one button (glyph grid)
-        if self.button_rect(0).contains(point) {
+        if button_rect(0).contains(point) {
             return Some(WorkspaceToolbarButton::GlyphGrid);
         }
         None
     }
 
-    /// Calculate toolbar size based on number of buttons
-    fn toolbar_size(&self) -> Size {
-        let button_count = 1; // Currently only glyph grid button
-        let width = TOOLBAR_PADDING * 2.0
-            + button_count as f64 * TOOLBAR_ITEM_SIZE
-            + (button_count - 1) as f64 * TOOLBAR_ITEM_SPACING;
-        let height = TOOLBAR_PADDING * 2.0 + TOOLBAR_ITEM_SIZE;
-        Size::new(width, height)
-    }
 }
 
 /// Action sent when a workspace toolbar button is clicked
@@ -118,16 +84,22 @@ impl Widget for WorkspaceToolbarWidget {
         _props: &mut PropertiesMut<'_>,
         bc: &BoxConstraints,
     ) -> Size {
-        bc.constrain(self.toolbar_size())
+        let size = calculate_toolbar_size(1); // Currently only one button
+        bc.constrain(size)
     }
 
     fn paint(
         &mut self,
-        _ctx: &mut PaintCtx<'_>,
+        ctx: &mut PaintCtx<'_>,
         _props: &PropertiesRef<'_>,
         scene: &mut Scene,
     ) {
-        self.paint_panel(scene);
+        let size = ctx.size();
+
+        // Draw background panel
+        paint_panel(scene, size);
+
+        // Draw button
         self.paint_button(scene);
     }
 
@@ -183,85 +155,21 @@ impl Widget for WorkspaceToolbarWidget {
 }
 
 impl WorkspaceToolbarWidget {
-    /// Paint the background panel
-    fn paint_panel(&self, scene: &mut Scene) {
-        let size = self.toolbar_size();
-        let panel_rect = Rect::new(0.0, 0.0, size.width, size.height);
-        let panel_rrect =
-            kurbo::RoundedRect::from_rect(panel_rect, 8.0);
-
-        // Solid opaque background - darker than buttons but brighter
-        // than canvas
-        fill_color(scene, &panel_rrect, COLOR_PANEL);
-
-        // Draw panel border - inset slightly to prevent corner
-        // artifacts
-        let border_inset = TOOLBAR_BORDER_WIDTH / 2.0;
-        let inset_rect = panel_rect.inset(-border_inset);
-        let inset_rrect =
-            kurbo::RoundedRect::from_rect(inset_rect, 8.0);
-        stroke(
-            scene,
-            &inset_rrect,
-            COLOR_PANEL_BORDER,
-            TOOLBAR_BORDER_WIDTH,
-        );
-    }
-
     /// Paint the glyph grid button
     fn paint_button(&self, scene: &mut Scene) {
-        let button_rect = self.button_rect(0);
+        let rect = button_rect(0);
         let is_hovered =
             self.hover_button == Some(WorkspaceToolbarButton::GlyphGrid);
 
-        // Button background (slightly lighter on hover)
-        let button_color = if is_hovered {
-            crate::theme::toolbar::BUTTON_SELECTED
-        } else {
-            COLOR_BUTTON
-        };
+        // Workspace toolbar buttons don't have a selected state
+        let state = ButtonState::new(is_hovered, false);
 
-        let button_path = kurbo::RoundedRect::from_rect(
-            button_rect,
-            TOOLBAR_BUTTON_RADIUS,
-        );
-        fill_color(scene, &button_path, button_color);
-
-        // Button border
-        stroke(
-            scene,
-            &button_path,
-            COLOR_BUTTON_BORDER,
-            TOOLBAR_BORDER_WIDTH,
-        );
+        // Draw button background and border
+        paint_button(scene, rect, state);
 
         // Draw icon
-        self.paint_icon(scene, button_rect);
-    }
-
-    /// Paint the icon for the glyph grid button
-    fn paint_icon(&self, scene: &mut Scene, button_rect: Rect) {
-        let icon = WorkspaceToolbarWidget::icon_for_button(
-            WorkspaceToolbarButton::GlyphGrid,
-        );
-        let icon_bounds = icon.bounding_box();
-        let icon_center = icon_bounds.center();
-        let button_center = button_rect.center();
-
-        // Scale icon to fit with padding
-        let icon_size = icon_bounds.width().max(icon_bounds.height());
-        let target_size = TOOLBAR_ITEM_SIZE - TOOLBAR_ICON_PADDING * 2.0;
-        let scale = target_size / icon_size;
-
-        // Create transform: scale then translate to center
-        let transform = Affine::translate((
-            button_center.x,
-            button_center.y,
-        )) * Affine::scale(scale)
-            * Affine::translate((-icon_center.x, -icon_center.y));
-
-        // Fill icon with dark gray color (no stroke)
-        fill_color(scene, &(transform * icon), COLOR_ICON);
+        let icon = Self::icon_for_button(WorkspaceToolbarButton::GlyphGrid);
+        paint_icon(scene, icon, rect, state);
     }
 
     /// Handle pointer down event
@@ -320,9 +228,10 @@ fn glyph_grid_icon() -> BezPath {
             let x = offset + col as f64 * (cell_size + gap);
             let y = offset + row as f64 * (cell_size + gap);
             let rect = Rect::new(x, y, x + cell_size, y + cell_size);
-            let rounded_rect =
-                kurbo::RoundedRect::from_rect(rect, 1.0);
-            path.extend(rounded_rect.path_elements(0.1));
+            let rounded_rect = RoundedRect::from_rect(rect, 1.0);
+            // Convert RoundedRect to BezPath using the Shape trait
+            let rect_path = rounded_rect.to_path(0.1);
+            path.extend(rect_path);
         }
     }
 

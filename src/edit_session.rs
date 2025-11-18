@@ -162,7 +162,7 @@ impl EditSession {
         &self,
         screen_pos: Point,
         max_dist: f64,
-    ) -> Option<(crate::segment::SegmentInfo, f64)> {
+    ) -> Option<(crate::path_segment::SegmentInfo, f64)> {
         // Convert screen position to design space
         let design_pos = self.viewport.screen_to_design(screen_pos);
 
@@ -314,10 +314,10 @@ impl EditSession {
     /// Returns true if the point was successfully inserted.
     pub fn insert_point_on_segment(
         &mut self,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
         t: f64,
     ) -> bool {
-        use crate::segment::Segment;
+        use crate::path_segment::Segment;
 
         // Find the path containing this segment
         let paths_vec = Arc::make_mut(&mut self.paths);
@@ -474,52 +474,77 @@ impl EditSession {
         paths: &[Path],
         design_pos: kurbo::Point,
     ) -> Option<(
-        crate::segment::SegmentInfo,
+        crate::path_segment::SegmentInfo,
         f64,
         f64,
     )> {
         let mut closest: Option<(
-            crate::segment::SegmentInfo,
+            crate::path_segment::SegmentInfo,
             f64,
             f64,
         )> = None;
 
         for path in paths.iter() {
-            match path {
-                Path::Cubic(cubic) => {
-                    for segment_info in cubic.iter_segments() {
-                        let (t, dist_sq) =
-                            segment_info.segment.nearest(design_pos);
-                        Self::update_closest_segment(
-                            &mut closest,
-                            segment_info,
-                            t,
-                            dist_sq,
-                        );
-                    }
-                }
-                Path::Quadratic(quadratic) => {
-                    for segment_info in quadratic.iter_segments() {
-                        let (t, dist_sq) =
-                            segment_info.segment.nearest(design_pos);
-                        Self::update_closest_segment(
-                            &mut closest,
-                            segment_info,
-                            t,
-                            dist_sq,
-                        );
-                    }
-                }
+            Self::process_path_segments(path, design_pos, &mut closest);
+        }
+        closest
+    }
+
+    /// Process segments from a single path and update closest segment
+    fn process_path_segments(
+        path: &Path,
+        design_pos: kurbo::Point,
+        closest: &mut Option<(
+            crate::path_segment::SegmentInfo,
+            f64,
+            f64,
+        )>,
+    ) {
+        match path {
+            Path::Cubic(cubic) => {
+                Self::process_path_segment_iterator(
+                    cubic.iter_segments(),
+                    design_pos,
+                    closest,
+                );
+            }
+            Path::Quadratic(quadratic) => {
+                Self::process_path_segment_iterator(
+                    quadratic.iter_segments(),
+                    design_pos,
+                    closest,
+                );
             }
         }
+    }
 
-        closest
+    /// Process an iterator of segments and update closest segment
+    fn process_path_segment_iterator<I>(
+        segments: I,
+        design_pos: kurbo::Point,
+        closest: &mut Option<(
+            crate::path_segment::SegmentInfo,
+            f64,
+            f64,
+        )>,
+    ) where
+        I: Iterator<Item = crate::path_segment::SegmentInfo>,
+    {
+        for segment_info in segments {
+            let (t, dist_sq) = segment_info.segment.nearest(design_pos);
+            Self::update_closest_segment(
+                closest,
+                segment_info,
+                t,
+                dist_sq,
+            );
+        }
     }
 
     /// Update the closest segment if this one is closer
     fn update_closest_segment(
-        closest: &mut Option<(crate::segment::SegmentInfo, f64, f64)>,
-        segment_info: crate::segment::SegmentInfo,
+        closest: &mut Option<(crate::path_segment::SegmentInfo, f64, f64)>,
+        segment_info: crate::path_segment::SegmentInfo,
         t: f64,
         dist_sq: f64,
     ) {
@@ -754,7 +779,7 @@ impl EditSession {
     /// Find the path containing a segment and return its points
     fn find_path_containing_segment<'a>(
         path: &'a mut Path,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
     ) -> Option<&'a mut Vec<crate::point::PathPoint>> {
         match path {
             Path::Cubic(cubic) => {
@@ -777,11 +802,11 @@ impl EditSession {
     /// Check if a cubic path contains a specific segment
     fn cubic_contains_segment(
         cubic: &crate::cubic_path::CubicPath,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
     ) -> bool {
         for seg in cubic.iter_segments() {
-            if seg.start_idx == segment_info.start_idx
-                && seg.end_idx == segment_info.end_idx
+            if seg.start_index == segment_info.start_index
+                && seg.end_index == segment_info.end_index
             {
                 return true;
             }
@@ -792,11 +817,11 @@ impl EditSession {
     /// Check if a quadratic path contains a specific segment
     fn quadratic_contains_segment(
         quadratic: &crate::quadratic_path::QuadraticPath,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
     ) -> bool {
         for seg in quadratic.iter_segments() {
-            if seg.start_idx == segment_info.start_idx
-                && seg.end_idx == segment_info.end_idx
+            if seg.start_index == segment_info.start_index
+                && seg.end_index == segment_info.end_index
             {
                 return true;
             }
@@ -807,7 +832,7 @@ impl EditSession {
     /// Insert a point on a line segment
     fn insert_point_on_line(
         points: &mut Vec<crate::point::PathPoint>,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
         t: f64,
     ) -> bool {
         use crate::entity_id::EntityId;
@@ -821,7 +846,7 @@ impl EditSession {
         };
 
         // Insert between start and end
-        let insert_idx = segment_info.end_idx;
+        let insert_idx = segment_info.end_index;
         points.insert(insert_idx, new_point);
 
         println!(
@@ -834,11 +859,11 @@ impl EditSession {
     /// Insert a point on a cubic curve segment
     fn insert_point_on_cubic(
         points: &mut Vec<crate::point::PathPoint>,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
         cubic_bez: kurbo::CubicBez,
         t: f64,
     ) -> bool {
-        use crate::segment::Segment;
+        use crate::path_segment::Segment;
 
         // For a cubic curve, subdivide it using de Casteljau
         // algorithm
@@ -853,20 +878,20 @@ impl EditSession {
         // Calculate how many points are between start and end
         let points_between =
             Self::calculate_points_between(
-                segment_info.start_idx,
-                segment_info.end_idx,
+                segment_info.start_index,
+                segment_info.end_index,
                 points.len(),
             );
 
         // Remove the old control points
         if points_between > 0 {
             for _ in 0..points_between {
-                points.remove(segment_info.start_idx + 1);
+                points.remove(segment_info.start_index + 1);
             }
         }
 
-        // Insert the new points after start_idx
-        let mut insert_idx = segment_info.start_idx + 1;
+        // Insert the new points after start_index
+        let mut insert_idx = segment_info.start_index + 1;
         for new_point in new_points {
             points.insert(insert_idx, new_point);
             insert_idx += 1;
@@ -875,7 +900,7 @@ impl EditSession {
         println!(
             "Pen tool: subdivided cubic curve, inserted 5 points \
              starting at index {}",
-            segment_info.start_idx + 1
+            segment_info.start_index + 1
         );
         true
     }
@@ -920,13 +945,13 @@ impl EditSession {
     /// Insert a point on a quadratic curve segment
     fn insert_point_on_quadratic(
         points: &mut Vec<crate::point::PathPoint>,
-        segment_info: &crate::segment::SegmentInfo,
+        segment_info: &crate::path_segment::SegmentInfo,
         quad_bez: kurbo::QuadBez,
         t: f64,
     ) -> bool {
         use crate::entity_id::EntityId;
         use crate::point::{PathPoint, PointType};
-        use crate::segment::Segment;
+        use crate::path_segment::Segment;
 
         // For a quadratic curve, subdivide it using de Casteljau
         // algorithm
@@ -953,18 +978,18 @@ impl EditSession {
 
         // Calculate how many points are between start and end
         let points_between = Self::calculate_points_between(
-            segment_info.start_idx,
-            segment_info.end_idx,
+            segment_info.start_index,
+            segment_info.end_index,
             points.len(),
         );
 
         // Remove the old control point
         if points_between > 0 {
-            points.remove(segment_info.start_idx + 1);
+            points.remove(segment_info.start_index + 1);
         }
 
-        // Insert the new points after start_idx
-        let mut insert_idx = segment_info.start_idx + 1;
+        // Insert the new points after start_index
+        let mut insert_idx = segment_info.start_index + 1;
         for new_point in new_points {
             points.insert(insert_idx, new_point);
             insert_idx += 1;
@@ -973,22 +998,22 @@ impl EditSession {
         println!(
             "Pen tool: subdivided quadratic curve, inserted 3 points \
              starting at index {}",
-            segment_info.start_idx + 1
+            segment_info.start_index + 1
         );
         true
     }
 
     /// Calculate how many points are between start and end indices
     fn calculate_points_between(
-        start_idx: usize,
-        end_idx: usize,
+        start_index: usize,
+        end_index: usize,
         total_len: usize,
     ) -> usize {
-        if end_idx > start_idx {
-            end_idx - start_idx - 1
+        if end_index > start_index {
+            end_index - start_index - 1
         } else {
             // Handle wrap-around for closed paths
-            total_len - start_idx - 1 + end_idx
+            total_len - start_index - 1 + end_index
         }
     }
 }

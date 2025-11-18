@@ -14,12 +14,14 @@ pub fn glyph_to_bezpath(glyph: &Glyph) -> BezPath {
     for contour in &glyph.contours {
         append_contour_to_path(&mut path, contour);
     }
-
     path
 }
 
 /// Append a single contour to a BezPath
-fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
+fn append_contour_to_path(
+    path: &mut BezPath,
+    contour: &Contour,
+) {
     let points = &contour.points;
     if points.is_empty() {
         return;
@@ -66,49 +68,23 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
             }
             PointType::Curve => {
                 // Cubic bezier - need to look back for control points
-                // In UFO, off-curve points (OffCurve) precede the on-curve point (Curve)
-
-                // Look back to gather off-curve points
-                let mut off_curve_points = Vec::new();
-                let mut j = i - 1;
-
-                // Collect preceding off-curve points
-                while j > 0 && rotated[j].point_type == PointType::OffCurve {
-                    off_curve_points.insert(0, rotated[j]);
-                    j -= 1;
-                }
-
-                match off_curve_points.len() {
-                    0 => {
-                        // No control points - treat as line
-                        path.line_to(point_to_kurbo(pt));
-                    }
-                    1 => {
-                        // Quadratic curve - convert to cubic
-                        let cp = point_to_kurbo(off_curve_points[0]);
-                        let end = point_to_kurbo(pt);
-                        path.quad_to(cp, end);
-                    }
-                    2 => {
-                        // Cubic curve
-                        let cp1 = point_to_kurbo(off_curve_points[0]);
-                        let cp2 = point_to_kurbo(off_curve_points[1]);
-                        let end = point_to_kurbo(pt);
-                        path.curve_to(cp1, cp2, end);
-                    }
-                    _ => {
-                        // More than 2 control points - this shouldn't happen in UFO
-                        // Just use the last two
-                        let cp1 = point_to_kurbo(off_curve_points[off_curve_points.len() - 2]);
-                        let cp2 = point_to_kurbo(off_curve_points[off_curve_points.len() - 1]);
-                        let end = point_to_kurbo(pt);
-                        path.curve_to(cp1, cp2, end);
-                    }
-                }
+                // In UFO, off-curve points (OffCurve) precede the
+                // on-curve point (Curve)
+                let off_curve_points =
+                    collect_preceding_off_curve_points(
+                        &rotated,
+                        i,
+                    );
+                add_curve_segment(
+                    path,
+                    &off_curve_points,
+                    pt,
+                );
                 i += 1;
             }
             PointType::OffCurve => {
-                // Off-curve points are handled when we encounter the following on-curve point
+                // Off-curve points are handled when we encounter the
+                // following on-curve point
                 i += 1;
             }
             PointType::QCurve => {
@@ -127,62 +103,123 @@ fn append_contour_to_path(path: &mut BezPath, contour: &Contour) {
     }
 
     // Handle trailing off-curve points that curve back to the start
-    // Collect any trailing off-curve points
-    let mut trailing_off_curve = Vec::new();
-    let mut j = rotated.len() - 1;
-    while j > 0 && rotated[j].point_type == PointType::OffCurve {
-        trailing_off_curve.insert(0, rotated[j]);
-        j -= 1;
-    }
-
-    // If there are trailing off-curve points and the first point is a curve point,
-    // draw the closing curve manually
-    if !trailing_off_curve.is_empty() {
-        let first_pt = rotated[0];
-        match first_pt.point_type {
-            PointType::Curve => {
-                match trailing_off_curve.len() {
-                    1 => {
-                        let cp = point_to_kurbo(trailing_off_curve[0]);
-                        let end = point_to_kurbo(first_pt);
-                        path.quad_to(cp, end);
-                    }
-                    2 => {
-                        let cp1 = point_to_kurbo(trailing_off_curve[0]);
-                        let cp2 = point_to_kurbo(trailing_off_curve[1]);
-                        let end = point_to_kurbo(first_pt);
-                        path.curve_to(cp1, cp2, end);
-                    }
-                    _ => {
-                        // Use last two control points
-                        let cp1 = point_to_kurbo(trailing_off_curve[trailing_off_curve.len() - 2]);
-                        let cp2 = point_to_kurbo(trailing_off_curve[trailing_off_curve.len() - 1]);
-                        let end = point_to_kurbo(first_pt);
-                        path.curve_to(cp1, cp2, end);
-                    }
-                }
-            }
-            PointType::QCurve => {
-                if !trailing_off_curve.is_empty() {
-                    let cp = point_to_kurbo(trailing_off_curve[0]);
-                    let end = point_to_kurbo(first_pt);
-                    path.quad_to(cp, end);
-                }
-            }
-            _ => {
-                // First point is Line or Move - just close with straight line
-                path.close_path();
-            }
-        }
-    } else {
-        // No trailing off-curve points - normal close
-        path.close_path();
-    }
+    handle_trailing_off_curve_points(path, &rotated);
 }
 
 /// Convert a ContourPoint to a Kurbo Point
 fn point_to_kurbo(pt: &ContourPoint) -> Point {
     Point::new(pt.x, pt.y)
+}
+
+/// Collect preceding off-curve points before an index
+fn collect_preceding_off_curve_points<'a>(
+    rotated: &'a [&'a ContourPoint],
+    current_idx: usize,
+) -> Vec<&'a ContourPoint> {
+    let mut off_curve_points = Vec::new();
+    let mut j = current_idx.saturating_sub(1);
+
+    while j > 0 && rotated[j].point_type == PointType::OffCurve {
+        off_curve_points.insert(0, rotated[j]);
+        j -= 1;
+    }
+
+    off_curve_points
+}
+
+/// Add a curve segment to the path based on control points
+fn add_curve_segment(
+    path: &mut BezPath,
+    off_curve_points: &[&ContourPoint],
+    end_point: &ContourPoint,
+) {
+    match off_curve_points.len() {
+        0 => {
+            // No control points - treat as line
+            path.line_to(point_to_kurbo(end_point));
+        }
+        1 => {
+            // Quadratic curve
+            let cp = point_to_kurbo(off_curve_points[0]);
+            let end = point_to_kurbo(end_point);
+            path.quad_to(cp, end);
+        }
+        2 => {
+            // Cubic curve
+            let cp1 = point_to_kurbo(off_curve_points[0]);
+            let cp2 = point_to_kurbo(off_curve_points[1]);
+            let end = point_to_kurbo(end_point);
+            path.curve_to(cp1, cp2, end);
+        }
+        _ => {
+            // More than 2 control points - this shouldn't happen
+            // in UFO. Just use the last two.
+            let len = off_curve_points.len();
+            let cp1 = point_to_kurbo(off_curve_points[len - 2]);
+            let cp2 = point_to_kurbo(off_curve_points[len - 1]);
+            let end = point_to_kurbo(end_point);
+            path.curve_to(cp1, cp2, end);
+        }
+    }
+}
+
+/// Handle trailing off-curve points for closed paths
+fn handle_trailing_off_curve_points(
+    path: &mut BezPath,
+    rotated: &[&ContourPoint],
+) {
+    let trailing_off_curve =
+        collect_trailing_off_curve_points(rotated);
+
+    if trailing_off_curve.is_empty() {
+        path.close_path();
+        return;
+    }
+
+    let first_pt = rotated[0];
+    add_closing_curve(path, &trailing_off_curve, first_pt);
+}
+
+/// Collect trailing off-curve points at the end of the path
+fn collect_trailing_off_curve_points<'a>(
+    rotated: &'a [&'a ContourPoint],
+) -> Vec<&'a ContourPoint> {
+    let mut trailing_off_curve = Vec::new();
+    let mut j = rotated.len().saturating_sub(1);
+
+    while j > 0 && rotated[j].point_type == PointType::OffCurve {
+        trailing_off_curve.insert(0, rotated[j]);
+        j -= 1;
+    }
+
+    trailing_off_curve
+}
+
+/// Add closing curve segment for closed paths
+fn add_closing_curve(
+    path: &mut BezPath,
+    trailing_off_curve: &[&ContourPoint],
+    first_pt: &ContourPoint,
+) {
+    match first_pt.point_type {
+        PointType::Curve => {
+            add_curve_segment(path, trailing_off_curve, first_pt);
+        }
+        PointType::QCurve => {
+            if !trailing_off_curve.is_empty() {
+                let cp = point_to_kurbo(trailing_off_curve[0]);
+                let end = point_to_kurbo(first_pt);
+                path.quad_to(cp, end);
+            } else {
+                path.close_path();
+            }
+        }
+        _ => {
+            // First point is Line or Move - just close with
+            // straight line
+            path.close_path();
+        }
+    }
 }
 
 /// Get the bounding box of a glyph for scaling/centering

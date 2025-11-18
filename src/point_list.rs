@@ -53,17 +53,29 @@ impl PathPoints {
     }
 
     /// Find a point by its entity ID
+    ///
+    /// Returns the index and a reference to the point if found.
     #[allow(dead_code)]
-    pub fn find_by_id(&self, id: EntityId) -> Option<(usize, &PathPoint)> {
-        self.points.iter().enumerate().find(|(_, pt)| pt.id == id)
+    pub fn find_by_id(
+        &self,
+        id: EntityId,
+    ) -> Option<(usize, &PathPoint)> {
+        self.points
+            .iter()
+            .enumerate()
+            .find(|(_, pt)| pt.id == id)
     }
 
-    /// Get mutable access to the points (will clone if Arc has multiple references)
+    /// Get mutable access to the points
+    ///
+    /// This will clone the data if the Arc has multiple references.
     pub fn make_mut(&mut self) -> &mut Vec<PathPoint> {
         Arc::make_mut(&mut self.points)
     }
 
-    /// Convert to a vector (clones the data if Arc has multiple references)
+    /// Convert to a vector
+    ///
+    /// This clones the data if the Arc has multiple references.
     pub fn to_vec(&self) -> Vec<PathPoint> {
         (*self.points).clone()
     }

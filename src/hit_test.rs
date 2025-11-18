@@ -54,6 +54,5 @@ pub fn find_closest(
             best = Some(HitTestResult { entity, distance });
         }
     }
-
     best
 }

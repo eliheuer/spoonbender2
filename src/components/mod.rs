@@ -7,6 +7,7 @@ pub mod coordinate_panel;
 pub mod edit_mode_toolbar;
 pub mod editor_canvas;
 pub mod glyph_preview_widget;
+pub mod toolbars;
 pub mod workspace_toolbar;
 
 // Re-export commonly used widget views and types

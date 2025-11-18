@@ -175,7 +175,7 @@ impl CubicPath {
     /// (line or curve)
     pub fn iter_segments(
         &self,
-    ) -> impl Iterator<Item = crate::segment::SegmentInfo> + '_ {
+    ) -> impl Iterator<Item = crate::path_segment::SegmentInfo> + '_ {
         SegmentIterator::new(&self.points, self.closed)
     }
 
@@ -356,10 +356,10 @@ impl SegmentIterator {
         &mut self,
         point_idx: usize,
         point: kurbo::Point,
-    ) -> Option<crate::segment::SegmentInfo> {
+    ) -> Option<crate::path_segment::SegmentInfo> {
         let start_idx = self.prev_on_curve_idx;
         let end_idx = point_idx;
-        let segment = crate::segment::Segment::Line(
+        let segment = crate::path_segment::Segment::Line(
             kurbo::Line::new(self.prev_on_curve, point),
         );
 
@@ -367,10 +367,10 @@ impl SegmentIterator {
         self.prev_on_curve_idx = point_idx;
         self.index = point_idx + 1;
 
-        Some(crate::segment::SegmentInfo {
+        Some(crate::path_segment::SegmentInfo {
             segment,
-            start_idx,
-            end_idx,
+            start_index: start_idx,
+            end_index: end_idx,
         })
     }
 
@@ -379,7 +379,7 @@ impl SegmentIterator {
         &mut self,
         point_idx: usize,
         cp1: kurbo::Point,
-    ) -> Option<crate::segment::SegmentInfo> {
+    ) -> Option<crate::path_segment::SegmentInfo> {
         // Cubic curve: need 2 off-curve + 1 on-curve
         if point_idx + 2 >= self.points.len() {
             return None;
@@ -390,7 +390,7 @@ impl SegmentIterator {
 
         let start_idx = self.prev_on_curve_idx;
         let end_idx = point_idx + 2;
-        let segment = crate::segment::Segment::Cubic(
+        let segment = crate::path_segment::Segment::Cubic(
             kurbo::CubicBez::new(
                 self.prev_on_curve,
                 cp1,
@@ -403,16 +403,16 @@ impl SegmentIterator {
         self.prev_on_curve_idx = point_idx + 2;
         self.index = point_idx + 3;
 
-        Some(crate::segment::SegmentInfo {
+        Some(crate::path_segment::SegmentInfo {
             segment,
-            start_idx,
-            end_idx,
+            start_index: start_idx,
+            end_index: end_idx,
         })
     }
 }
 
 impl Iterator for SegmentIterator {
-    type Item = crate::segment::SegmentInfo;
+    type Item = crate::path_segment::SegmentInfo;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.points.len() {

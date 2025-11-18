@@ -158,12 +158,25 @@ pub mod panel {
     pub const GLYPH_PREVIEW: Color = super::GLYPH_PREVIEW_COLOR;
 }
 
-/// Colors for toolbar buttons
+/// Colors for toolbar buttons and icons (generic for all toolbars)
 pub mod toolbar {
-    use super::Color;
-    pub const BUTTON_UNSELECTED: Color = super::BASE_G;
-    pub const BUTTON_SELECTED: Color = super::BASE_J;
-    pub const ICON: Color = super::BASE_D;
+    use super::{Color, BASE_B, BASE_D, BASE_E, BASE_H, BASE_J};
+
+    // Button background colors
+    /// Normal button color (unselected, not hovered)
+    pub const BUTTON_UNSELECTED: Color = BASE_E;
+    /// Button color when hovered
+    pub const BUTTON_HOVERED: Color = BASE_H;
+    /// Button color when selected
+    pub const BUTTON_SELECTED: Color = BASE_J;
+
+    // Icon colors
+    /// Normal icon color (unselected, not hovered)
+    pub const ICON: Color = BASE_B;
+    /// Icon color when button is hovered
+    pub const ICON_HOVERED: Color = BASE_B;
+    /// Icon color when button is selected
+    pub const ICON_SELECTED: Color = BASE_B;
 }
 
 /// Colors and sizes for coordinate panel
@@ -175,15 +188,18 @@ pub mod coordinate_panel {
 
     // Dot colors - selected (lighter for better visibility)
     pub const DOT_SELECTED_INNER: Color = super::BASE_H; // 0x80 - Light gray
-    pub const DOT_SELECTED_OUTER: Color = super::BASE_I; // 0x90 - Light gray, matches text
+    // 0x90 - Light gray, matches text
+    pub const DOT_SELECTED_OUTER: Color = super::BASE_I;
 
     // Dot colors - unselected (darker gray)
     pub const DOT_UNSELECTED_INNER: Color = super::BASE_C; // 0x30 - Dark gray
-    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_I; // 0x90 - Light gray, matches text
+    // 0x90 - Light gray, matches text
+    pub const DOT_UNSELECTED_OUTER: Color = super::BASE_I;
 
     // Sizes (matching Runebender)
     pub const PADDING: f64 = 16.0; // Increased from 8px for more even margins
-    pub const SELECTOR_SIZE: f64 = 72.0; // Larger selector for better visibility
+    // Larger selector for better visibility
+    pub const SELECTOR_SIZE: f64 = 72.0;
     pub const DOT_RADIUS: f64 = 10.0; // Reduced from 6px for smaller circles
     pub const STROKE_WIDTH: f64 = 1.0; // Match container outline width
 }
@@ -194,7 +210,8 @@ pub mod grid {
 
     pub const CELL_BACKGROUND: Color = super::GRID_CELL_BACKGROUND;
     pub const CELL_OUTLINE: Color = super::GRID_CELL_OUTLINE;
-    pub const CELL_SELECTED_BACKGROUND: Color = super::GRID_CELL_SELECTED_BACKGROUND;
+    pub const CELL_SELECTED_BACKGROUND: Color =
+        super::GRID_CELL_SELECTED_BACKGROUND;
     pub const CELL_SELECTED_OUTLINE: Color = super::GRID_CELL_SELECTED_OUTLINE;
     #[allow(dead_code)]
     pub const CELL_TEXT: Color = super::GRID_CELL_TEXT;

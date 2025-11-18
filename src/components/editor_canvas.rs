@@ -4,7 +4,7 @@
 //! Glyph editor canvas widget - the main canvas for editing glyphs
 
 use crate::edit_session::EditSession;
-use crate::edit_type::EditType;
+use crate::edit_types::EditType;
 use crate::mouse::Mouse;
 use crate::point::PointType;
 use crate::settings;
