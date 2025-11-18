@@ -5,14 +5,22 @@
 
 use std::collections::VecDeque;
 
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
 /// Maximum number of undo states to keep
 const MAX_UNDO_HISTORY: usize = 128;
 
+// ============================================================================
+// UNDO STATE MANAGER
+// ============================================================================
+
 /// Undo/redo state manager
 ///
-/// Stores a history of states using a deque. The current state is not stored
-/// in the history - it's managed externally. The undo stack contains previous
-/// states, and the redo stack contains future states.
+/// Stores a history of states using a deque. The current state is not
+/// stored in the history - it's managed externally. The undo stack
+/// contains previous states, and the redo stack contains future states.
 #[derive(Debug, Clone)]
 pub struct UndoState<T> {
     /// Stack of previous states (can undo to these)
@@ -34,8 +42,8 @@ impl<T: Clone> UndoState<T> {
 
     /// Add a new undo group
     ///
-    /// Pushes the given state onto the undo stack and clears the redo stack.
-    /// If the undo stack is full, removes the oldest entry.
+    /// Pushes the given state onto the undo stack and clears the redo
+    /// stack. If the undo stack is full, removes the oldest entry.
     pub fn add_undo_group(&mut self, state: T) {
         // Adding a new undo group clears the redo stack
         self.redo_stack.clear();
@@ -51,9 +59,9 @@ impl<T: Clone> UndoState<T> {
 
     /// Update the most recent undo state without creating a new undo group
     ///
-    /// This is useful for grouping rapid edits of the same type (e.g., dragging)
-    /// into a single undo operation. If there's no current undo state, this
-    /// does nothing.
+    /// This is useful for grouping rapid edits of the same type (e.g.,
+    /// dragging) into a single undo operation. If there's no current undo
+    /// state, this does nothing.
     pub fn update_current_undo(&mut self, state: T) {
         if let Some(last) = self.undo_stack.back_mut() {
             *last = state;
@@ -63,7 +71,8 @@ impl<T: Clone> UndoState<T> {
     /// Undo to the previous state
     ///
     /// Returns the previous state if available, moving the current state
-    /// onto the redo stack. The caller is responsible for applying this state.
+    /// onto the redo stack. The caller is responsible for applying this
+    /// state.
     ///
     /// # Arguments
     /// * `current` - The current state to push onto the redo stack
@@ -71,18 +80,16 @@ impl<T: Clone> UndoState<T> {
     /// # Returns
     /// The previous state, or None if there's nothing to undo
     pub fn undo(&mut self, current: T) -> Option<T> {
-        if let Some(previous) = self.undo_stack.pop_back() {
-            self.redo_stack.push_back(current);
-            Some(previous)
-        } else {
-            None
-        }
+        let previous = self.undo_stack.pop_back()?;
+        self.redo_stack.push_back(current);
+        Some(previous)
     }
 
     /// Redo to the next state
     ///
-    /// Returns the next state if available, moving the current state
-    /// back onto the undo stack. The caller is responsible for applying this state.
+    /// Returns the next state if available, moving the current state back
+    /// onto the undo stack. The caller is responsible for applying this
+    /// state.
     ///
     /// # Arguments
     /// * `current` - The current state to push back onto the undo stack
@@ -90,12 +97,9 @@ impl<T: Clone> UndoState<T> {
     /// # Returns
     /// The next state, or None if there's nothing to redo
     pub fn redo(&mut self, current: T) -> Option<T> {
-        if let Some(next) = self.redo_stack.pop_back() {
-            self.undo_stack.push_back(current);
-            Some(next)
-        } else {
-            None
-        }
+        let next = self.redo_stack.pop_back()?;
+        self.undo_stack.push_back(current);
+        Some(next)
     }
 
     /// Check if undo is available
@@ -130,6 +134,10 @@ impl<T: Clone> Default for UndoState<T> {
         Self::new()
     }
 }
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

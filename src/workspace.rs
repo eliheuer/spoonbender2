@@ -8,6 +8,10 @@ use norad::{Font, Glyph as NoradGlyph};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+// ============================================================================
+// DATA STRUCTURES
+// ============================================================================
+
 /// Internal representation of a glyph (thread-safe, owned data)
 #[derive(Debug, Clone)]
 pub struct Glyph {
@@ -32,6 +36,7 @@ pub struct ContourPoint {
     pub point_type: PointType,
 }
 
+/// Point type classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PointType {
     Move,
@@ -41,7 +46,12 @@ pub enum PointType {
     QCurve,
 }
 
-/// A workspace represents a loaded UFO font with all its glyphs and metadata
+// ============================================================================
+// WORKSPACE
+// ============================================================================
+
+/// A workspace represents a loaded UFO font with all its glyphs and
+/// metadata
 #[derive(Debug, Clone)]
 pub struct Workspace {
     /// Path to the UFO directory
@@ -70,8 +80,8 @@ impl Workspace {
         let path = path.as_ref();
 
         // Load the UFO using norad
-        let font =
-            Font::load(path).with_context(|| format!("Failed to load UFO from {:?}", path))?;
+        let font = Font::load(path)
+            .with_context(|| format!("Failed to load UFO from {:?}", path))?;
 
         // Extract font metadata
         let family_name = font
@@ -119,24 +129,7 @@ impl Workspace {
         let contours = norad_glyph
             .contours
             .iter()
-            .map(|norad_contour| {
-                let points = norad_contour
-                    .points
-                    .iter()
-                    .map(|pt| ContourPoint {
-                        x: pt.x,
-                        y: pt.y,
-                        point_type: match pt.typ {
-                            norad::PointType::Move => PointType::Move,
-                            norad::PointType::Line => PointType::Line,
-                            norad::PointType::OffCurve => PointType::OffCurve,
-                            norad::PointType::Curve => PointType::Curve,
-                            norad::PointType::QCurve => PointType::QCurve,
-                        },
-                    })
-                    .collect();
-                Contour { points }
-            })
+            .map(Self::convert_contour)
             .collect();
 
         Glyph {
@@ -145,6 +138,36 @@ impl Workspace {
             height: Some(height),
             codepoints,
             contours,
+        }
+    }
+
+    /// Convert a norad contour to our internal Contour
+    fn convert_contour(norad_contour: &norad::Contour) -> Contour {
+        let points = norad_contour
+            .points
+            .iter()
+            .map(Self::convert_point)
+            .collect();
+        Contour { points }
+    }
+
+    /// Convert a norad point to our internal ContourPoint
+    fn convert_point(pt: &norad::ContourPoint) -> ContourPoint {
+        ContourPoint {
+            x: pt.x,
+            y: pt.y,
+            point_type: Self::convert_point_type(&pt.typ),
+        }
+    }
+
+    /// Convert a norad PointType to our internal PointType
+    fn convert_point_type(typ: &norad::PointType) -> PointType {
+        match typ {
+            norad::PointType::Move => PointType::Move,
+            norad::PointType::Line => PointType::Line,
+            norad::PointType::OffCurve => PointType::OffCurve,
+            norad::PointType::Curve => PointType::Curve,
+            norad::PointType::QCurve => PointType::QCurve,
         }
     }
 
@@ -163,26 +186,35 @@ impl Workspace {
         let mut glyph_list: Vec<_> = self.glyphs.iter().collect();
 
         glyph_list.sort_by(|(name_a, glyph_a), (name_b, glyph_b)| {
-            // Get first codepoint if any
-            let cp_a = glyph_a.codepoints.first();
-            let cp_b = glyph_b.codepoints.first();
-
-            match (cp_a, cp_b) {
-                // Both have codepoints: compare by codepoint value
-                (Some(a), Some(b)) => a.cmp(b),
-                // Only a has codepoint: a comes first
-                (Some(_), None) => std::cmp::Ordering::Less,
-                // Only b has codepoint: b comes first
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                // Neither has codepoint: compare by name alphabetically
-                (None, None) => name_a.cmp(name_b),
-            }
+            Self::compare_glyphs(name_a, glyph_a, name_b, glyph_b)
         });
 
         glyph_list
             .into_iter()
             .map(|(name, _)| name.clone())
             .collect()
+    }
+
+    /// Compare two glyphs for sorting
+    fn compare_glyphs(
+        name_a: &str,
+        glyph_a: &Glyph,
+        name_b: &str,
+        glyph_b: &Glyph,
+    ) -> std::cmp::Ordering {
+        let cp_a = glyph_a.codepoints.first();
+        let cp_b = glyph_b.codepoints.first();
+
+        match (cp_a, cp_b) {
+            // Both have codepoints: compare by codepoint value
+            (Some(a), Some(b)) => a.cmp(b),
+            // Only a has codepoint: a comes first
+            (Some(_), None) => std::cmp::Ordering::Less,
+            // Only b has codepoint: b comes first
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            // Neither has codepoint: compare by name alphabetically
+            (None, None) => name_a.cmp(name_b),
+        }
     }
 
     /// Get a glyph by name
@@ -196,6 +228,7 @@ impl Workspace {
     }
 
     /// Save the UFO back to disk
+    ///
     /// TODO: This needs to convert our internal data back to norad format
     #[allow(dead_code)]
     pub fn save(&self) -> Result<()> {
