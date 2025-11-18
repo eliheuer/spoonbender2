@@ -1,12 +1,15 @@
-# CLAUDE.md
+# LLMS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI assistants (LLMs) when working with code in
+this repository.
 
 ## Project Overview
 
-Runebender Xilem is a font editor built with Xilem, a modern Rust UI framework from the Linebender ecosystem. This is a port of Runebender from Druid to Xilem, leveraging GPU-accelerated rendering via Vello.
+Runebender Xilem is a font editor built with Xilem, a modern Rust UI
+framework from the Linebender ecosystem. This is a port of Runebender from Druid
+to Xilem, leveraging GPU-accelerated rendering via Vello.
 
-**Status**: Very alpha and mostly Claude-generated.
+**Status**: Very alpha.
 
 ## Build and Run Commands
 
@@ -39,7 +42,8 @@ cargo run -- --verbose
 
 ### Core Design Pattern: Xilem View Layer
 
-Spoonbender follows Xilem's reactive architecture where the UI is rebuilt from app state on each update. The app uses a single-direction data flow:
+Spoonbender follows Xilem's reactive architecture where the UI is rebuilt
+from app state on each update. The app uses a single-direction data flow:
 
 ```
 AppState → app_logic() → View Tree → Masonry Widgets → Vello Rendering
@@ -49,8 +53,10 @@ AppState → app_logic() → View Tree → Masonry Widgets → Vello Rendering
 
 - **src/main.rs**: Entry point, minimal - just calls `spoonbender::run()`
 - **src/lib.rs**: Application logic and view construction
-  - `app_logic()`: Root view builder that decides between welcome screen and main editor
-  - View composition using `flex_col`, `flex_row`, `button`, `label`, `portal` from Xilem
+  - `app_logic()`: Root view builder that decides between welcome screen and
+    main editor
+  - View composition using `flex_col`, `flex_row`, `button`, `label`, `portal`
+    from Xilem
   - Glyph grid rendered as rows of cells (9 columns per row)
 
 - **src/data.rs**: AppState struct and state management
@@ -92,7 +98,8 @@ AppState → app_logic() → View Tree → Masonry Widgets → Vello Rendering
 ### Glyph Rendering Pipeline
 
 1. `glyph_grid_view()` iterates workspace glyphs
-2. For each glyph: `glyph_renderer::glyph_to_bezpath()` converts contours to `BezPath`
+2. For each glyph: `glyph_renderer::glyph_to_bezpath()` converts contours to
+   `BezPath`
 3. `glyph_cell()` creates a button containing `glyph_view(path, ...)`
 4. `GlyphWidget::paint()` applies transform (scale + Y-flip + centering)
 5. Vello renders transformed path via `fill_color()`
@@ -130,17 +137,21 @@ flex_col
 
 ### Thread-Safety Requirements
 - Xilem views must be `Send + Sync` to work with `portal()` (scrolling)
-- Internal glyph data (`Workspace`, `Glyph`, etc.) is cloneable and owned (no references)
-- Pre-compute data before view construction to avoid capturing mutable state references
+- Internal glyph data (`Workspace`, `Glyph`, etc.) is cloneable and owned (no
+  references)
+- Pre-compute data before view construction to avoid capturing mutable state
+  references
 
 ### Coordinate System
 - UFO coordinates: Y-axis increases upward, origin at baseline
 - Screen coordinates: Y-axis increases downward, origin at top-left
-- Transformation in `GlyphWidget::paint()` handles Y-flip and baseline positioning
+- Transformation in `GlyphWidget::paint()` handles Y-flip and baseline
+  positioning
 
 ### UPM Scaling
 - `units_per_em` (UPM) is the font's design grid size (typically 1000 or 2048)
-- All glyphs scaled uniformly by `widget_height / upm` for consistent visual size
+- All glyphs scaled uniformly by `widget_height / upm` for consistent visual
+  size
 - Prevents large glyphs from dominating and tiny glyphs from disappearing
 
 ## Code Style Guidelines
@@ -237,7 +248,9 @@ these patterns when writing or refactoring code.
 
 ### Custom Widget Reactivity in Multi-Window Apps
 
-When creating custom Masonry widgets that emit actions to update AppState in a multi-window Xilem application, use `MessageResult::Action(())` instead of `MessageResult::RequestRebuild`:
+When creating custom Masonry widgets that emit actions to update AppState in a
+multi-window Xilem application, use `MessageResult::Action(())` instead of
+`MessageResult::RequestRebuild`:
 
 ```rust
 fn message(
@@ -262,10 +275,14 @@ fn message(
 ```
 
 **Why this is necessary:**
-- In multi-window apps, `MessageResult::RequestRebuild` only rebuilds the current window
-- It doesn't trigger `app_logic()` to be called, so other windows won't see state updates
-- `MessageResult::Action(())` propagates the action to the root, triggering a full app rebuild
-- This causes `app_logic()` to run, recreating all windows with fresh state from AppState
+- In multi-window apps, `MessageResult::RequestRebuild` only rebuilds the
+  current window
+- It doesn't trigger `app_logic()` to be called, so other windows won't see
+  state updates
+- `MessageResult::Action(())` propagates the action to the root, triggering a
+  full app rebuild
+- This causes `app_logic()` to run, recreating all windows with fresh state
+  from AppState
 
 **Data flow pattern:**
 1. Custom widget emits action: `ctx.submit_action::<SessionUpdate>(SessionUpdate { session })`
@@ -274,7 +291,8 @@ fn message(
 4. Xilem calls `app_logic()` which reads fresh state from AppState
 5. All windows recreated with updated data, UI reflects changes
 
-This pattern is essential for reactive UI in multi-window Xilem apps where state changes in one window need to be reflected in others.
+This pattern is essential for reactive UI in multi-window Xilem apps where
+state changes in one window need to be reflected in others.
 
 ### Testing UFO Files
 - Project requires valid UFO v3 directory structure

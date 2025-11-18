@@ -1,14 +1,22 @@
-// Copyright 2025 the Spoonbender Authors
+// Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
 //! Application state and data structures
 
 use crate::edit_session::EditSession;
 use crate::workspace::Workspace;
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use xilem::WindowId;
+
+/// Which tab is currently active
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(usize)]
+pub enum Tab {
+    /// Glyph grid view (font overview)
+    GlyphGrid = 0,
+    /// Editor view for a specific glyph
+    Editor = 1,
+}
 
 /// Main application state
 pub struct AppState {
@@ -18,29 +26,39 @@ pub struct AppState {
     /// Error message to display, if any
     pub error_message: Option<String>,
 
-    /// Currently selected glyph name
+    /// Currently selected glyph name (for showing in grid)
     pub selected_glyph: Option<String>,
 
-    /// Open editor sessions (window ID -> (glyph name, session))
-    pub editor_sessions: HashMap<WindowId, (String, Arc<EditSession>)>,
+    /// Current editor session (when Editor tab is active)
+    pub editor_session: Option<EditSession>,
 
-    /// Main window ID
-    pub main_window_id: WindowId,
+    /// Demo welcome session (used when no workspace is loaded)
+    pub welcome_session: Option<EditSession>,
+
+    /// Which tab is currently active
+    pub active_tab: Tab,
 
     /// Whether the app should keep running
     pub running: bool,
+
+    /// Main window ID (stable across rebuilds to prevent window
+    /// recreation)
+    pub main_window_id: WindowId,
 }
 
+#[allow(dead_code)]
 impl AppState {
     /// Create a new empty application state
     pub fn new() -> Self {
         Self {
             workspace: None,
+            welcome_session: None,
             error_message: None,
             selected_glyph: None,
-            editor_sessions: HashMap::new(),
-            main_window_id: WindowId::next(),
+            editor_session: None,
+            active_tab: Tab::GlyphGrid,
             running: true,
+            main_window_id: WindowId::next(),
         }
     }
 
@@ -49,10 +67,11 @@ impl AppState {
         self.error_message = None;
 
         // Show folder picker dialog
-        if let Some(path) = rfd::FileDialog::new()
+        let path = rfd::FileDialog::new()
             .set_title("Select UFO Directory")
-            .pick_folder()
-        {
+            .pick_folder();
+
+        if let Some(path) = path {
             self.load_ufo(path);
         }
     }
@@ -78,7 +97,9 @@ impl AppState {
     pub fn create_new_font(&mut self) {
         // TODO: Implement new font creation
         println!("Creating new font...");
-        self.error_message = Some("New font creation not yet implemented".to_string());
+        self.error_message = Some(
+            "New font creation not yet implemented".to_string(),
+        );
     }
 
     /// Get the current font display name
@@ -106,38 +127,37 @@ impl AppState {
 
     /// Get the selected glyph's advance width
     pub fn selected_glyph_advance(&self) -> Option<f64> {
-        if let (Some(workspace), Some(glyph_name)) = (&self.workspace, &self.selected_glyph) {
-            workspace.get_glyph(glyph_name)
-                .map(|g| g.width)
-        } else {
-            None
-        }
+        let workspace = self.workspace.as_ref()?;
+        let glyph_name = self.selected_glyph.as_ref()?;
+        workspace.get_glyph(glyph_name).map(|g| g.width)
     }
 
     /// Get the selected glyph's unicode value
     pub fn selected_glyph_unicode(&self) -> Option<String> {
-        if let (Some(workspace), Some(glyph_name)) = (&self.workspace, &self.selected_glyph) {
-            workspace.get_glyph(glyph_name)
-                .and_then(|g| {
-                    if g.codepoints.is_empty() {
-                        None
-                    } else {
-                        g.codepoints.iter().next()
-                            .map(|c| format!("U+{:04X}", *c as u32))
-                    }
-                })
-        } else {
-            None
+        let workspace = self.workspace.as_ref()?;
+        let glyph_name = self.selected_glyph.as_ref()?;
+        let glyph = workspace.get_glyph(glyph_name)?;
+
+        if glyph.codepoints.is_empty() {
+            return None;
         }
+
+        glyph.codepoints
+            .first()
+            .map(|c| format!("U+{:04X}", *c as u32))
     }
 
     /// Create an edit session for a glyph
-    pub fn create_edit_session(&self, glyph_name: &str) -> Option<EditSession> {
+    pub fn create_edit_session(
+        &self,
+        glyph_name: &str,
+    ) -> Option<EditSession> {
         let workspace = self.workspace.as_ref()?;
         let glyph = workspace.get_glyph(glyph_name)?;
 
         Some(EditSession::new(
             glyph_name.to_string(),
+            workspace.path.clone(),
             glyph.clone(),
             workspace.units_per_em.unwrap_or(1000.0),
             workspace.ascender.unwrap_or(800.0),
@@ -149,21 +169,117 @@ impl AppState {
 
     /// Open or focus an editor for a glyph
     pub fn open_editor(&mut self, glyph_name: String) {
-        // Check if we already have a window for this glyph
-        let already_open = self.editor_sessions.values()
-            .any(|(name, _)| name == &glyph_name);
-
-        if !already_open {
-            if let Some(session) = self.create_edit_session(&glyph_name) {
-                let window_id = WindowId::next();
-                self.editor_sessions.insert(window_id, (glyph_name, Arc::new(session)));
-            }
+        if let Some(session) = self.create_edit_session(&glyph_name) {
+            self.editor_session = Some(session);
+            self.active_tab = Tab::Editor;
         }
     }
 
-    /// Close an editor session by window ID
-    pub fn close_editor(&mut self, window_id: WindowId) {
-        self.editor_sessions.remove(&window_id);
+    /// Close the editor and return to glyph grid
+    ///
+    /// This syncs any final changes to the workspace before closing.
+    pub fn close_editor(&mut self) {
+        self.sync_editor_to_workspace();
+        self.editor_session = None;
+        self.active_tab = Tab::GlyphGrid;
+    }
+
+    /// Sync the current editor session to the workspace
+    fn sync_editor_to_workspace(&mut self) {
+        let session = match &self.editor_session {
+            Some(s) => s,
+            None => return,
+        };
+
+        let workspace = match &mut self.workspace {
+            Some(w) => w,
+            None => return,
+        };
+
+        let updated_glyph = session.to_glyph();
+
+        // Debug logging only for glyph "a"
+        if session.glyph_name == "a" {
+            println!(
+                "[close_editor] Synced glyph 'a' with {} contours to \
+                 workspace",
+                updated_glyph.contours.len()
+            );
+        }
+
+        workspace.update_glyph(&session.glyph_name, updated_glyph);
+    }
+
+    /// Set the tool for the current editor session
+    pub fn set_editor_tool(
+        &mut self,
+        tool_id: crate::tools::ToolId,
+    ) {
+        println!(
+            "[AppState::set_editor_tool] Setting tool to {:?}",
+            tool_id
+        );
+
+        let session = match &mut self.editor_session {
+            Some(s) => s,
+            None => return,
+        };
+
+        session.current_tool = crate::tools::ToolBox::for_id(tool_id);
+        println!(
+            "[AppState::set_editor_tool] Updated session, current_tool \
+             is now {:?}",
+            session.current_tool.id()
+        );
+    }
+
+    /// Update the current editor session with new state
+    ///
+    /// This also syncs the edited glyph back to the workspace so
+    /// changes persist when switching views.
+    pub fn update_editor_session(&mut self, session: EditSession) {
+        self.sync_session_to_workspace(&session);
+        self.editor_session = Some(session);
+    }
+
+    /// Sync a session's changes to the workspace
+    fn sync_session_to_workspace(&mut self, session: &EditSession) {
+        let workspace = match &mut self.workspace {
+            Some(w) => w,
+            None => return,
+        };
+
+        let updated_glyph = session.to_glyph();
+
+        // Debug logging only for glyph "a"
+        if session.glyph_name == "a" {
+            println!(
+                "[update_editor_session] Syncing glyph 'a' with {} \
+                 contours back to workspace",
+                updated_glyph.contours.len()
+            );
+        }
+
+        workspace.update_glyph(&session.glyph_name, updated_glyph.clone());
+
+        // Verify the update worked (only for "a")
+        if session.glyph_name == "a" {
+            Self::verify_glyph_sync(workspace, &session.glyph_name);
+        }
+    }
+
+    /// Verify that a glyph was synced correctly (debug only)
+    fn verify_glyph_sync(
+        workspace: &Workspace,
+        glyph_name: &str,
+    ) {
+        if let Some(glyph_from_workspace) = workspace.get_glyph(glyph_name) {
+            println!(
+                "[update_editor_session] Verified: workspace now has \
+                 glyph 'a' with {} contours",
+                glyph_from_workspace.contours.len()
+            );
+        }
     }
 }
 
