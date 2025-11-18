@@ -1,10 +1,10 @@
 // Copyright 2025 the Runebender Xilem Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Application settings and configuration constants
+//! Application settings and configuration constants.
 //!
-//! This module contains non-visual settings that are independent of theme changes.
-//! Visual styling (colors, sizes) should go in `theme.rs`.
+//! This module holds non-visual settings that stay stable across theme
+//! changes. Visual styling (colors, sizes) belongs in `theme.rs`.
 
 // ============================================================================
 // EDITOR SETTINGS
@@ -16,25 +16,25 @@ const MIN_ZOOM: f64 = 0.02;
 const MAX_ZOOM: f64 = 50.0;
 
 /// Zoom scale factor for scroll wheel sensitivity
+#[allow(dead_code)]
 const ZOOM_SCALE: f64 = 0.001;
 
 // ============================================================================
 // PERFORMANCE SETTINGS
 // ============================================================================
-/// Throttle drag updates to every Nth frame to reduce Xilem view rebuilds
+/// Throttle drag updates to every Nth frame to reduce Xilem rebuild churn.
 ///
-/// During active drag operations, emitting SessionUpdate on every mouse move
-/// causes significant lag because each update triggers a full Xilem view rebuild.
-/// By throttling to every Nth frame, we reduce rebuilds while maintaining smooth
-/// visual feedback. The main canvas still redraws every frame - only the expensive
-/// Xilem rebuild is throttled.
+/// During drags we emit `SessionUpdate` on each mouse move. That forces a
+/// full Xilem view rebuild and tanks performance. Throttling keeps visual
+/// feedback smooth while skipping redundant rebuilds. The canvas still
+/// repaints every frame—only the heavy rebuild path is throttled.
 ///
 /// Higher values = better performance, lower responsiveness
 /// Lower values = better responsiveness, worse performance
 const DRAG_UPDATE_THROTTLE: u32 = 3;
 
 // ============================================================================
-// PUBLIC API - Don't edit below this line
+// PUBLIC API - Don't edit below this line unless you know what you're doing
 // ============================================================================
 
 /// Editor settings (zoom, viewport, etc.)
@@ -52,9 +52,9 @@ pub mod editor {
 
 /// Performance optimization settings
 pub mod performance {
-    /// Throttle drag updates to every Nth frame
+    /// Throttle drag updates to every Nth frame.
     ///
-    /// Set to 1 to disable throttling (updates every frame)
-    /// Set to 3 to update every 3rd frame (67% reduction in rebuilds)
+    /// - 1 disables throttling (update every frame).
+    /// - 3 updates every third frame (~67% fewer rebuilds).
     pub const DRAG_UPDATE_THROTTLE: u32 = super::DRAG_UPDATE_THROTTLE;
 }

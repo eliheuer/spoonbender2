@@ -15,28 +15,11 @@ pub struct Selection {
     inner: Arc<BTreeSet<EntityId>>,
 }
 
-#[allow(dead_code)]
 impl Selection {
     /// Create a new empty selection
     pub fn new() -> Self {
         Self {
             inner: Arc::new(BTreeSet::new()),
-        }
-    }
-
-    /// Create a selection from a single entity
-    pub fn from_one(id: EntityId) -> Self {
-        let mut set = BTreeSet::new();
-        set.insert(id);
-        Self {
-            inner: Arc::new(set),
-        }
-    }
-
-    /// Create a selection from multiple entities
-    pub fn from_many(ids: impl IntoIterator<Item = EntityId>) -> Self {
-        Self {
-            inner: Arc::new(ids.into_iter().collect()),
         }
     }
 
@@ -74,62 +57,10 @@ impl Selection {
         self.inner = Arc::new(set);
     }
 
-    /// Toggle an entity in the selection
-    pub fn toggle(&mut self, id: EntityId) {
-        if self.contains(&id) {
-            self.remove(&id);
-        } else {
-            self.insert(id);
-        }
-    }
-
-    /// Clear the selection
-    pub fn clear(&mut self) {
-        self.inner = Arc::new(BTreeSet::new());
-    }
-
-    /// Replace the selection with a new set of entities
-    pub fn set(&mut self, ids: impl IntoIterator<Item = EntityId>) {
-        self.inner = Arc::new(ids.into_iter().collect());
-    }
-
-    /// Extend the selection with additional entities
-    pub fn extend(&mut self, ids: impl IntoIterator<Item = EntityId>) {
-        let mut set = (*self.inner).clone();
-        set.extend(ids);
-        self.inner = Arc::new(set);
-    }
-
-    /// Get the union of this selection with another
-    pub fn union(&self, other: &Selection) -> Selection {
-        let mut set = (*self.inner).clone();
-        set.extend(other.inner.iter().copied());
-        Selection {
-            inner: Arc::new(set),
-        }
-    }
-
-    /// Get the symmetric difference with another selection (XOR)
-    pub fn symmetric_difference(&self, other: &Selection) -> Selection {
-        let set: BTreeSet<EntityId> = self
-            .inner
-            .symmetric_difference(&other.inner)
-            .copied()
-            .collect();
-        Selection {
-            inner: Arc::new(set),
-        }
-    }
 }
 
 impl Default for Selection {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl FromIterator<EntityId> for Selection {
-    fn from_iter<I: IntoIterator<Item = EntityId>>(iter: I) -> Self {
-        Self::from_many(iter)
     }
 }

@@ -4,7 +4,7 @@
 //! Point types for bezier paths
 
 use crate::entity_id::EntityId;
-use crate::workspace;
+use crate::workspace::{self, PointType as WsPointType};
 use kurbo::Point;
 
 /// A point type in a bezier path
@@ -22,7 +22,6 @@ pub enum PointType {
     },
 }
 
-#[allow(dead_code)]
 impl PointType {
     /// Check if this is an on-curve point
     pub fn is_on_curve(&self) -> bool {
@@ -32,16 +31,6 @@ impl PointType {
     /// Check if this is an off-curve point
     pub fn is_off_curve(&self) -> bool {
         matches!(self, PointType::OffCurve { .. })
-    }
-
-    /// Check if this is a smooth on-curve point
-    pub fn is_smooth(&self) -> bool {
-        matches!(self, PointType::OnCurve { smooth: true })
-    }
-
-    /// Check if this is a corner on-curve point
-    pub fn is_corner(&self) -> bool {
-        matches!(self, PointType::OnCurve { smooth: false })
     }
 }
 
@@ -58,30 +47,14 @@ pub struct PathPoint {
     pub typ: PointType,
 }
 
-#[allow(dead_code)]
 impl PathPoint {
     /// Create a new path point
-    pub fn new(point: Point, typ: PointType) -> Self {
+    fn new(point: Point, typ: PointType) -> Self {
         Self {
             id: EntityId::next(),
             point,
             typ,
         }
-    }
-
-    /// Create a new on-curve smooth point
-    pub fn on_curve_smooth(point: Point) -> Self {
-        Self::new(point, PointType::OnCurve { smooth: true })
-    }
-
-    /// Create a new on-curve corner point
-    pub fn on_curve_corner(point: Point) -> Self {
-        Self::new(point, PointType::OnCurve { smooth: false })
-    }
-
-    /// Create a new off-curve control point
-    pub fn off_curve(point: Point) -> Self {
-        Self::new(point, PointType::OffCurve { auto: false })
     }
 
     /// Check if this point is on the curve
@@ -108,43 +81,38 @@ impl PathPoint {
         pt: &workspace::ContourPoint,
     ) -> Self {
         let point = Point::new(pt.x, pt.y);
-        let typ = match pt.point_type {
-            workspace::PointType::Move => {
-                PointType::OnCurve { smooth: false }
-            }
-            workspace::PointType::Line => {
-                PointType::OnCurve { smooth: false }
-            }
-            workspace::PointType::QCurve => {
-                PointType::OnCurve { smooth: true }
-            }
-            workspace::PointType::OffCurve => {
-                PointType::OffCurve { auto: false }
-            }
-            workspace::PointType::Curve => {
-                // In a quadratic path, Curve points are treated
-                // as smooth on-curve (same as QCurve)
-                PointType::OnCurve { smooth: true }
-            }
-        };
+        let typ = PointType::from_workspace_type_quadratic(pt.point_type);
         Self::new(point, typ)
     }
 }
 
-#[allow(dead_code)]
 impl PointType {
     /// Convert from workspace point type (norad format)
-    pub fn from_workspace_type(pt_type: workspace::PointType) -> Self {
+    pub fn from_workspace_type(pt_type: WsPointType) -> Self {
         match pt_type {
-            workspace::PointType::Move => PointType::OnCurve { smooth: false },
-            workspace::PointType::Line => PointType::OnCurve { smooth: false },
-            workspace::PointType::Curve => PointType::OnCurve { smooth: true },
-            workspace::PointType::OffCurve => PointType::OffCurve { auto: false },
-            workspace::PointType::QCurve => {
-                // For now, treat QCurve as a smooth on-curve point
-                // Proper quadratic support would require more work
+            WsPointType::Move | WsPointType::Line => {
+                PointType::OnCurve { smooth: false }
+            }
+            WsPointType::Curve => PointType::OnCurve { smooth: true },
+            WsPointType::OffCurve => PointType::OffCurve { auto: false },
+            WsPointType::QCurve => {
+                // For now, treat QCurve as a smooth on-curve point.
+                // Proper quadratic support would require more work.
                 PointType::OnCurve { smooth: true }
             }
+        }
+    }
+
+    fn from_workspace_type_quadratic(pt_type: WsPointType) -> Self {
+        match pt_type {
+            WsPointType::Move | WsPointType::Line => {
+                PointType::OnCurve { smooth: false }
+            }
+            WsPointType::QCurve | WsPointType::Curve => {
+                // In quadratic paths, Curve points behave like QCurve.
+                PointType::OnCurve { smooth: true }
+            }
+            WsPointType::OffCurve => PointType::OffCurve { auto: false },
         }
     }
 }

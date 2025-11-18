@@ -246,25 +246,47 @@ impl Segment {
 }
 
 /// Find the parameter t on a line segment nearest to a point
+///
+/// This function finds where along a line segment (from t=0.0 at the
+/// start to t=1.0 at the end) the closest point to the query point is
+/// located.
+///
+/// Uses vector projection: we project the point onto the line and find
+/// where along the line that projection lands.
 fn line_nearest_param(line: Line, point: Point) -> f64 {
+    // Get the two endpoints of the line segment
     let p0 = line.p0;
     let p1 = line.p1;
 
-    // Vector from p0 to p1
+    // Create vectors:
+    // - line_vec: points from p0 to p1 (the direction of our line)
+    // - pt_vec: points from p0 to the query point
     let line_vec = p1 - p0;
-    // Vector from p0 to point
     let pt_vec = point - p0;
 
-    // Project pt_vec onto line_vec
+    // Calculate the squared length of the line segment
+    // (we use squared length to avoid a square root operation)
     let line_len_sq = line_vec.hypot2();
+
+    // Check if the line segment is degenerate (zero length or
+    // effectively zero length due to floating-point precision)
+    // If so, just return 0.0 (the start point)
     if line_len_sq < 1e-12 {
-        // Degenerate line (p0 == p1)
         return 0.0;
     }
 
+    // Project pt_vec onto line_vec using the dot product
+    // The dot product tells us how much of pt_vec points in the
+    // same direction as line_vec
     let dot_product = pt_vec.x * line_vec.x + pt_vec.y * line_vec.y;
+
+    // Divide by the squared length to get the parameter t
+    // This tells us where along the line (from 0.0 to 1.0) the
+    // projection lands. If the result is outside [0, 1], it means
+    // the nearest point is actually one of the endpoints.
     let t = dot_product / line_len_sq;
 
-    // Clamp t to [0, 1]
+    // Clamp t to [0, 1] to ensure we're on the segment
+    // (not before the start or after the end)
     t.clamp(0.0, 1.0)
 }
